@@ -159,7 +159,32 @@ Consequences to keep in mind when reading the numbers:
 
 All 41 graphs in groups 1 and 2 download from hosts this environment can reach —
 `raw.githubusercontent.com` (GraIL, Ingram, ILPC, HM) and
-`reltrans.s3.us-east-2.amazonaws.com` (MTDEA). No download in scope failed.
+`reltrans.s3.us-east-2.amazonaws.com` (MTDEA). No download in scope failed
+outright, but one arrived **silently truncated**, which is worse.
+
+### One truncated download, and why it is worth a section
+
+`HM:indigo` failed to load with `ValueError: not enough values to unpack
+(expected 3, got 1)` on the last line of its inference graph. The upstream data
+is fine. Our copy of `test-graph.txt` was **17,595,392 bytes against the
+server's 19,321,652** — PyG's `download_url` streams to disk without checking
+`Content-Length`, so a cut connection leaves a short file and raises nothing.
+
+This one announced itself only because the cut happened to land mid-record. Had
+it landed on a line boundary, the graph would simply have been missing its tail,
+every metric computed from it would have been quietly wrong, and nothing
+anywhere would have complained — not the loader, not the run, not criterion A,
+which compares two computations over the *same* corrupted input and would agree
+perfectly.
+
+So `scripts/verify_downloads.py` checks a **byte count, not a parse**: it HEADs
+every URL each dataset class declares and compares against the file on disk,
+with `--fix` to re-fetch and clear the stale `processed/` cache. Over groups 1
+and 2: 91 files checked, exactly one short, re-fetched and verified.
+
+MTDEA's ten datasets are reported as **unverifiable rather than passed** — they
+arrive as one zip that is extracted and deleted, so there is nothing left to
+compare against. That is a real gap, not a clean bill of health.
 
 For the record, since `shared/suite.py` defines all 54 graphs and later tasks
 will need them, four of the 13 transductive graphs are **not reachable from
