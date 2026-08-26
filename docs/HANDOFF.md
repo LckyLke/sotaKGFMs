@@ -1,144 +1,148 @@
-# Handoff to a GPU machine
+# Handoff — 2026-08-27
 
-Written at the end of a CPU-only session. Everything below is either done and
-reusable, or explicitly still owed.
+Written when the SEMMA run was stopped for the night. The GPU handoff that the
+previous version of this file described is complete. Nothing in it is still owed.
 
-## Do this first
+## State
 
-```bash
-git checkout claude/workspace-ultra-baseline-m1muyd
-scripts/clone_repos.sh            # repos/ is gitignored; restores all seven at their pinned SHAs
+| model | ranks | notes |
+| --- | --- | --- |
+| ULTRA | 41/41 GPU | criterion A passes; criterion B explained (see below) |
+| MOTIF | 41/41 GPU | reproduces its own paper to mean abs delta 0.0007 MRR |
+| TRIX | 41/41 GPU | reproduces its own paper to mean abs delta 0.0014 MRR |
+| SEMMA | 12/41, quarantined | `ranks/semma-noflash/`, see `QUARANTINE.md` there |
+| FLOCK | none | repo restored, surveyed, no patches yet |
+| KG-ICL | none | repo restored, surveyed, no patches yet |
+| KGPFN | none | repo restored, surveyed, no patches yet |
 
-rm -rf ranks/ultra ranks/.claims  # <- REQUIRED. See "Why the ranks must be discarded".
-```
+Group means over all 41, GPU, zero-shot, entity prediction:
 
-`scripts/run_ultra.sh` will refuse to start if `ranks/ultra/PROVENANCE.json`
-records a different device from the one it is running on, so forgetting this
-step produces a clear abort rather than a silently mixed rank directory. It is
-still better to clear it deliberately.
+| model | ind_e MRR | ind_e H@10 | ind_er MRR | ind_er H@10 |
+| --- | --- | --- | --- | --- |
+| ULTRA | 0.4158 | 0.5684 | 0.3421 | 0.5098 |
+| MOTIF | 0.4361 | 0.5767 | 0.3491 | 0.5254 |
+| TRIX | 0.4562 | 0.5931 | 0.3679 | 0.5409 |
 
-## Why the ranks must be discarded
+ULTRA's published 0.430 is its **TorchDrug** implementation, not the PyG rewrite
+in `repos/ultra`. That is the whole criterion B gap. `ultra_torchdrug` is a
+separate repository, and pinning it as an eighth repo is on the list below.
 
-`ranks/ultra/` currently holds **37 of 41** rank dumps produced **on CPU**,
-marked as such in `ranks/ultra/PROVENANCE.json`. They are real, verified output
-and they are what criterion A was established against — but they are not GPU
-ranks. CPU and CUDA float32 kernels differ in low-order bits, which can flip a
-near-tie and move a rank. A directory holding some of each yields a group mean
-corresponding to no single measurement, and no check downstream would catch it.
+## Task 1 — flash-attn for SEMMA
 
-So: regenerate all 41 on the GPU. Criterion A will re-establish itself from the
-new run in minutes; nothing about it depends on the old files.
+The night's run was stopped on purpose to try this. SEMMA embeds relation
+descriptions with `jina-embeddings-v3`, which prints one warning per attention
+layer and falls back to PyTorch native attention. Full background is in
+`docs/report_notes.md`, section "SEMMA runs without flash-attn".
 
-## What is done and does not need redoing
+The hardware supports it. The GPU is an RTX 4070 Ti SUPER, compute capability
+8.9, and flash-attn 2.x requires 8.0 or newer.
 
-| deliverable | state |
-| --- | --- |
-| `repos/PINS.json` | done — seven SHAs, restore with `scripts/clone_repos.sh` |
-| `containers/STACKS.md` | done — stacks, extensions, entry points, fork status for all seven |
-| `containers/ultra/Dockerfile` | written, **never built** (see below) |
-| `shared/suite.py` | done — the 54 graphs, frozen |
-| `shared/metrics.py` | done — and validated bitwise against ULTRA itself |
-| `shared/analyse.py`, `scripts/make_report.py` | done — regenerate the report in one command |
-| `patches/ultra/*.diff` | done — three patches, one reason each, all verified ranking-neutral |
-| `environment.json` | regenerate on the GPU box (`scripts/environment.py`) |
-| `ranks/ultra/*.parquet` | **redo on GPU** |
-| `results/ultra_results_*.csv` | **redo on GPU** (current ones are the CPU run's) |
-| `baseline_report.md` | regenerate after the GPU run |
+Steps:
 
-## Criterion A is already answered, and it is device-independent
+1. Find a prebuilt wheel matching the container exactly: Python 3.9, torch
+   2.1.0, CUDA 11.8, and the ABI that PyPI torch uses (`cxx11abiFALSE`).
+   Releases are at `Dao-AILab/flash-attention`.
+2. If no such wheel exists, stop and report. Do not build from source first.
+   A source build of flash-attn takes hours and needs large amounts of RAM.
+3. If a wheel exists, add it to `containers/semma/Dockerfile` after the torch
+   layer, and extend the existing build-time stack guard to import `flash_attn`.
+4. Rebuild the image. Read the explicit `BUILD_EXIT=` line, never a piped tail.
+5. Run one graph and confirm that the warning is gone.
 
-Across the 37 graphs run here, **every one of the 111 order-independent
-comparisons** (`hits@1`, `hits@3`, `hits@10`) reproduced ULTRA's own
-`ultra_results_*.csv` **bitwise, to all 17 printed digits**. That is the
-comparison that actually tests the tie rule, the rank offset and the dump.
+Two outcomes:
 
-The resolved rule, now documented in `shared/metrics.py`:
+* **It works.** Re-run all 41 into a clean `ranks/semma/`. Keep
+  `ranks/semma-noflash/` until the new run is complete. The pair is then a free
+  sensitivity measurement of the 0.8 similarity threshold, worth one table.
+* **It does not work.** Move `ranks/semma-noflash/` back to `ranks/semma/`,
+  recreate `ranks/.claims-semma` from the 12 graph ids there, and resume.
+  Running without flash-attn matches upstream's own `requirements.txt`, so this
+  outcome costs nothing except time.
 
-* **rank is 1-based** — `1 <= rank <= n_candidates + 1`
-* **ties are pessimistic** — the comparison `pos_pred <= pred` is non-strict and
-  `strict_negative_mask` zeroes the target's own slot, so every tied candidate
-  counts against the true answer
-* **`n_candidates` excludes the target**
+Measured cost without flash-attn: about 6 times TRIX over the same graphs, which
+projects to roughly 95 minutes for all 41.
 
-`mrr`, `mr` and `hits@10_50` are order-dependent and disagreed on some graphs by
-1–3 float32 ulps. That is float32 associativity inside `torch.Tensor.mean`, not
-a metric disagreement: `math.fsum` over the identical summands returns the value
-`metrics.py` gives, so ULTRA's own reduction is the one an ulp off. Expect the
-same shape of residual on GPU, with a different set of graphs landing exactly,
-since CUDA's block-tree reduction differs again from torch's CPU cascade.
+## Task 2 — FLOCK
 
-## What is still owed
+Stack: torch 2.8.0, CUDA 12.6, Python 3.11, `pytorch/pytorch:2.8.0-cuda12.6-cudnn9-devel`.
+`install_walker.sh` builds `graph-walker` with pybind11. Build it ahead of time
+in the image, not at run time.
 
-1. **Run all 41 graphs on the GPU** and regenerate the report. Four never
-   completed here: `ILPC2022:large`, `HM:indigo`, `WKIngram:50`, `WKIngram:100`.
-2. **Criterion B is unanswered.** Group means need all 18 and all 23. For
-   reference only — CPU, incomplete, *not* a result:
+Checkpoint: `checkpoints/flock_entity.pth`. Never `flock_relation.pth`.
 
-   | group | coverage | MRR | target | Hits@10 | target |
-   | --- | --- | --- | --- | --- | --- |
-   | inductive (e) | 16/18 | 0.4228 | 0.420 | 0.5729 | 0.562 |
-   | inductive (e,r) | 21/23 | 0.3587 | 0.344 | 0.5305 | 0.511 |
+`scripts/entity_zeroshot.sh` covers all 41 graphs, but with **four different
+configs**, not one. The map is by graph size:
 
-   Both missing `ind_e` graphs are large and both missing `ind_er` graphs are
-   WKIngram, so these will move. Do not read them as near-misses.
-3. **Build the container.** It could not be built here on three independent
-   counts: no Docker daemon, the registry blob CDN 403s, and both
-   `download.pytorch.org` and `data.pyg.org` are blocked by egress policy. On a
-   machine with a working daemon and open egress this should be the first thing
-   attempted, because it also validates that ULTRA's pinned wheels still exist.
+| config | walk_num | batch_size | test_samples |
+| --- | --- | --- | --- |
+| `n16_ensemble16.yaml` | 16 | 32 | 16 |
+| `n32_ensemble16.yaml` | 32 | 16 | 16 |
+| `n64_ensemble16.yaml` | 64 | 8 | 16 |
+| `n128_ensemble16.yaml` | 128 | 4 | 16 |
 
-## Running it
+Read the graph-to-config assignment out of `scripts/entity_zeroshot.sh`. Do not
+retype it. A runner that uses one config for all 41 does not measure FLOCK.
 
-```bash
-scripts/prepare_ultra_workdir.sh                       # or use the container
-ULTRA_EXTRA_ARGS=--skip_valid scripts/run_ultra.sh ind_e   '[0]'
-ULTRA_EXTRA_ARGS=--skip_valid scripts/run_ultra.sh ind_er  '[0]'
-scripts/collect_results.sh
-scripts/environment.py --ckpt repos/ultra/ckpts/ultra_3g.pth
-python scripts/make_report.py --csv-glob 'results/ultra_results_*.csv'
-```
+Every FLOCK number is a 16-sample ensemble over random walks. `run_many.py`
+seeds from the fixed list `[1024, 42, 1337, 512, 256]` indexed by repeat, so one
+repeat is deterministic. Record the seed in `PROVENANCE.json`.
 
-Several workers can be given the same list; they claim graphs atomically
-(`ranks/.claims`, `mkdir`) and divide the suite between them. On a GPU, one
-worker per device is the sane default — the claim mechanism exists for the
-CPU case and for resuming, not for oversubscribing a GPU.
+## Task 3 — KG-ICL
 
-`--skip_valid` is optional and off by default. It skips the validation-split
-evaluation, which feeds no reported metric; it was worth roughly a 2x speedup on
-CPU and matters much less on a GPU. It is proven not to change any test rank
-(`scripts/verify_patch_neutrality.sh`), but if you would rather run stock
-behaviour, just drop it.
+Checkpoint: `KG-ICL-6L`.
 
-## Checks worth re-running on the new machine
+The bundled `datasets.zip` holds 55 graphs and covers only **27 of our 41**.
+Absent: all four `HM`, all eight `WikiTopics`, `Metafam`, `FBNELL`.
 
-```bash
-scripts/verify_downloads.py --ultra /path/to/patched/ultra --root data/roots/ultra
-scripts/verify_patch_neutrality.sh FB15k237Inductive:v1
-scripts/verify_rank_dump.py --ultra /path/to/patched/ultra --root data/roots/ultra
-```
+Drop `FB15k237Inductive:v1`, `NELLInductive:v1` and `CoDExSmall` as KG-ICL's own
+pretraining data. That leaves **25 comparable graphs** unless the 14 absent ones
+are converted into KG-ICL's format.
 
-The first one is not optional. PyG's `download_url` does not verify
-`Content-Length`, and in this session INDIGO-BM's inference graph arrived
-1.7 MB short. It surfaced only because the truncation landed mid-record; on a
-line boundary it would have silently removed part of the graph, and criterion A
-would still have passed, because it compares two computations over the *same*
-corrupted input.
+Before anything else, prove that KG-ICL's bundled copy of a shared graph equals
+ULTRA's copy. Compare triple counts and the entity and relation vocabularies.
+Its names differ: `fb237_v1_ind` is `FB15k237Inductive:v1`.
 
-## Known upstream defects, already worked around
+The rank patch is decided and approved: patch KG-ICL to also compute ranks under
+the shared definition, 1-based with pessimistic ties.
 
-* `-d Metafam` and `-d FBNELL` raise `AssertionError`. `run_many.py` leaves the
-  `version` template variable unset, jinja renders it as the string `"None"`,
-  and `MTDEAInductive.__init__` asserts before normalising. Use
-  `Metafam:Metafam` and `FBNELL:FBNELL_v1`; `shared/suite.py` already does.
-* Stock `run_many.py` `os.chdir`s into `cfg.output_dir` without creating it, so
-  a first run on a clean machine dies with `FileNotFoundError`. Patch 0002
-  routes `output_dir` somewhere the runner creates.
+## Task 4 — KGPFN
 
-## Note on the local environment left behind
+Stack: Python 3.12, torch 2.5.1. flash-attn is **required**, not optional, for
+the TabICL backbone. Use a prebuilt wheel.
 
-The CPU environment used here is at `/home/user/kgfm-cpu` (Python 3.9.25, torch
-2.1.0, PyG 2.4.0, torch-scatter 2.1.2 built from sdist) and the patched tree at
-`/home/user/ultra-run`. Both are outside the repo and disappear with the
-container. `scripts/prepare_ultra_workdir.sh` rebuilds the tree; the environment
-is only reproducible from `environment.json`'s `pip_freeze`, and on a GPU box
-you should be installing ULTRA's actual CUDA pins instead.
+Checkpoint: `python script/download.py --kgpfn`, the default TabICL variant.
+Files land in `./cache/`.
+
+`config/script/train_all.yaml` holds `dataset.root`, so the data-root patch is
+one line.
+
+## Task 5 — at the very end, in this order
+
+1. Transductive sweep, 13 graphs, all seven models. `NELL995`, `CoDExSmall` and
+   `CoDExLarge` answer 404 from SEMMA's URLs. Fix that first.
+2. MOTIF timing re-run. The first MOTIF suite predates `TIMINGS.jsonl`.
+3. `ultra_torchdrug` as an eighth pinned repo, to close criterion B.
+
+## Rules that still hold
+
+* `repos/` stays pristine. Every change is a `.diff` in `patches/<repo>/` with a
+  stated Reason. `git -C repos/<name> status` must report clean.
+* One processed root per repo, `data/roots/<repo>/`. PyG caches `pre_transform`
+  output by directory, so a shared root hands one model another model's graph
+  with no error and no warning.
+* One `TORCH_EXTENSIONS_DIR` per repo. Every repo names its extension `rspmm`,
+  so a shared directory makes concurrent runs block on one `FileBaton` lock.
+* Never mix devices in one rank directory. The runners refuse this already.
+* Prefetch raw files before GPU time: `scripts/prefetch_raw.py`.
+* Read the explicit exit-code line from a build. A piped `tail` or `grep` hides
+  docker's exit status, and a failed build then reads as a successful one.
+
+## Loose ends worth ten minutes
+
+* ULTRA's 41 result CSVs sit loose in `results/`, while every other model has
+  `results/<model>/`. Moving them means updating the `--csv-glob` in the
+  `make_report.py` call.
+* `baseline_report.md` and `docs/report_notes.md` are still written around
+  ULTRA alone. With four models and more coming, the reporting needs a shape
+  that holds all of them. Decide that before adding a fifth.
+* **Nothing is committed.** 144 files, including all 123 GPU rank dumps.

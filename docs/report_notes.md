@@ -215,3 +215,60 @@ mirrored.
   throughout (sha256 in `environment.json`), never `ultra_50g.pth`.
 * **`--epochs 0` was verified in the logs**, not assumed: every dataset's config
   dump reads `'num_epoch': 0`.
+
+## SEMMA runs without flash-attn, and that is upstream's own choice
+
+SEMMA has two halves. The structural half is ULTRA. The semantic half embeds
+relation descriptions with a sentence encoder, then builds a second relation
+graph from the similarities between those embeddings.
+
+`flags.yaml` selects `jinaai/jina-embeddings-v3` as that encoder. `transformers`
+loads it with `trust_remote_code=True`, so the model repository supplies and
+executes its own `custom_st.py`. That file tries to import `flash_attn`. The
+import fails in this container. The code then prints one line for each attention
+layer and falls back to PyTorch native attention:
+
+```
+flash_attn is not installed. Using PyTorch native attention implementation.
+```
+
+The encoder reloads once per graph, so the line repeats several hundred times
+per graph and several thousand times per suite. It is log noise, not a fault.
+
+This matches upstream. `repos/semma/requirements.txt` line 10 comments the
+dependency out, with the authors' own note:
+
+```
+# flash-attn # Note: flash-attn installation can be complex and may require specific CUDA toolkit versions.
+```
+
+So SEMMA ships with flash-attn off. The container follows that rather than add a
+dependency the authors excluded. Two effects follow, and only the second one
+touches a reported number.
+
+**Cost.** Unfused attention over a 24-layer encoder, repeated for every graph, is
+part of why SEMMA is the most expensive model in this suite. Measured against
+TRIX over the same graphs, SEMMA costs about six times as much.
+
+**Numbers.** Flash attention is an exact algorithm, not an approximation, so the
+mathematics is identical either way. The summation order differs, so the
+embeddings differ in the low-order float bits. SEMMA keeps every relation pair
+whose cosine similarity is above 0.8, and on `FB15k237Inductive:v1` that
+threshold admits 668 pairs. A pair that sits on the boundary can move across it.
+The effect is small. It is not provably zero, so it is stated here for the same
+reason the CPU-versus-GPU note above is stated.
+
+## The sentence encoder is pinned to one commit
+
+`patches/semma/0003-pin-encoder.diff` adds a `revision` to the
+`AutoModel.from_pretrained` call. Upstream passes none, so `main` decides both
+the weights and the remote code on the day of the run.
+
+Half of SEMMA is built from those embeddings. Without a pin, a re-run months
+later can produce different relation graphs from the same checkpoint and the
+same data, and nothing in the output would show why.
+
+The container pins `JINA_REVISION=ab036b023d30b4d1138c4c3bfa9f0c445ab455d6`,
+caches that commit at build time, and sets `HF_HUB_OFFLINE=1` for every run. The
+copy that executes is the copy the image was built against. The patch does not
+change which model SEMMA uses. It fixes which version of it.
