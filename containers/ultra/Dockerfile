@@ -1,6 +1,7 @@
 # ULTRA reference container.
 #
 # Build context is the workspace root (kgfm/), not this directory:
+#     scripts/clone_repos.sh          # repos/ is gitignored; the build needs it
 #     docker build -f containers/ultra/Dockerfile -t kgfm/ultra:427966ad .
 #
 # Base is a CUDA *devel* image, not runtime: ULTRA's rspmm kernel is JIT-built by
@@ -23,9 +24,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.9 python3.9-dev python3.9-distutils \
         build-essential git patch \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9 \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 \
     && rm -rf /var/lib/apt/lists/*
+# Deliberately not repointing /usr/bin/python3 at 3.9: the distro's own tooling
+# (apt, add-apt-repository) runs on 3.10 and breaks if it moves. Everything here
+# calls python3.9 explicitly.
 
 # torch's cpp_extension in this version imports pkg_resources.packaging, which
 # setuptools removed in 70. Pinning below 70 is required for rspmm to build at
@@ -47,6 +50,10 @@ RUN python3.9 -m pip install --no-cache-dir 'pyarrow==14.0.2'
 
 WORKDIR /kgfm
 
+# Cache the JIT-compiled rspmm kernel on a volume so it survives container
+# restarts; compiling it is a few minutes and only needs doing once.
+ENV TORCH_EXTENSIONS_DIR=/kgfm/output/.torch_extensions
+
 # shared/ is mounted read-only in normal use, but is baked in as well so that the
 # image is self-contained; suite.py is imported by the rank dump patch.
 COPY shared/ /kgfm/shared/
@@ -64,7 +71,8 @@ RUN cd /kgfm/repos/ultra \
 # Separate processed root per repo is mandatory: PyG keys the cached relation
 # graph in processed/data.pt by directory, not by which pre_transform built it,
 # so a shared root would silently hand another model's relation graph to ULTRA.
-RUN mkdir -p /kgfm/data/roots/ultra /kgfm/data/raw /kgfm/ranks/ultra /kgfm/output
+RUN mkdir -p /kgfm/data/roots/ultra /kgfm/data/raw /kgfm/ranks/ultra \
+             /kgfm/output /kgfm/output/.torch_extensions
 VOLUME ["/kgfm/data", "/kgfm/ranks", "/kgfm/output"]
 
 ENV ULTRA_ROOT=/kgfm/repos/ultra
