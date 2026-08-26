@@ -69,9 +69,12 @@ That is why criterion A is reported two ways rather than as a bare pass/fail:
   their worst ulp distance rather than pass/fail. The strict bitwise verdict is
   still printed and is still the headline; it is not quietly dropped.
 
-The residual is bounded at one float32 ulp, ~6e-8 relative — five orders of
-magnitude inside criterion B's ±0.002 band, so it cannot affect any acceptance
-decision. Reported, not iterated on.
+Every mismatch observed sits in `mrr` or `hits@10_50` — never in `hits@1/3/10`,
+and so far never in `mr` — and each is one or two float32 ulps, order 1e-7
+absolute. The exact per-value distances are in the criterion A table above
+rather than asserted here, since they are computed, not claimed. That is four to
+five orders of magnitude inside criterion B's ±0.002 band, so the residual
+cannot affect any acceptance decision. Reported, not iterated on.
 
 ## The patch changes no rank
 
