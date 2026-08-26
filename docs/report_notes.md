@@ -33,20 +33,45 @@ builds them itself: for ILPC and Ingram, inference + valid + test edges; for the
 other inductive families, inference + test edges. The dump records the resulting
 `n_candidates` per query rather than trying to re-derive it downstream.
 
-### One trap, since it produced a wrong answer before it produced a right one
+### Two things printed-precision comparison caught
 
-The first implementation of ULTRA's unbiased `hits@10_50` disagreed in the 8th
-significant digit. The cause was not the tie rule: **numpy promotes
-`float32 / int64` to float64 where torch keeps float32**, so dividing the cast
-rank by the raw `n_candidates` column ran the whole chain at a precision ULTRA
-never used. Casting both operands fixes it. This is exactly the failure mode
-criterion A exists to catch, and it is why the comparison is done at printed
-precision rather than with a tolerance.
+**A real bug, first.** The first implementation of ULTRA's unbiased `hits@10_50`
+disagreed in the 8th significant digit. The cause was not the tie rule: **numpy
+promotes `float32 / int64` to float64 where torch keeps float32**, so dividing
+the cast rank by the raw `n_candidates` column ran the whole chain at a
+precision ULTRA never used. Casting both operands fixes it, and it now matches
+bitwise. This is exactly the failure mode criterion A exists to catch, and it is
+why the comparison is done at printed precision rather than against a tolerance.
 
 `hits@10_50` is not one of this project's four reported metrics. It is
 reproduced anyway because it is the **only** quantity that consumes
 `n_candidates`: without it, a dump could get that column wrong and criterion A
 would still pass on all five other metrics.
+
+**And one thing that is not a bug.** `mrr` matched bitwise on the first dataset
+and then differed by one float32 ulp on `FB15k237Inductive:v2` (ULTRA
+`0.5005503296852112`, `metrics.py` `0.5005502700805664`). Chased down: the
+summands are identical, and the *correctly rounded* float32 value of their exact
+sum — `math.fsum` over the same float32 summands — is `0.5005502700805664`.
+**ULTRA's own reduction is the one an ulp off**, not this module's. The cause is
+float32 associativity inside `torch.Tensor.mean`, whose internal blocking is
+device- and version-specific; reimplementing it would not transfer to the GPU
+numbers anyway, and would make the project's one metric implementation depend on
+a torch internal.
+
+That is why criterion A is reported two ways rather than as a bare pass/fail:
+
+* `hits@1`, `hits@3`, `hits@10` sum values that are exactly 0.0 or 1.0, so their
+  reduction cannot depend on order. Bitwise equality there **is** the claim that
+  the tie rule, the rank offset and the dump agree with ULTRA. This is the
+  reading that answers "is the patch right?" — and it passes.
+* `mrr`, `mr` and `hits@10_50` are order-dependent, so they are reported with
+  their worst ulp distance rather than pass/fail. The strict bitwise verdict is
+  still printed and is still the headline; it is not quietly dropped.
+
+The residual is bounded at one float32 ulp, ~6e-8 relative — five orders of
+magnitude inside criterion B's ±0.002 band, so it cannot affect any acceptance
+decision. Reported, not iterated on.
 
 ## The patch changes no rank
 
@@ -118,10 +143,12 @@ checked in this environment, not an assumption.
 
 Consequences to keep in mind when reading the numbers:
 
-* **Criterion A is unaffected by any of this.** It compares this project's metric
+* **Criterion A is essentially unaffected.** It compares this project's metric
   code against ULTRA's own metric code over the same ranks from the same
-  process. Whether that process ran on a GPU or a CPU is irrelevant to whether
-  the two agree.
+  process, so whether that process ran on a GPU or a CPU is irrelevant to
+  whether the two agree. The one caveat is the ulp residual above: on a GPU the
+  reduction is CUDA's block tree rather than torch's CPU cascade, so *which*
+  order-dependent values land exactly may differ, while the bound does not.
 * **Criterion B is affected in principle.** ULTRA's published figures were
   produced on an RTX 3090. CPU and CUDA float32 kernels differ in the low-order
   bits, which can flip a near-tie and move a rank. The effect is small, but it

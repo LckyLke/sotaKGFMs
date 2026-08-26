@@ -45,7 +45,15 @@ echo
 echo "stock   : $A"; grep -F "$DS," "$A" | tail -1
 echo "patched : $B"; grep -F "$DS," "$B" | tail -1
 echo
-if [ "$(grep -F "$DS," "$A" | tail -1)" = "$(grep -F "$DS," "$B" | tail -1)" ]; then
+SAME=0
+[ "$(grep -F "$DS," "$A" | tail -1)" = "$(grep -F "$DS," "$B" | tail -1)" ] && SAME=1
+
+# Keep this check's CSVs out of the work tree: results/ is for the suite runs,
+# and scripts/collect_results.sh would otherwise sweep these in alongside them.
+cp -p "$A" "$B" "$ROOT/output/neutrality/" 2>/dev/null || true
+rm -f "$B"
+
+if [ "$SAME" = "1" ]; then
   echo "PATCH IS RANKING-NEUTRAL: rows identical to full printed precision"
 else
   echo "MISMATCH: the patch changed the ranking -- stop and fix it"; exit 1

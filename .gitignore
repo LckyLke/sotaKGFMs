@@ -13,5 +13,7 @@
 /output/
 /logs/*.log
 
+# results/ holds ULTRA's own raw CSVs, unmodified -- a deliverable, kept.
+
 __pycache__/
 *.pyc
