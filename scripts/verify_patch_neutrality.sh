@@ -25,7 +25,7 @@ tar -C "$ROOT/repos/ultra" --exclude=.git -cf - . | tar -C "$STOCK" -xf -
 
 mkdir -p ~/git/ULTRA
 [ -e ~/git/ULTRA/kg-datasets ] || ln -s "$DATA_ROOT" ~/git/ULTRA/kg-datasets
-mkdir -p "$ROOT/output/neutrality"
+mkdir -p "$ROOT/output/neutrality" ~/git/ULTRA/output  # stock run_many.py chdirs into output_dir without creating it
 
 echo "### stock upstream, no patches"
 ( cd "$STOCK" && $PY script/run_many.py \
