@@ -34,6 +34,18 @@ esac
 # group runs, resolved from shared/suite.py and never retyped here.
 DATASETS="${ULTRA_DATASETS:-$($PY "$ROOT/shared/suite.py" "$GROUP")}"
 SHARD="${ULTRA_SHARD:-}"
+
+# Drop anything already dumped, so a shard can be killed and relaunched with a
+# different split without redoing finished graphs. ULTRA_REDO=1 forces a rerun.
+if [ -z "${ULTRA_REDO:-}" ]; then
+  KEEP=""
+  for d in ${DATASETS//,/ }; do
+    f="$ROOT/ranks/ultra/$($PY -c "import sys;sys.path.insert(0,'$ROOT/shared');import suite;print(suite.by_run_id('$d').id.replace(':','_'))").parquet"
+    if [ -s "$f" ]; then echo "skip $d (already dumped)"; else KEEP="${KEEP:+$KEEP,}$d"; fi
+  done
+  DATASETS="$KEEP"
+fi
+if [ -z "$DATASETS" ]; then echo "nothing left to run for ${SHARD:-$GROUP}"; exit 0; fi
 mkdir -p "$DATA_ROOT" "$RANKS" "$OUT"
 
 echo "group     : $GROUP"
