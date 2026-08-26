@@ -73,19 +73,27 @@ and ``.mean()`` accumulates in float32 on the GPU.  This module mirrors that by
 default (``dtype="float32"``) so that its output is comparable with ULTRA's
 stock ``ultra_results_*.csv`` at printed precision.
 
-What that buys, in decreasing order of certainty:
+What that buys, split by whether the metric's reduction is order-independent:
 
-  * ``hits@k`` is bit-exact by construction.  The summands are exactly 0.0 or
+  * ``hits@k`` is bit-exact **by construction**.  The summands are exactly 0.0 or
     1.0, so the sum is an exact integer for any test set below 2**24 rows and
     the division is a single correctly-rounded operation.  Reduction order
-    cannot matter.
-  * ``mrr`` and ``mr`` are bit-exact in practice against a CPU run -- every
-    dataset in the reference run matched ULTRA's own CSV to the full 17-digit
-    repr that ``csv.DictWriter`` writes -- but not by construction.  ``1 / rank``
-    is inexact in binary, so the float32 sum depends on reduction order, and
-    numpy's pairwise summation is not CUDA's block-tree reduction.  On a GPU run
-    expect agreement to order one float32 ulp (~6e-8 relative) rather than
-    identity: still five orders of magnitude inside the +/-0.002 acceptance band.
+    cannot change the answer, on any device, in any framework.
+  * ``mrr``, ``mr`` and ``hits@k_M`` are **not** order-independent.  ``1 / rank``
+    is inexact in binary, so a float32 sum depends on the order it is taken in,
+    and numpy's pairwise summation is neither torch's CPU cascade nor CUDA's
+    block-tree reduction.  They agree exactly on most datasets and differ by one
+    float32 ulp (~6e-8 relative) on some.
+
+    Where they differ, this module is not the one that is wrong.  Measured on
+    FB15k237Inductive:v2 (1894 queries): ULTRA reports 0.5005503296852112, this
+    module returns 0.5005502700805664, and the *correctly rounded* float32 value
+    of the exact sum -- via ``math.fsum`` over the same float32 summands -- is
+    0.5005502700805664.  ULTRA's own accumulation is the one that lands an ulp
+    off.  Matching it would mean reimplementing ``torch.Tensor.mean``'s internal
+    blocking, which is device- and version-specific and would not transfer to
+    the GPU numbers anyway.  So the residual stands, documented and bounded, at
+    five orders of magnitude inside the +/-0.002 acceptance band.
 
 One trap, since it cost a wrong answer once already: numpy promotes
 ``float32 / int64`` to **float64** while torch keeps float32.  Any expression

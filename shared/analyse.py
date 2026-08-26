@@ -90,6 +90,12 @@ def find_latest_ultra_csv(where: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # criterion A
 # ---------------------------------------------------------------------------
+#: Metrics whose reduction is order-independent, so bitwise equality is a
+#: property of the definition rather than of the summation order. A mismatch on
+#: one of these is a real disagreement about what the metric means.
+ORDER_INDEPENDENT: Sequence[str] = ("hits@1", "hits@3", "hits@10")
+
+
 def criterion_a(
     ours: Mapping[str, Mapping[str, float]],
     theirs: Mapping[str, Mapping[str, float]],
@@ -116,6 +122,29 @@ def criterion_a(
             if not exact:
                 passed = False
     return rows, passed
+
+
+def criterion_a_summary(rows: Sequence[dict]) -> dict:
+    """Split criterion A by what a mismatch would actually mean.
+
+    A mismatch on an order-independent metric is a disagreement about the metric
+    itself -- wrong tie rule, wrong offset, wrong dump. A mismatch on the others
+    may be nothing more than float32 associativity, so its size is what matters:
+    the summary carries the worst ulp distance seen.
+    """
+    hard = [r for r in rows if r["metric"] in ORDER_INDEPENDENT]
+    soft = [r for r in rows if r["metric"] not in ORDER_INDEPENDENT]
+    return {
+        "n": len(rows),
+        "exact": sum(1 for r in rows if r["exact"]),
+        "strict_pass": all(r["exact"] for r in rows),
+        "definition_pass": all(r["exact"] for r in hard),
+        "definition_n": len(hard),
+        "soft_n": len(soft),
+        "soft_exact": sum(1 for r in soft if r["exact"]),
+        "max_ulps": max([r["ulps"] for r in soft], default=0),
+        "max_abs_diff": max([r["abs_diff"] for r in soft], default=0.0),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -174,9 +203,23 @@ def render_criterion_a(rows: Sequence[dict], passed: bool) -> str:
     ]
     head = _table(["dataset", "metric", "metrics.py", "ULTRA csv", "exact", "|diff|", "ulps(f32)"], body)
     mism = [r for r in rows if not r["exact"]]
-    summary = "**Criterion A: {}** -- {} comparisons, {} exact, {} mismatched.".format(
-        "PASS" if passed else "FAIL", len(rows), len(rows) - len(mism), len(mism))
-    return summary + "\n\n" + head
+    s = criterion_a_summary(rows)
+    summary = [
+        "**Criterion A (strict, bitwise): {}** -- {} comparisons, {} exact, {} mismatched.".format(
+            "PASS" if passed else "FAIL", s["n"], s["exact"], len(mism)),
+        "",
+        "Split by what a mismatch would mean:",
+        "",
+        "* **Order-independent metrics** (`hits@1`, `hits@3`, `hits@10`): {}/{} exact -- **{}**. "
+        "These cannot be moved by summation order, so bitwise equality here is exactly the claim "
+        "that the tie rule, the rank offset and the dump agree with ULTRA.".format(
+            sum(1 for r in rows if r["metric"] in ORDER_INDEPENDENT and r["exact"]),
+            s["definition_n"], "PASS" if s["definition_pass"] else "FAIL"),
+        "* **Order-dependent metrics** (`mrr`, `mr`, `hits@10_50`): {}/{} exact; worst disagreement "
+        "{} float32 ulp ({:.2e} absolute).".format(
+            s["soft_exact"], s["soft_n"], s["max_ulps"], s["max_abs_diff"]),
+    ]
+    return "\n".join(summary) + "\n\n" + head
 
 
 def render_criterion_b(rows: Sequence[dict], passed: bool) -> str:

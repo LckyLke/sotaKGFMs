@@ -16,6 +16,15 @@ if [ -n "$(git -C "$ROOT/repos/ultra" status --porcelain)" ]; then
   exit 1
 fi
 
+# run_many.py writes ultra_results_*.csv next to itself, inside the work tree.
+# Rescue any before wiping, or a rebuild silently destroys the raw results that
+# criterion A is measured against.
+if compgen -G "$DEST/script/ultra_results_*.csv" > /dev/null; then
+  mkdir -p "$ROOT/results"
+  cp -n "$DEST"/script/ultra_results_*.csv "$ROOT/results/"
+  echo "rescued $(ls "$DEST"/script/ultra_results_*.csv | wc -l) result csv(s) into results/"
+fi
+
 rm -rf "$DEST"
 mkdir -p "$DEST"
 tar -C "$ROOT/repos/ultra" --exclude=.git -cf - . | tar -C "$DEST" -xf -
