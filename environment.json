@@ -78,7 +78,8 @@
   "ultra": {
     "patches": [
       "0001-rank-dump.diff",
-      "0002-data-root.diff"
+      "0002-data-root.diff",
+      "0003-skip-valid.diff"
     ],
     "sha": "427966ad8ed60420eef034063d44f3153addff90",
     "url": "https://github.com/DeepGraphLearning/ULTRA.git"

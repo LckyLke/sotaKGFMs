@@ -54,6 +54,35 @@ echo "extra args: ${ULTRA_EXTRA_ARGS:-none}"
 # mkdir is the claim: it is atomic on POSIX, succeeds for exactly one caller,
 # and needs no lock daemon. A claim is released again if the run fails, so a
 # later pass retries rather than silently skipping.
+# Ranks from a CPU run and ranks from a GPU run must never end up in one
+# directory. The float32 kernels differ in low-order bits, which can flip a
+# near-tie and move a rank, so a mixed directory yields a group mean that
+# corresponds to no single measurement -- and nothing downstream would notice.
+DEVICE=cpu; [ "$GPUS" != "null" ] && DEVICE=gpu
+PROV="$RANKS/PROVENANCE.json"
+if [ -f "$PROV" ]; then
+  had=$($PY -c "import json;print(json.load(open('$PROV'))['device'])" 2>/dev/null || echo unknown)
+  if [ "$had" != "$DEVICE" ] && [ -z "${ULTRA_REDO:-}" ]; then
+    echo "REFUSING TO RUN: $RANKS holds $had ranks, this run is $DEVICE." >&2
+    echo "Mixing devices in one rank directory silently corrupts the group means." >&2
+    echo "Clear it first:  rm -rf $RANKS $ROOT/ranks/.claims" >&2
+    exit 3
+  fi
+fi
+mkdir -p "$RANKS"
+$PY - "$PROV" "$DEVICE" <<'PROVPY'
+import json, os, platform, subprocess, sys
+path, device = sys.argv[1], sys.argv[2]
+prov = {"device": device, "host": platform.platform(), "cpu_count": os.cpu_count()}
+try:
+    prov["gpu"] = subprocess.check_output(
+        ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"],
+        text=True, stderr=subprocess.DEVNULL).strip()
+except Exception:
+    prov["gpu"] = None
+json.dump(prov, open(path, "w"), indent=2, sort_keys=True)
+PROVPY
+
 CLAIMS="$ROOT/ranks/.claims"
 mkdir -p "$CLAIMS"
 cd "$WORKDIR"
