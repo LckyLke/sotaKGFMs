@@ -73,17 +73,25 @@ and ``.mean()`` accumulates in float32 on the GPU.  This module mirrors that by
 default (``dtype="float32"``) so that its output is comparable with ULTRA's
 stock ``ultra_results_*.csv`` at printed precision.
 
-Two consequences worth knowing before comparing:
+What that buys, in decreasing order of certainty:
 
-  * ``hits@k`` is bit-exact.  The summands are exactly 0.0 or 1.0, so the sum is
-    an exact integer for any test set below 2**24 rows, and the division is a
-    single correctly-rounded operation.  Reduction order cannot matter.
-  * ``mrr`` and ``mr`` are not guaranteed bit-exact.  ``1 / rank`` is inexact in
-    binary, so the float32 sum depends on reduction order, and numpy's pairwise
-    summation is not CUDA's block-tree reduction.  Expect agreement to roughly
-    one float32 ulp (~6e-8 relative), i.e. about 7 significant decimal digits --
-    five orders of magnitude tighter than the +/-0.002 acceptance band, but not
-    identical in the 17-digit repr that ``csv.DictWriter`` writes.
+  * ``hits@k`` is bit-exact by construction.  The summands are exactly 0.0 or
+    1.0, so the sum is an exact integer for any test set below 2**24 rows and
+    the division is a single correctly-rounded operation.  Reduction order
+    cannot matter.
+  * ``mrr`` and ``mr`` are bit-exact in practice against a CPU run -- every
+    dataset in the reference run matched ULTRA's own CSV to the full 17-digit
+    repr that ``csv.DictWriter`` writes -- but not by construction.  ``1 / rank``
+    is inexact in binary, so the float32 sum depends on reduction order, and
+    numpy's pairwise summation is not CUDA's block-tree reduction.  On a GPU run
+    expect agreement to order one float32 ulp (~6e-8 relative) rather than
+    identity: still five orders of magnitude inside the +/-0.002 acceptance band.
+
+One trap, since it cost a wrong answer once already: numpy promotes
+``float32 / int64`` to **float64** while torch keeps float32.  Any expression
+mixing a cast rank with a raw integer column must cast both operands explicitly,
+or the whole chain silently runs at a precision ULTRA never used.  See
+``hits_at_k_unbiased``.
 
 Pass ``dtype="float64"`` for downstream analysis where reproducing ULTRA's
 float32 rounding is not the point.
@@ -107,6 +115,7 @@ __all__ = [
     "METRIC_NAMES",
     "read_ranks",
     "compute",
+    "hits_at_k_unbiased",
     "compute_file",
     "compute_dir",
     "group_mean",
@@ -227,10 +236,58 @@ def compute(
     return out
 
 
+def hits_at_k_unbiased(
+    ranks: Iterable[int],
+    n_candidates: Iterable[int],
+    k: int = 10,
+    num_sample: int = 50,
+    dtype: str = "float32",
+) -> float:
+    """ULTRA's ``hits@k_M`` -- Hits@k estimated against a sample of M candidates.
+
+    Not one of this project's four reported metrics.  It is implemented here for
+    one reason: it is the only quantity that consumes ``n_candidates``, so
+    reproducing it is what proves that column of the rank schema is correct.
+    Without it, a dump could get ``n_candidates`` wrong and criterion A would
+    still pass.
+
+    Mirrors ``script/run.py::test`` exactly, including the accumulation order of
+    the ``i`` loop, which is what makes bitwise comparison meaningful::
+
+        fp_rate = (_ranking - 1).float() / _num_neg
+        score = 0
+        for i in range(threshold):
+            num_comb = factorial(M - 1) / factorial(i) / factorial(M - i - 1)
+            score += num_comb * (fp_rate ** i) * ((1 - fp_rate) ** (M - i - 1))
+        score = score.mean()
+    """
+    np_dtype = _DTYPES[dtype]
+    rank = np.asarray(ranks)
+    # Both operands are cast explicitly. numpy promotes float32/int64 to float64
+    # while torch keeps float32, so dividing by the raw int64 column would run
+    # the whole chain below at a precision ULTRA never used.
+    n_neg = np.asarray(n_candidates).astype(np_dtype)
+    fp_rate = (rank - 1).astype(np_dtype) / n_neg
+    score = np.zeros_like(fp_rate)
+    for i in range(k):
+        num_comb = (
+            math.factorial(num_sample - 1)
+            / math.factorial(i)
+            / math.factorial(num_sample - i - 1)
+        )
+        score = score + np_dtype(num_comb) * (fp_rate ** i) * (
+            (1 - fp_rate) ** (num_sample - i - 1)
+        )
+    return float(np.mean(score, dtype=np_dtype))
+
+
 def compute_file(path: str, dtype: str = "float32") -> Dict[str, float]:
     """Metrics for one ``ranks/<model>/<dataset>.parquet``."""
     data = read_ranks(path)
     result = compute(data["rank"], dtype=dtype)
+    result["hits@10_50"] = hits_at_k_unbiased(
+        data["rank"], data["n_candidates"], k=10, num_sample=50, dtype=dtype
+    )
     result["dataset"] = str(data["dataset"][0])
     result["model"] = str(data["model"][0])
     return result

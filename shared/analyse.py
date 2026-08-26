@@ -93,7 +93,7 @@ def find_latest_ultra_csv(where: str) -> Optional[str]:
 def criterion_a(
     ours: Mapping[str, Mapping[str, float]],
     theirs: Mapping[str, Mapping[str, float]],
-    compare_metrics: Sequence[str] = ("mrr", "hits@1", "hits@3", "hits@10", "mr"),
+    compare_metrics: Sequence[str] = ("mrr", "hits@1", "hits@3", "hits@10", "mr", "hits@10_50"),
 ) -> Tuple[List[dict], bool]:
     """Per-dataset, per-metric diff between our recomputation and ULTRA's CSV."""
     rows: List[dict] = []
