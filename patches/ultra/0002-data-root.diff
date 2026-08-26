@@ -1,0 +1,32 @@
+Reason: give ULTRA its own processed root (data/roots/ultra/) so the relation-graph cache in processed/data.pt cannot be shared with another repo's pre_transform.
+
+diff --git a/config/inductive/inference.yaml b/config/inductive/inference.yaml
+index 1054f12..9c8973b 100644
+--- a/config/inductive/inference.yaml
++++ b/config/inductive/inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/git/ULTRA/output
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/git/ULTRA/kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/ultra/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/config/transductive/inference.yaml b/config/transductive/inference.yaml
+index 3a955ff..c708b05 100644
+--- a/config/transductive/inference.yaml
++++ b/config/transductive/inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/git/ULTRA/output
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/git/ULTRA/kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/ultra/', true) }}
+ 
+ model:
+   class: Ultra

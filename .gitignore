@@ -1,0 +1,17 @@
+# Upstream clones are pinned by SHA in repos/PINS.json and reproduced with
+# scripts/clone_repos.sh; vendoring seven repositories would bury our own diff.
+/repos/*
+!/repos/PINS.json
+
+# Downloads and processed roots are large and reproducible; data/raw/MANIFEST-*.json
+# records what was fetched, from where, and its sha256.
+/data/raw/*
+!/data/raw/MANIFEST-*.json
+/data/roots/
+
+# Run scratch: ULTRA chdir's into a timestamped working directory per dataset.
+/output/
+/logs/*.log
+
+__pycache__/
+*.pyc
