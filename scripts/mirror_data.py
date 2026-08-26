@@ -93,7 +93,6 @@ def main(argv=None):
         "mirror": os.path.relpath(args.raw, WORKSPACE),
         "sources": {},
         "files": [],
-        "missing": [],
     }
 
     for graph in suite.GRAPHS:
@@ -115,10 +114,6 @@ def main(argv=None):
                     shutil.copy2(src, dst)
                 os.chmod(dst, 0o444)  # data/raw is read-only by contract
 
-    have = {f["path"].split(os.sep)[0] for f in manifest["files"]}
-    for graph in suite.GRAPHS:
-        if not any(token and token in " ".join(have) for token in [graph.dataset]):
-            pass  # directory naming is per-class; presence is asserted by the runs, not here
     manifest["files"].sort(key=lambda e: e["path"])
 
     os.makedirs(args.raw, exist_ok=True)

@@ -37,7 +37,7 @@ echo "### patched"
     -c "$PATCHED/config/inductive/inference.yaml" \
     --gpus null --ckpt "$PATCHED/ckpts/ultra_3g.pth" \
     --data_root "$DATA_ROOT" --output_dir "$ROOT/output/neutrality" \
-    --rank_dump_dir "$ROOT/output/neutrality/ranks" -d "$DS" >/dev/null 2>&1 )
+    --rank_dump_dir "$ROOT/output/neutrality/ranks" ${NEUTRALITY_EXTRA:-} -d "$DS" >/dev/null 2>&1 )
 
 A=$(ls -t "$STOCK"/script/ultra_results_*.csv | head -1)
 B=$(ls -t "$PATCHED"/script/ultra_results_*.csv | head -1)

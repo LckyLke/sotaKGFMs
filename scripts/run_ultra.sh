@@ -19,7 +19,10 @@ WORKDIR="${ULTRA_WORKDIR:-/home/user/ultra-run}"
 CKPT="$WORKDIR/ckpts/ultra_3g.pth"
 DATA_ROOT="$ROOT/data/roots/ultra"
 RANKS="$ROOT/ranks/ultra"
-OUT="$ROOT/output/ultra"
+# Per-shard output_dir: create_working_directory() writes a working_dir.tmp in
+# cfg.output_dir and deletes it again, so two processes sharing one output_dir
+# race on that file.
+OUT="$ROOT/output/ultra/${ULTRA_SHARD:-all}"
 
 case "$GROUP" in
   transductive) CONFIG="$WORKDIR/config/transductive/inference.yaml" ;;
@@ -27,7 +30,10 @@ case "$GROUP" in
   *) echo "unknown group: $GROUP" >&2; exit 2 ;;
 esac
 
-DATASETS="$($PY "$ROOT/shared/suite.py" "$GROUP")"
+# ULTRA_DATASETS lets one group be split across processes; when unset the whole
+# group runs, resolved from shared/suite.py and never retyped here.
+DATASETS="${ULTRA_DATASETS:-$($PY "$ROOT/shared/suite.py" "$GROUP")}"
+SHARD="${ULTRA_SHARD:-}"
 mkdir -p "$DATA_ROOT" "$RANKS" "$OUT"
 
 echo "group     : $GROUP"
@@ -35,7 +41,8 @@ echo "config    : $CONFIG"
 echo "ckpt      : $CKPT"
 echo "data root : $DATA_ROOT"
 echo "ranks     : $RANKS"
-echo "datasets  : $(tr ',' '\n' <<<"$DATASETS" | wc -l)"
+echo "datasets  : $(tr ',' '\n' <<<"$DATASETS" | wc -l)${SHARD:+ (shard $SHARD)}"
+echo "extra args: ${ULTRA_EXTRA_ARGS:-none}"
 
 cd "$WORKDIR"
 exec $PY "$WORKDIR/script/run_many.py" \
@@ -45,4 +52,5 @@ exec $PY "$WORKDIR/script/run_many.py" \
   --data_root "$DATA_ROOT" \
   --output_dir "$OUT" \
   --rank_dump_dir "$RANKS" \
+  ${ULTRA_EXTRA_ARGS:-} \
   -d "$DATASETS"

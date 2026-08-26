@@ -1,0 +1,413 @@
+{
+  "files": [
+    {
+      "bytes": 14846,
+      "path": "grail/IndFB15k237/v1/raw/test_ind.txt",
+      "sha256": "c79d39372be30a3864cfe5094b3022f38b57d88c351dbbfa2d9e7f3368ac23aa"
+    },
+    {
+      "bytes": 306475,
+      "path": "grail/IndFB15k237/v1/raw/train.txt",
+      "sha256": "74ef3120fe38a22e5131064d23108b88a8d339496057fa8467d80dcda8f1cec1"
+    },
+    {
+      "bytes": 147145,
+      "path": "grail/IndFB15k237/v1/raw/train_ind.txt",
+      "sha256": "049829f7047ecf0e0bff0769efca31bc7f811f760c4ffcb20a5680f789b00c61"
+    },
+    {
+      "bytes": 35308,
+      "path": "grail/IndFB15k237/v1/raw/valid.txt",
+      "sha256": "d4c2698d7dc36c0dc39ffb3d810caeafe530d779bf9f6451fac2027f41c2ff6d"
+    },
+    {
+      "bytes": 15165,
+      "path": "grail/IndFB15k237/v1/raw/valid_ind.txt",
+      "sha256": "ac817123c4177ef46b08a3802380a355282b99d4283c43474c9dd91c082107dd"
+    },
+    {
+      "bytes": 38098,
+      "path": "grail/IndFB15k237/v2/raw/test_ind.txt",
+      "sha256": "17c16e008cb6dfdc67ef0f375aab0a8fee2b087c7d687a72f5217b789d0c4a10"
+    },
+    {
+      "bytes": 722862,
+      "path": "grail/IndFB15k237/v2/raw/train.txt",
+      "sha256": "542f81af46d6727979278643105ba7c236dd8b29ee5d9962e3c3fa295ab8869c"
+    },
+    {
+      "bytes": 326955,
+      "path": "grail/IndFB15k237/v2/raw/train_ind.txt",
+      "sha256": "6756f8d4aa688bc1a18c1106117a7fde94e0469f223f5d00954846afce471e54"
+    },
+    {
+      "bytes": 87596,
+      "path": "grail/IndFB15k237/v2/raw/valid.txt",
+      "sha256": "59e07dcb883b28bb35585ba95576e4ebb2a71ddbc906119abcc4c87b28198d0c"
+    },
+    {
+      "bytes": 37244,
+      "path": "grail/IndFB15k237/v2/raw/valid_ind.txt",
+      "sha256": "2c3b4430cac899b868c9dd22ece0eae830ca62c8a6c0bf8610c670bbeaf7d6d8"
+    },
+    {
+      "bytes": 65726,
+      "path": "grail/IndFB15k237/v3/raw/test_ind.txt",
+      "sha256": "7dbd4d74210ffd5029d95327639f83c3b46f8bd4ee3571e619812b367d0880da"
+    },
+    {
+      "bytes": 1391287,
+      "path": "grail/IndFB15k237/v3/raw/train.txt",
+      "sha256": "0f27b7f00d3e34964450c22445d17f7612d12d7c382caa3317f45bfe7465f299"
+    },
+    {
+      "bytes": 560703,
+      "path": "grail/IndFB15k237/v3/raw/train_ind.txt",
+      "sha256": "2805f9237816f5bb5bb1ff1fbc3d37cc0beb99047bef3a6bd82cc1f6947e8525"
+    },
+    {
+      "bytes": 170085,
+      "path": "grail/IndFB15k237/v3/raw/valid.txt",
+      "sha256": "8b034e73fe64af9c7baf1e12704a94e7e9a9e6b9242feb498c69ebd65bccf269"
+    },
+    {
+      "bytes": 65038,
+      "path": "grail/IndFB15k237/v3/raw/valid_ind.txt",
+      "sha256": "76f7691aa597d43d704af047d01a5f4d266c02733c52a5c340c2bea4a85dd281"
+    },
+    {
+      "bytes": 111402,
+      "path": "grail/IndFB15k237/v4/raw/test_ind.txt",
+      "sha256": "8e6e19adb9b154348897bf896b5305a76126bc4d79a21705ea47e4efce2d84f3"
+    },
+    {
+      "bytes": 2102632,
+      "path": "grail/IndFB15k237/v4/raw/train.txt",
+      "sha256": "b9fa0f2650a1ab7687e21e0aec24bb51c0b0eacf0d88c8780c03c9b201b9148d"
+    },
+    {
+      "bytes": 900449,
+      "path": "grail/IndFB15k237/v4/raw/train_ind.txt",
+      "sha256": "ef55c03e05d5eeeec97fe2030e92bc36bd5ee9311b770ae0a3fd812982686e8d"
+    },
+    {
+      "bytes": 259213,
+      "path": "grail/IndFB15k237/v4/raw/valid.txt",
+      "sha256": "d99dedcd13bc0cd338a299a895685b66f15e0b7ed42477d40f1ad1a65ce6d483"
+    },
+    {
+      "bytes": 110395,
+      "path": "grail/IndFB15k237/v4/raw/valid_ind.txt",
+      "sha256": "0a237c20719267449388e1d43995ccf67da5a3c82085ba5d2e3996c77dc73921"
+    },
+    {
+      "bytes": 476134,
+      "path": "ingram/fb/25/raw/inf_test.txt",
+      "sha256": "4ccf923453b0faa4eec6ccf9ea0bf25ce3acceba3ec42f50b9ff53e430e204fa"
+    },
+    {
+      "bytes": 477215,
+      "path": "ingram/fb/25/raw/inf_valid.txt",
+      "sha256": "ac22cc5fb62b4b91b6537669955918506b14eddbbdb8bf3dff4d171a62d15c64"
+    },
+    {
+      "bytes": 1397359,
+      "path": "ingram/fb/25/raw/inference_graph.txt",
+      "sha256": "cffeb071476b93815586fe4b5ad47d0794ac5b0a8a4b1a58aa755d6d6ae0b065"
+    },
+    {
+      "bytes": 6823800,
+      "path": "ingram/fb/25/raw/transductive_train.txt",
+      "sha256": "ef5ae42d171c83858ee67b69d009db8eca88afa5d7fa88c868c322ceb7a628ac"
+    }
+  ],
+  "mirror": "data/raw",
+  "processed_root": "data/roots/ultra",
+  "repo": "ultra",
+  "sources": {
+    "AristoV4": [
+      "https://zenodo.org/record/5942560/files/aristo-v4.zip"
+    ],
+    "CoDExLarge": [
+      "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/train.txt",
+      "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/valid.txt",
+      "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/test.txt",
+      "https://zenodo.org/record/4281094/files/codex-l.tar.gz"
+    ],
+    "CoDExSmall": [
+      "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/train.txt",
+      "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/valid.txt",
+      "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/test.txt",
+      "https://zenodo.org/record/4281094/files/codex-s.tar.gz"
+    ],
+    "ConceptNet100k": [
+      "https://raw.githubusercontent.com/guojiapub/BiQUE/master/src_data/conceptnet-100k/train",
+      "https://raw.githubusercontent.com/guojiapub/BiQUE/master/src_data/conceptnet-100k/valid",
+      "https://raw.githubusercontent.com/guojiapub/BiQUE/master/src_data/conceptnet-100k/test"
+    ],
+    "DBpedia100k": [
+      "https://raw.githubusercontent.com/iieir-km/ComplEx-NNE_AER/master/datasets/DB100K/_train.txt",
+      "https://raw.githubusercontent.com/iieir-km/ComplEx-NNE_AER/master/datasets/DB100K/_valid.txt",
+      "https://raw.githubusercontent.com/iieir-km/ComplEx-NNE_AER/master/datasets/DB100K/_test.txt"
+    ],
+    "FB15k237Inductive:v1": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v1_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v1_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v1_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v1/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v1/valid.txt"
+    ],
+    "FB15k237Inductive:v2": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v2_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v2_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v2_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v2/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v2/valid.txt"
+    ],
+    "FB15k237Inductive:v3": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v3_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v3_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v3_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v3/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v3/valid.txt"
+    ],
+    "FB15k237Inductive:v4": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v4_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v4_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v4_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v4/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/fb237_v4/valid.txt"
+    ],
+    "FB15k237_10": [
+      "https://raw.githubusercontent.com/THU-KEG/DacKGR/master/data.zip"
+    ],
+    "FB15k237_20": [
+      "https://raw.githubusercontent.com/THU-KEG/DacKGR/master/data.zip"
+    ],
+    "FB15k237_50": [
+      "https://raw.githubusercontent.com/THU-KEG/DacKGR/master/data.zip"
+    ],
+    "FBIngram:100": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-100/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-100/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-100/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-100/test.txt"
+    ],
+    "FBIngram:25": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-25/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-25/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-25/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-25/test.txt"
+    ],
+    "FBIngram:50": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-50/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-50/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-50/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-50/test.txt"
+    ],
+    "FBIngram:75": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-75/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-75/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-75/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/FB-75/test.txt"
+    ],
+    "FBNELL": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "HM:1k": [
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-1000/train/train.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-1000/test/test-graph.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-1000/train/valid.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-1000/test/test-fact.txt"
+    ],
+    "HM:3k": [
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-3000/train/train.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-3000/test/test-graph.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-3000/train/valid.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-3000/test/test-fact.txt"
+    ],
+    "HM:5k": [
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-5000/train/train.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-5000/test/test-graph.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-5000/train/valid.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/Hamaguchi-BM_both-5000/test/test-fact.txt"
+    ],
+    "HM:indigo": [
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/INDIGO-BM/train/train.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/INDIGO-BM/test/test-graph.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/INDIGO-BM/train/valid.txt",
+      "https://raw.githubusercontent.com/shuwen-liu-ox/INDIGO/master/data/INDIGO-BM/test/test-fact.txt"
+    ],
+    "Hetionet": [
+      "https://www.dropbox.com/s/y47bt9oq57h6l5k/train.txt?dl=1",
+      "https://www.dropbox.com/s/a0pbrx9tz3dgsff/valid.txt?dl=1",
+      "https://www.dropbox.com/s/4dhrvg3fyq5tnu4/test.txt?dl=1"
+    ],
+    "ILPC2022:large": [
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/large/train.txt",
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/large/inference.txt",
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/large/inference_validation.txt",
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/large/inference_test.txt"
+    ],
+    "ILPC2022:small": [
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/small/train.txt",
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/small/inference.txt",
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/small/inference_validation.txt",
+      "https://raw.githubusercontent.com/pykeen/ilpc2022/master/data/small/inference_test.txt"
+    ],
+    "Metafam": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "NELL23k": [
+      "https://raw.githubusercontent.com/THU-KEG/DacKGR/master/data.zip"
+    ],
+    "NELL995": [
+      "https://raw.githubusercontent.com/LARS-research/RED-GNN/main/transductive/data/nell/facts.txt",
+      "https://raw.githubusercontent.com/LARS-research/RED-GNN/main/transductive/data/nell/train.txt",
+      "https://raw.githubusercontent.com/LARS-research/RED-GNN/main/transductive/data/nell/valid.txt",
+      "https://raw.githubusercontent.com/LARS-research/RED-GNN/main/transductive/data/nell/test.txt"
+    ],
+    "NELLInductive:v1": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v1_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v1_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v1_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v1/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v1/valid.txt"
+    ],
+    "NELLInductive:v2": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v2_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v2_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v2_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v2/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v2/valid.txt"
+    ],
+    "NELLInductive:v3": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v3_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v3_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v3_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v3/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v3/valid.txt"
+    ],
+    "NELLInductive:v4": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v4_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v4_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v4_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v4/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/nell_v4/valid.txt"
+    ],
+    "NLIngram:0": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-0/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-0/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-0/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-0/test.txt"
+    ],
+    "NLIngram:100": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-100/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-100/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-100/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-100/test.txt"
+    ],
+    "NLIngram:25": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-25/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-25/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-25/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-25/test.txt"
+    ],
+    "NLIngram:50": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-50/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-50/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-50/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-50/test.txt"
+    ],
+    "NLIngram:75": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-75/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-75/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-75/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/NL-75/test.txt"
+    ],
+    "WDsinger": [
+      "https://raw.githubusercontent.com/THU-KEG/DacKGR/master/data.zip"
+    ],
+    "WKIngram:100": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-100/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-100/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-100/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-100/test.txt"
+    ],
+    "WKIngram:25": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-25/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-25/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-25/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-25/test.txt"
+    ],
+    "WKIngram:50": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-50/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-50/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-50/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-50/test.txt"
+    ],
+    "WKIngram:75": [
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-75/train.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-75/msg.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-75/valid.txt",
+      "https://raw.githubusercontent.com/bdi-lab/InGram/master/data/WK-75/test.txt"
+    ],
+    "WN18RRInductive:v1": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v1_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v1_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v1_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v1/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v1/valid.txt"
+    ],
+    "WN18RRInductive:v2": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v2_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v2_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v2_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v2/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v2/valid.txt"
+    ],
+    "WN18RRInductive:v3": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v3_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v3_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v3_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v3/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v3/valid.txt"
+    ],
+    "WN18RRInductive:v4": [
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v4_ind/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v4_ind/valid.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v4_ind/test.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v4/train.txt",
+      "https://raw.githubusercontent.com/kkteru/grail/master/data/WN18RR_v4/valid.txt"
+    ],
+    "WikiTopicsMT1:health": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "WikiTopicsMT1:tax": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "WikiTopicsMT2:org": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "WikiTopicsMT2:sci": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "WikiTopicsMT3:art": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "WikiTopicsMT3:infra": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "WikiTopicsMT4:health": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "WikiTopicsMT4:sci": [
+      "https://reltrans.s3.us-east-2.amazonaws.com/MTDEA_data.zip"
+    ],
+    "YAGO310": [
+      "https://raw.githubusercontent.com/DeepGraphLearning/KnowledgeGraphEmbedding/master/data/YAGO3-10/train.txt",
+      "https://raw.githubusercontent.com/DeepGraphLearning/KnowledgeGraphEmbedding/master/data/YAGO3-10/valid.txt",
+      "https://raw.githubusercontent.com/DeepGraphLearning/KnowledgeGraphEmbedding/master/data/YAGO3-10/test.txt"
+    ]
+  }
+}
