@@ -1,0 +1,100 @@
+{
+  "checkpoint": "ckpts/ultra_3g.pth",
+  "config": "config/transductive/pretrain_3g.yaml",
+  "evaluated": false,
+  "graphs": {
+    "CoDExMedium": {
+      "class": "CoDExMedium",
+      "declared_urls": [
+        "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/train.txt",
+        "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/valid.txt",
+        "https://raw.githubusercontent.com/tsafavi/codex/master/data/triples/%s/test.txt"
+      ],
+      "files": [
+        {
+          "bytes": 203693,
+          "path": "codex-m/raw/test.txt",
+          "sha256": "0575ce05e4ce915e395bb4f708e8df9547989dd4c8c71407cbfd78c19daffcf7"
+        },
+        {
+          "bytes": 3660213,
+          "path": "codex-m/raw/train.txt",
+          "sha256": "d99c3437ab51690391a26d96976adf6e5494dba7ef6902e77000551bfa566556"
+        },
+        {
+          "bytes": 203470,
+          "path": "codex-m/raw/valid.txt",
+          "sha256": "11c323096367354940846b9ed940c5dabddc1d20a70474222babe7e7fd28b28d"
+        }
+      ],
+      "is_factory_function": false,
+      "num_nodes": 17050,
+      "num_relations": 102,
+      "num_test_triples": 10311
+    },
+    "FB15k237": {
+      "class": "FB15k237",
+      "declared_urls": [],
+      "files": [
+        {
+          "bytes": 218551,
+          "path": "fb15k237/FB15k-237/raw/entities.dict",
+          "sha256": "55666c4fb9c2990ef809e41d3a0023503b1f927fd00a1c947f21a805608f50ac"
+        },
+        {
+          "bytes": 15522,
+          "path": "fb15k237/FB15k-237/raw/relations.dict",
+          "sha256": "e98ebcc621a217ca80d44992cdf0ef5f0eb355ff9aff0ba1a3e939f6ca8fb095"
+        },
+        {
+          "bytes": 1519499,
+          "path": "fb15k237/FB15k-237/raw/test.txt",
+          "sha256": "5711cf41623ceb4eacc50eb6108a3ca6565c7492e3caaf82a3e355cc660d1574"
+        },
+        {
+          "bytes": 21277292,
+          "path": "fb15k237/FB15k-237/raw/train.txt",
+          "sha256": "6e4c2782169af21e9743f3b1d200886f5d595bf6bc504ec1351720949c5cdfae"
+        },
+        {
+          "bytes": 1303101,
+          "path": "fb15k237/FB15k-237/raw/valid.txt",
+          "sha256": "cf6309010852f6a8d47a45df830a426415d1ee6f7a3970a8376ff1fb81db4a5c"
+        }
+      ],
+      "is_factory_function": true,
+      "num_nodes": 14541,
+      "num_relations": 474,
+      "num_test_triples": 20466
+    },
+    "WN18RR": {
+      "class": "WN18RR",
+      "declared_urls": [],
+      "files": [
+        {
+          "bytes": 113180,
+          "path": "wn18rr/raw/test.txt",
+          "sha256": "0383bceaaa1096cf3c03ec021ed0048068e2355dbfc0239b292cefdac821cec5"
+        },
+        {
+          "bytes": 3135377,
+          "path": "wn18rr/raw/train.txt",
+          "sha256": "038612e783c215ee5f3ca9fbfca27b8d0739be1028fe4ee7c174aecf0b83d5df"
+        },
+        {
+          "bytes": 110415,
+          "path": "wn18rr/raw/valid.txt",
+          "sha256": "453ce7202afa58094a04d2b1560ee2b02660f1c260b32ce6651c8ccedd1028ab"
+        }
+      ],
+      "is_factory_function": true,
+      "num_nodes": 40943,
+      "num_relations": 22,
+      "num_test_triples": 3134
+    }
+  },
+  "mixture": "pretrain_3g",
+  "note": "ULTRA's pre-training graphs. Held for provenance and for overlap analysis against the evaluation suite. Never scored: a model is not zero-shot on what it was trained on.",
+  "processed_root": "/kgfm-src/data/roots/ultra",
+  "repo": "ultra"
+}

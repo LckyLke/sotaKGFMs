@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "bytes": 84668262,
+      "path": "semma/mid2name.tsv.gz",
+      "sha256": "e985cbfb718086f7f437b90a9a3f37aa64488d7dcbf69f7f78c5d87fbba7c711"
+    },
+    {
+      "bytes": 230590863,
+      "first_row": "/m/0gw0\tAnarchism",
+      "path": "semma/fb_mid2name.tsv",
+      "rows": 7611845,
+      "sha256": "8d1ad65f7a43bca96f6ef4f0cc9a58535693866b05e6da5be1e36f43d90e406a"
+    }
+  ],
+  "note": "setup.sh's wget saves Drive's virus-scan interstitial instead of the file, and never decompresses. scripts/fetch_semma_mid2name.py follows the confirmation form and checks for gzip magic.",
+  "repo": "semma",
+  "source": "https://drive.google.com/uc?export=download&id=0B52yRXcdpG6MaHA5ZW9CZ21MbVk",
+  "why": "ultra/datasets.py opens fb_mid2name.tsv unconditionally for FB15k237Inductive, FBIngram and HM: 12 of the 41 graphs in groups 1 and 2 cannot be built without it."
+}
