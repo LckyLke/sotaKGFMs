@@ -1,0 +1,32 @@
+Reason: give TRIX its own processed root (data/roots/trix/) so the relation-graph cache in processed/data.pt cannot be shared with another repo's pre_transform. Upstream hardcodes the absolute paths /output and /kg-datasets/, which exist in no container here. No jinja default is supplied on purpose: util.parse_args marks every template variable required, so a default would be silently unreachable and the caller must state both paths.
+
+diff --git a/config/run_entity_inductive.yaml b/config/run_entity_inductive.yaml
+index 1eecf29..575ad63 100644
+--- a/config/run_entity_inductive.yaml
++++ b/config/run_entity_inductive.yaml
+@@ -1,8 +1,8 @@
+-output_dir: /output
++output_dir: {{ output_dir }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: /kg-datasets/
++  root: {{ data_root }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/config/run_entity_transductive.yaml b/config/run_entity_transductive.yaml
+index 38d46b3..ba1020a 100644
+--- a/config/run_entity_transductive.yaml
++++ b/config/run_entity_transductive.yaml
+@@ -1,8 +1,8 @@
+-output_dir: /output
++output_dir: {{ output_dir }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: /kg-datasets/
++  root: {{ data_root }}
+ 
+ model:
+   class: TRIX

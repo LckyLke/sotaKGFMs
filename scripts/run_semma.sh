@@ -1,28 +1,34 @@
 #!/usr/bin/env bash
-# Zero-shot ULTRA over one suite group, dumping per-query ranks.
+# Zero-shot SEMMA over one suite group, dumping per-query ranks.
 #
-#   usage: scripts/run_ultra.sh <ind_e|ind_er|transductive> [gpus] [python]
+#   usage: scripts/run_semma.sh <ind_e|ind_er|transductive> [gpus] [python]
 #
 # Every path handed to run_many.py is absolute on purpose: run_many.py chdir's
 # into a fresh timestamped working directory for each dataset, so anything
 # relative resolves against a different directory on the second dataset onward.
 #
-# ultra_3g.pth, never ultra_50g.pth -- 50g is trained on 50 graphs including
-# most of this suite, so it is not zero-shot here.
+# semma.pth -- plain SEMMA. The repo also ships ULTRA's four checkpoints as its
+# baseline; running those would measure ULTRA, not SEMMA. SEMMA-Hybrid is named
+# in the paper but not released, so it is out of scope here.
+#
+# ultra/datasets.py, layers.py, models.py and tasks.py all capture
+# mydir = os.getcwd() at import time, and resolve flags.yaml, fb_mid2name.tsv and
+# the LLM relation descriptions against it. The cd into WORKDIR below is load
+# bearing: run from anywhere else and SEMMA reads none of them.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-GROUP="${1:?usage: run_ultra.sh <ind_e|ind_er|transductive> [gpus] [python]}"
+GROUP="${1:?usage: run_semma.sh <ind_e|ind_er|transductive> [gpus] [python]}"
 GPUS="${2:-[0]}"
 PY="${3:-python}"
 
-WORKDIR="${ULTRA_WORKDIR:-/home/user/ultra-run}"
-CKPT="$WORKDIR/ckpts/ultra_3g.pth"
-DATA_ROOT="$ROOT/data/roots/ultra"
-RANKS="$ROOT/ranks/ultra"
+WORKDIR="${SEMMA_WORKDIR:-/kgfm/repos/semma}"
+CKPT="$WORKDIR/ckpts/semma.pth"
+DATA_ROOT="$ROOT/data/roots/semma"
+RANKS="$ROOT/ranks/semma"
 # Per-shard output_dir: create_working_directory() writes a working_dir.tmp in
 # cfg.output_dir and deletes it again, so two processes sharing one output_dir
 # race on that file.
-OUT="$ROOT/output/ultra/${ULTRA_SHARD:-all}"
+OUT="$ROOT/output/semma/${SEMMA_SHARD:-all}"
 
 case "$GROUP" in
   transductive) CONFIG="$WORKDIR/config/transductive/inference.yaml" ;;
@@ -30,10 +36,10 @@ case "$GROUP" in
   *) echo "unknown group: $GROUP" >&2; exit 2 ;;
 esac
 
-# ULTRA_DATASETS lets one group be split across processes; when unset the whole
+# SEMMA_DATASETS lets one group be split across processes; when unset the whole
 # group runs, resolved from shared/suite.py and never retyped here.
-DATASETS="${ULTRA_DATASETS:-$($PY "$ROOT/shared/suite.py" "$GROUP")}"
-SHARD="${ULTRA_SHARD:-}"
+DATASETS="${SEMMA_DATASETS:-$($PY "$ROOT/shared/suite.py" "$GROUP")}"
+SHARD="${SEMMA_SHARD:-}"
 
 mkdir -p "$DATA_ROOT" "$RANKS" "$OUT"
 
@@ -43,7 +49,7 @@ echo "ckpt      : $CKPT"
 echo "data root : $DATA_ROOT"
 echo "ranks     : $RANKS"
 echo "datasets  : $(tr ',' '\n' <<<"$DATASETS" | wc -l)${SHARD:+ (shard $SHARD)}"
-echo "extra args: ${ULTRA_EXTRA_ARGS:-none}"
+echo "extra args: ${SEMMA_EXTRA_ARGS:-none}"
 
 # One invocation per graph, each preceded by an atomic claim. Several workers
 # can then be handed the same list and will divide it between them: whoever
@@ -62,7 +68,7 @@ DEVICE=cpu; [ "$GPUS" != "null" ] && DEVICE=gpu
 PROV="$RANKS/PROVENANCE.json"
 if [ -f "$PROV" ]; then
   had=$($PY -c "import json;print(json.load(open('$PROV'))['device'])" 2>/dev/null || echo unknown)
-  if [ "$had" != "$DEVICE" ] && [ -z "${ULTRA_REDO:-}" ]; then
+  if [ "$had" != "$DEVICE" ] && [ -z "${SEMMA_REDO:-}" ]; then
     echo "REFUSING TO RUN: $RANKS holds $had ranks, this run is $DEVICE." >&2
     echo "Mixing devices in one rank directory silently corrupts the group means." >&2
     echo "Clear it first:  rm -rf $RANKS $ROOT/ranks/.claims" >&2
@@ -83,14 +89,14 @@ except Exception:
 json.dump(prov, open(path, "w"), indent=2, sort_keys=True)
 PROVPY
 
-CLAIMS="$ROOT/ranks/.claims"
+CLAIMS="$ROOT/ranks/.claims-semma"
 mkdir -p "$CLAIMS"
 cd "$WORKDIR"
 
 ran=0; skipped=0; failed=0
 for d in ${DATASETS//,/ }; do
   id="$($PY -c "import sys;sys.path.insert(0,'$ROOT/shared');import suite;print(suite.by_run_id('$d').id.replace(':','_'))")"
-  if [ -z "${ULTRA_REDO:-}" ] && [ -s "$RANKS/$id.parquet" ]; then
+  if [ -z "${SEMMA_REDO:-}" ] && [ -s "$RANKS/$id.parquet" ]; then
     skipped=$((skipped+1)); continue
   fi
   if ! mkdir "$CLAIMS/$id" 2>/dev/null; then
@@ -114,7 +120,7 @@ for d in ${DATASETS//,/ }; do
       --data_root "$DATA_ROOT" \
       --output_dir "$OUT" \
       --rank_dump_dir "$RANKS" \
-      ${ULTRA_EXTRA_ARGS:-} \
+      ${SEMMA_EXTRA_ARGS:-} \
       -d "$d"; then
     status=ok; ran=$((ran+1))
   else
@@ -137,7 +143,7 @@ import json, sys
 path, gid, run_id, device, status, started, t0, t1, index = sys.argv[1:10]
 with open(path, "a") as handle:
     handle.write(json.dumps({
-        "dataset": gid, "run_id": run_id, "model": "ultra", "device": device,
+        "dataset": gid, "run_id": run_id, "model": "semma", "device": device,
         "status": status, "started": started, "seconds": round(float(t1) - float(t0), 3),
         "index": int(index),
     }, sort_keys=True) + "\n")

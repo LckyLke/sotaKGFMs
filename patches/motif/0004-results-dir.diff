@@ -1,0 +1,14 @@
+Reason: create the MOTIF_results/ directory before writing into it. run_many.py builds the path with a subdirectory that nothing creates, so on a clean tree the very first dataset dies with FileNotFoundError at the end of its run -- after the model has been loaded, the graph scored and the ranks dumped. Upstream defect, not a change to any behaviour: the file written is the same file, in the place upstream already chose.
+
+diff --git a/script/run_many.py b/script/run_many.py
+index 7b55b9c..b5e8c69 100644
+--- a/script/run_many.py
++++ b/script/run_many.py
+@@ -139,6 +139,7 @@ if __name__ == "__main__":
+     datasets = args.datasets.split(",")
+     path = os.path.dirname(os.path.expanduser(__file__))
+     results_file = os.path.join(path, "MOTIF_results", f"MOTIF_results_{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv")
++    os.makedirs(os.path.dirname(results_file), exist_ok=True)
+ 
+     for graph in datasets:
+         ds, version = graph.split(":") if ":" in graph else (graph, None)

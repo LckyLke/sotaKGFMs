@@ -1,0 +1,161 @@
+Reason: emit one parquet row per scored query into the shared ranks/ schema; dump only, the ranking itself is untouched. TRIX's compute_ranking and strict_negative_mask are byte-identical to ULTRA's and its test() differs from ULTRA's only by deleted comments, so the rank definition carries over unchanged. The dump directory arrives by environment variable rather than by flag: run_entity.py builds its parser from the config's template variables and marks every one required, so a new flag would have to be threaded through the config to be accepted at all.
+
+diff --git a/src/run_entity.py b/src/run_entity.py
+index 6c96a7c..77ce43f 100644
+--- a/src/run_entity.py
++++ b/src/run_entity.py
+@@ -17,6 +17,7 @@ from torch_geometric.data import Data
+ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+ from trix import tasks, util
+ from trix.models_entity import TRIX
++from trix.rank_dump import Dumper
+ 
+ import matplotlib.pyplot as plt
+ import numpy as np
+@@ -126,7 +127,7 @@ def train_and_validate(cfg, model, train_data, valid_data, device, logger, filte
+     return best_epoch
+ 
+ @torch.no_grad()
+-def test(cfg, model, test_data, device, logger, filtered_data=None, return_metrics=False):
++def test(cfg, model, test_data, device, logger, filtered_data=None, return_metrics=False, dump=None):
+     world_size = util.get_world_size()
+     rank = util.get_rank()
+ 
+@@ -134,6 +135,9 @@ def test(cfg, model, test_data, device, logger, filtered_data=None, return_metri
+     sampler = torch_data.DistributedSampler(test_triplets, world_size, rank)
+     test_loader = torch_data.DataLoader(test_triplets, cfg.train.batch_size, sampler=sampler)
+ 
++    # rank dump only; everything below is untouched upstream code
++    dumper = Dumper(dump, test_triplets, world_size, rank, cfg.train.batch_size) if dump else None
++
+     model.eval()
+     rankings = []
+     num_negatives = []
+@@ -153,12 +157,18 @@ def test(cfg, model, test_data, device, logger, filtered_data=None, return_metri
+         num_t_negative = t_mask.sum(dim=-1)
+         num_h_negative = h_mask.sum(dim=-1)
+ 
++        if dumper is not None:
++            dumper.add(batch, t_ranking, h_ranking, num_t_negative, num_h_negative)
++
+         rankings += [t_ranking, h_ranking]
+         num_negatives += [num_t_negative, num_h_negative]
+ 
+         tail_rankings += [t_ranking]
+         num_tail_negs += [num_t_negative]
+ 
++    if dumper is not None:
++        logger.warning("Rank dump written to %s" % dumper.write())
++
+     ranking = torch.cat(rankings)
+     num_negative = torch.cat(num_negatives)
+     all_size = torch.zeros(world_size, dtype=torch.long, device=device)
+@@ -344,4 +354,13 @@ if __name__ == "__main__":
+     if util.get_rank() == 0:
+         logger.warning(separator)
+         logger.warning("Evaluate on test")
+-    test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger)
++    dump = None if not os.environ.get("TRIX_RANK_DUMP_DIR") else {
++        "dir": os.environ["TRIX_RANK_DUMP_DIR"],
++        # `is not None`, not truthiness: util.literal_eval turns the version
++        # string "0" into the integer 0, and NLIngram:0 is a real graph. A
++        # truthiness test drops its version and looks up "NLIngram", which is
++        # not a suite id.
++        "dataset": vars["dataset"] + (":" + str(vars["version"]) if vars.get("version") not in (None, "") else ""),
++        "model": "trix", "seed": args.seed,
++    }
++    test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger, dump=dump)
+diff --git a/src/trix/rank_dump.py b/src/trix/rank_dump.py
+new file mode 100644
+index 0000000..3785d65
+--- /dev/null
++++ b/src/trix/rank_dump.py
+@@ -0,0 +1,88 @@
++"""Per-query rank dump for the shared ``ranks/`` schema.
++
++This module writes ranks. It does not produce them and it does not compute a
++metric: every number it emits was already computed by ``trix/tasks.py`` and is
++copied out unchanged. Nothing here touches dtypes, epsilons, fused operations or
++reduction order, so a run with dumping enabled ranks identically to one without.
++
++The query ordering is recovered rather than imposed. ``src/run_entity.py::test``
++builds its loader from a ``DistributedSampler`` over the test triples; a second
++``DistributedSampler`` constructed with the same (length, num_replicas, rank)
++yields the same permutation, because the permutation depends only on those and
++on the sampler's own generator seeded with ``seed + epoch`` (0 + 0 here) --
++never on the global RNG or on the tensor's contents. Consuming that permutation
++in ``batch_size`` chunks reproduces exactly what the real loader hands out,
++which lets a stable ``query_id`` be attached without altering the real loader.
++"""
++
++import os
++
++from torch.utils import data as torch_data
++
++import suite  # shared/suite.py, on PYTHONPATH; the only dataset list in the project
++
++
++class Dumper:
++    """Accumulates one row per scored query and writes a single parquet file."""
++
++    def __init__(self, spec, test_triplets, world_size, rank, batch_size):
++        if world_size != 1:
++            raise RuntimeError(
++                "rank dumping is single-process only (run with --gpus [0]); got "
++                "world_size=%d. Under DDP each rank sees a shard and the ranks "
++                "are summed together by all_reduce, which loses per-query "
++                "identity." % world_size
++            )
++        self.spec = spec
++        self.graph = suite.by_run_id(spec["dataset"])
++        # the five tail-only graphs are evaluated on tail prediction alone
++        self.tail_only = self.graph.tail_only
++        self.order = [int(i) for i in torch_data.DistributedSampler(test_triplets, world_size, rank)]
++        self.batch_size = batch_size
++        self.cursor = 0
++        self.columns = {name: [] for name in suite.RANK_COLUMNS}
++
++    def add(self, batch, t_ranking, h_ranking, num_t_negative, num_h_negative):
++        size = len(batch)
++        query_ids = self.order[self.cursor:self.cursor + size]
++        self.cursor += size
++        assert len(query_ids) == size, "sampler order desynchronised from the loader"
++
++        pos_h, pos_t, pos_r = [column.tolist() for column in batch.t()]
++        directions = [("tail", t_ranking, num_t_negative)]
++        if not self.tail_only:
++            directions.append(("head", h_ranking, num_h_negative))
++
++        for direction, ranking, num_negative in directions:
++            ranking = ranking.tolist()
++            num_negative = num_negative.tolist()
++            for i in range(size):
++                self.columns["dataset"].append(self.graph.id)
++                self.columns["model"].append(self.spec["model"])
++                self.columns["seed"].append(self.spec["seed"])
++                self.columns["direction"].append(direction)
++                self.columns["query_id"].append(query_ids[i])
++                self.columns["h"].append(pos_h[i])
++                self.columns["r"].append(pos_r[i])
++                self.columns["t"].append(pos_t[i])
++                self.columns["rank"].append(ranking[i])
++                self.columns["n_candidates"].append(num_negative[i])
++
++    def write(self):
++        import pyarrow
++        import pyarrow.parquet
++
++        arrow_types = {
++            "string": pyarrow.string(),
++            "int64": pyarrow.int64(),
++        }
++        schema = pyarrow.schema([
++            (name, arrow_types[suite.RANK_COLUMN_TYPES[name]]) for name in suite.RANK_COLUMNS
++        ])
++        table = pyarrow.table({name: self.columns[name] for name in suite.RANK_COLUMNS}, schema=schema)
++
++        os.makedirs(self.spec["dir"], exist_ok=True)
++        # ':' is legal on Linux but awkward everywhere else; metrics.py resolves both
++        path = os.path.join(self.spec["dir"], "%s.parquet" % self.graph.id.replace(":", "_"))
++        pyarrow.parquet.write_table(table, path)
++        return path

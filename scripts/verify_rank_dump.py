@@ -35,7 +35,14 @@ def check(graph, root, ranks_dir, datasets_module, torch):
     table = pq.read_table(path).to_pydict()
 
     cls = getattr(datasets_module, graph.dataset)
-    dataset = cls(root=root, version=graph.version) if graph.version is not None else cls(root=root)
+    # Construct the dataset the way run_many.py does: with the version out of
+    # run_id, not out of Graph.version. The two differ for Metafam and FBNELL,
+    # which suite.py records as version=None because their rank file is keyed by
+    # the bare id. Their __init__ pops "version" unconditionally before choosing
+    # versions[0], so cls(root=root) raises KeyError: 'version' instead of
+    # defaulting. Every other graph has run_id version == Graph.version.
+    run_version = graph.run_id.split(":", 1)[1] if ":" in graph.run_id else None
+    dataset = cls(root=root, version=run_version) if run_version is not None else cls(root=root)
     test_data = dataset[2]
     test_triplets = torch.cat(
         [test_data.target_edge_index, test_data.target_edge_type.unsqueeze(0)]

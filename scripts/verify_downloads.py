@@ -59,6 +59,8 @@ def resolve_url(cls, url, version):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--package", default="ultra",
+                        help="python package inside the tree: ultra, motif, semma, ...")
     parser.add_argument("--ultra", required=True)
     parser.add_argument("--root", required=True)
     parser.add_argument("--group", action="append", default=None,
@@ -67,7 +69,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     sys.path.insert(0, args.ultra)
-    from ultra import datasets as ultra_datasets
+    # The package is named after the repo (ultra, motif, semma, ...). Import it
+    # by name rather than hardcoding `ultra`, so one checker serves every repo.
+    import importlib
+    ultra_datasets = importlib.import_module(args.package + ".datasets")
 
     groups = args.group or list(suite.GROUPS)
     graphs = [g for g in suite.GRAPHS if g.group in groups]

@@ -1,0 +1,30 @@
+Reason: optional --skip_valid; the validation-split evaluation feeds no reported metric and test() mutates neither the model nor any RNG, so test ranks are unchanged. Off by default. Applies on top of 0001.
+
+diff --git a/script/run_many.py b/script/run_many.py
+index a1357e2..7b55b9c 100644
+--- a/script/run_many.py
++++ b/script/run_many.py
+@@ -133,6 +133,7 @@ if __name__ == "__main__":
+     parser.add_argument("-ft", "--finetune", help="finetune the checkpoint on the specified datasets", action='store_true')
+     parser.add_argument("-tr", "--train", help="train the model from scratch", action='store_true')
+     parser.add_argument("--rank_dump_dir", help="write one parquet of per-query test ranks per dataset into this directory", default=None, type=str)
++    parser.add_argument("--skip_valid", help="skip the validation-split evaluation; no reported metric depends on it", action='store_true')
+     args, unparsed = parser.parse_known_args()
+    
+     datasets = args.datasets.split(",")
+@@ -246,10 +247,11 @@ if __name__ == "__main__":
+             test_filtered_data = test_filtered_data.to(device)
+             
+             train_and_validate(cfg, model, train_data, valid_data if "fast_test" not in cfg.train else short_valid, filtered_data=val_filtered_data, batch_per_epoch=batch_per_epoch, device=device, logger=logger)
+-            if util.get_rank() == 0:
+-                logger.warning(separator)
+-                logger.warning("Evaluate on valid")
+-            test(cfg, model, valid_data, filtered_data=val_filtered_data, device=device, logger=logger)
++            if not args.skip_valid:
++                if util.get_rank() == 0:
++                    logger.warning(separator)
++                    logger.warning("Evaluate on valid")
++                test(cfg, model, valid_data, filtered_data=val_filtered_data, device=device, logger=logger)
+             if util.get_rank() == 0:
+                 logger.warning(separator)
+                 logger.warning("Evaluate on test")

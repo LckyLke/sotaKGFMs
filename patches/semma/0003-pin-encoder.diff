@@ -1,0 +1,22 @@
+Reason: pin the revision of the sentence encoder SEMMA loads. flags.yaml selects jinaai, which transformers loads with trust_remote_code=True -- it downloads and executes custom_st.py from the model repository. Upstream passes no revision, so both that code and the weights are whatever main points at when the run happens. The container pins JINA_REVISION and caches that commit at build time, and runs set HF_HUB_OFFLINE=1, so the copy executed is the one the image was built against. Does not change which model is used, only which version of it.
+
+diff --git a/ultra/tasks.py b/ultra/tasks.py
+index 1894ff5..7c2b5e9 100644
+--- a/ultra/tasks.py
++++ b/ultra/tasks.py
+@@ -162,7 +162,14 @@ def get_relation_embeddings(relation_names, model_embed = None):
+ 
+     else: # Assuming jinaai or other models
+         model_hf_name = "jinaai/jina-embeddings-v3" # Default for this branch
+-        model = AutoModel.from_pretrained(model_hf_name, trust_remote_code=True)
++        # Pin the commit. trust_remote_code=True means transformers executes
++        # custom_st.py out of this repository, and without a revision that is
++        # whatever the repository holds on the day of the run -- so both the
++        # code that runs and the weights it loads could change underneath a
++        # result. The relation graph SEMMA builds from these embeddings is half
++        # its model, so "reproducible" has to cover this too.
++        _rev = os.environ.get("JINA_REVISION") or None
++        model = AutoModel.from_pretrained(model_hf_name, revision=_rev, trust_remote_code=True)
+         model.to(device)
+         # model.encode for jinaai typically returns numpy arrays
+         raw_embeddings = model.encode(relation_names, task="text-matching", truncate_dim=64)

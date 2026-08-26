@@ -17,13 +17,16 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Python 3.9 -- ULTRA's pinned interpreter. Ubuntu 22.04 ships 3.10, so it comes
 # from deadsnakes rather than from the distro.
+# get-pip.py comes from the version-specific path. The generic
+# bootstrap.pypa.io/get-pip.py now aborts on anything below 3.10; only the
+# /pip/3.9/ copy still installs. A build-tool URL, not one of ULTRA's pins.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         software-properties-common ca-certificates gnupg curl \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
         python3.9 python3.9-dev python3.9-distutils \
         build-essential git patch \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9 \
+    && curl -sS https://bootstrap.pypa.io/pip/3.9/get-pip.py | python3.9 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 \
     && rm -rf /var/lib/apt/lists/*
 # Deliberately not repointing /usr/bin/python3 at 3.9: the distro's own tooling
@@ -34,6 +37,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # setuptools removed in 70. Pinning below 70 is required for rspmm to build at
 # all; it is a build-tool pin, not a change to any of ULTRA's own pins.
 RUN python3.9 -m pip install --no-cache-dir 'setuptools==69.5.1' wheel
+
+# numpy below 2. torch 2.1.0, torch-scatter, torch-sparse and pyarrow 14 are all
+# compiled against the NumPy 1.x C ABI. Unpinned, pip resolves numpy 2.0.2 here
+# and `import pyarrow` dies with "numpy.core.multiarray failed to import", which
+# takes the parquet rank dump with it. 1.26.4 is the version the CPU baseline
+# ran on, recorded in environment.json. A build-tool pin, not one of ULTRA's.
+RUN python3.9 -m pip install --no-cache-dir 'numpy==1.26.4'
 
 # ULTRA's pins, exactly as its README states them. If a wheel below has been
 # withdrawn, build it from source -- do not relax the version to make pip pass.
@@ -47,6 +57,14 @@ RUN python3.9 -m pip install --no-cache-dir ninja easydict pyyaml
 # Added by this project, not by ULTRA: the rank dump writes parquet.
 # An addition, never an upgrade of anything above.
 RUN python3.9 -m pip install --no-cache-dir 'pyarrow==14.0.2'
+
+# Fail the build, not the run. Every import below is on the critical path of a
+# rank dump, and a NumPy major-version drift breaks them at import time only.
+RUN python3.9 -c "\
+import numpy, torch, pyarrow, torch_geometric, torch_scatter, torch_sparse; \
+assert numpy.__version__.startswith('1.'), 'numpy 2.x breaks the torch/pyarrow C ABI: ' + numpy.__version__; \
+assert torch.__version__.startswith('2.1.0'), torch.__version__; \
+print('stack ok:', 'numpy', numpy.__version__, '| torch', torch.__version__, '| pyarrow', pyarrow.__version__)"
 
 WORKDIR /kgfm
 

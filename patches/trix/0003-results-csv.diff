@@ -1,0 +1,31 @@
+Reason: record the metric values TRIX computes, so criterion A can be run against it. Upstream logs them and discards them; ULTRA and MOTIF both write a CSV and this makes TRIX comparable. The directory is created before writing, which is the defect MOTIF ships (patches/motif/0004). Applies on top of 0001.
+
+diff --git a/src/run_entity.py b/src/run_entity.py
+index 77ce43f..6aea33e 100644
+--- a/src/run_entity.py
++++ b/src/run_entity.py
+@@ -363,4 +363,23 @@ if __name__ == "__main__":
+         "dataset": vars["dataset"] + (":" + str(vars["version"]) if vars.get("version") not in (None, "") else ""),
+         "model": "trix", "seed": args.seed,
+     }
+-    test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger, dump=dump)
++    metrics = test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger, dump=dump, return_metrics=True)
++
++    # Write the model's own metric values next to the script, in the shape
++    # ULTRA's run_many.py writes them. Criterion A compares shared/metrics.py
++    # against what the model itself computed over the same ranks in the same
++    # process; without this file TRIX has nothing to compare against, because
++    # upstream only logs the numbers and never records them.
++    if util.get_rank() == 0:
++        import csv as _csv, time as _time
++        _row = {k: v.item() for k, v in metrics.items()}
++        _row["dataset"] = dump["dataset"] if dump else vars["dataset"]
++        _dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "TRIX_results")
++        os.makedirs(_dir, exist_ok=True)
++        _path = os.path.join(_dir, "TRIX_results_%s.csv" % _time.strftime("%Y-%m-%d-%H-%M-%S"))
++        with open(_path, "a", newline="") as _f:
++            _w = _csv.DictWriter(_f, fieldnames=["dataset"] + [k for k in _row if k != "dataset"])
++            if _f.tell() == 0:
++                _w.writeheader()
++            _w.writerow(_row)
++        logger.warning("Results written to %s" % _path)

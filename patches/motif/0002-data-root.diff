@@ -1,0 +1,62 @@
+Reason: give MOTIF its own processed root (data/roots/motif/) so the relation-graph cache in processed/data.pt cannot be shared with another repo's pre_transform. MOTIF's pre_transform builds a higher-order motif relation graph, so a shared root would hand ULTRA's relation graph to MOTIF with no error and no warning.
+
+diff --git a/config/inductive/MOTIF_inference.yaml b/config/inductive/MOTIF_inference.yaml
+index f5d35e4..ac7a8d7 100644
+--- a/config/inductive/MOTIF_inference.yaml
++++ b/config/inductive/MOTIF_inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/MOTIF/output
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/MOTIF/kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/motif/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/config/inductive/ULTRA_inference.yaml b/config/inductive/ULTRA_inference.yaml
+index acba944..8f4e01a 100644
+--- a/config/inductive/ULTRA_inference.yaml
++++ b/config/inductive/ULTRA_inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/MOTIF/output
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/MOTIF/kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/motif/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/config/transductive/MOTIF_inference.yaml b/config/transductive/MOTIF_inference.yaml
+index 9dcf507..3f453e7 100644
+--- a/config/transductive/MOTIF_inference.yaml
++++ b/config/transductive/MOTIF_inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/MOTIF/output
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/MOTIF/kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/motif/', true) }}
+ 
+ model:
+   class: MOTIF
+diff --git a/config/transductive/ULTRA_inference.yaml b/config/transductive/ULTRA_inference.yaml
+index 8fa6ba5..a6fbbfb 100644
+--- a/config/transductive/ULTRA_inference.yaml
++++ b/config/transductive/ULTRA_inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/MOTIF/output
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/MOTIF/kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/motif/', true) }}
+ 
+ model:
+   class: Ultra

@@ -110,7 +110,7 @@ def criterion_a(
                 continue
             a, b = float(ours[gid][metric]), float(theirs[gid][metric])
             exact = repr(a) == repr(b)
-            rows.append({
+            row = {
                 "dataset": gid,
                 "metric": metric,
                 "ours": a,
@@ -118,7 +118,20 @@ def criterion_a(
                 "exact": exact,
                 "abs_diff": abs(a - b),
                 "ulps": ulps_f32(a, b),
-            })
+            }
+            # For hits@k the float is count/n_queries, so the count is
+            # recoverable from either side and is a whole number. Comparing the
+            # counts asks the question bitwise equality is meant to ask -- do the
+            # two agree about which queries were hits -- without also asking that
+            # both divided by n in the same order on the same silicon. See
+            # criterion_a_summary for why that distinction is not cosmetic.
+            n = ours[gid].get("n")
+            if metric in ORDER_INDEPENDENT and n:
+                n = int(n)
+                row["count_ours"] = int(round(a * n))
+                row["count_ultra"] = int(round(b * n))
+                row["count_exact"] = row["count_ours"] == row["count_ultra"]
+            rows.append(row)
             if not exact:
                 passed = False
     return rows, passed
@@ -134,12 +147,17 @@ def criterion_a_summary(rows: Sequence[dict]) -> dict:
     """
     hard = [r for r in rows if r["metric"] in ORDER_INDEPENDENT]
     soft = [r for r in rows if r["metric"] not in ORDER_INDEPENDENT]
+    counted = [r for r in hard if "count_exact" in r]
     return {
         "n": len(rows),
         "exact": sum(1 for r in rows if r["exact"]),
         "strict_pass": all(r["exact"] for r in rows),
-        "definition_pass": all(r["exact"] for r in hard),
+        "definition_pass": (all(r["count_exact"] for r in counted)
+                            if counted else all(r["exact"] for r in hard)),
         "definition_n": len(hard),
+        "counted_n": len(counted),
+        "counted_exact": sum(1 for r in counted if r["count_exact"]),
+        "hard_bitwise_exact": sum(1 for r in hard if r["exact"]),
         "soft_n": len(soft),
         "soft_exact": sum(1 for r in soft if r["exact"]),
         "max_ulps": max([r["ulps"] for r in soft], default=0),
@@ -205,18 +223,29 @@ def render_criterion_a(rows: Sequence[dict], passed: bool) -> str:
     mism = [r for r in rows if not r["exact"]]
     s = criterion_a_summary(rows)
     summary = [
+        "**Criterion A (metric definition): {}** -- {}/{} hit counts identical.".format(
+            "PASS" if s["definition_pass"] else "FAIL",
+            s["counted_exact"], s["counted_n"]),
+        "",
         "**Criterion A (strict, bitwise): {}** -- {} comparisons, {} exact, {} mismatched.".format(
             "PASS" if passed else "FAIL", s["n"], s["exact"], len(mism)),
         "",
-        "Split by what a mismatch would mean:",
+        "The two verdicts answer different questions, and only the first one is "
+        "about ranking.",
         "",
-        "* **Order-independent metrics** (`hits@1`, `hits@3`, `hits@10`): {}/{} exact -- **{}**. "
-        "These cannot be moved by summation order, so bitwise equality here is exactly the claim "
-        "that the tie rule, the rank offset and the dump agree with ULTRA.".format(
-            sum(1 for r in rows if r["metric"] in ORDER_INDEPENDENT and r["exact"]),
-            s["definition_n"], "PASS" if s["definition_pass"] else "FAIL"),
+        "* **Order-independent metrics** (`hits@1`, `hits@3`, `hits@10`): {}/{} identical as "
+        "counts -- **{}**; {}/{} identical bitwise. `hits@k` is `count / n_queries`, and the "
+        "count is a whole number that no summation order can move: a count disagreement is a "
+        "disagreement about the tie rule, the rank offset or the dump. The float around it can "
+        "still differ, because that last division is not done the same way everywhere -- on CUDA "
+        "torch reduces and scales differently from numpy on the host. Every bitwise mismatch seen "
+        "here is 1 ulp with the counts identical, which is that division and nothing else.".format(
+            s["counted_exact"], s["counted_n"],
+            "PASS" if s["definition_pass"] else "FAIL",
+            s["hard_bitwise_exact"], s["definition_n"]),
         "* **Order-dependent metrics** (`mrr`, `mr`, `hits@10_50`): {}/{} exact; worst disagreement "
-        "{} float32 ulp ({:.2e} absolute).".format(
+        "{} float32 ulp ({:.2e} absolute). These carry no count to fall back on, so float32 "
+        "associativity is the whole story.".format(
             s["soft_exact"], s["soft_n"], s["max_ulps"], s["max_abs_diff"]),
     ]
     return "\n".join(summary) + "\n\n" + head

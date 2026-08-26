@@ -1,0 +1,32 @@
+Reason: give SEMMA its own processed root (data/roots/semma/) so the relation-graph cache in processed/data.pt cannot be shared with another repo's pre_transform -- SEMMA's is a semantic relation graph built from LLM relation descriptions, so a shared root would hand it another model's structural graph with no error and no warning. Upstream states both paths *relatively* (output/, kg-datasets/), which run_many.py then resolves against whatever directory it has chdir'd into, so they must be made absolute regardless.
+
+diff --git a/config/inductive/inference.yaml b/config/inductive/inference.yaml
+index ec36ff2..d7b97b7 100644
+--- a/config/inductive/inference.yaml
++++ b/config/inductive/inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: output/ 
++output_dir: {{ output_dir | default('/kgfm/output', true) }} 
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/semma/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/config/transductive/inference.yaml b/config/transductive/inference.yaml
+index a3214a1..68d7b8b 100644
+--- a/config/transductive/inference.yaml
++++ b/config/transductive/inference.yaml
+@@ -1,8 +1,8 @@
+-output_dir: output/ 
++output_dir: {{ output_dir | default('/kgfm/output', true) }} 
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: kg-datasets/
++  root: {{ data_root | default('/kgfm/data/roots/semma/', true) }}
+ 
+ model:
+   class: Ultra
