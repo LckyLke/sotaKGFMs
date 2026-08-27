@@ -77,8 +77,13 @@ chunk_size: 4096
 # these numbers are inherited, not tuned.
 train:
   graphs: [FB15k237, WN18RR, CoDExMedium]   # TRIX's pretraining mix
+  # Plan section 3.4: stage B trains the encoder at 1e-4 and the readout at
+  # 5e-4. The first stage-B attempt ran the encoder at 5e-5 (scale 0.1), half
+  # the specified rate -- caught by review, recorded in results/config_diff.md.
+  # Stage A's prescribed readout lr is 1e-3; stage_a reads lr_stage_a.
   lr: 5.0e-4
-  encoder_lr_scale: 0.1
+  lr_stage_a: 1.0e-3
+  encoder_lr_scale: 0.2
   batch_size: 32
   num_negative: 512
   strict_negative: yes
