@@ -182,6 +182,14 @@ class ContextBank:
     def labels(self, relation_id: int) -> torch.Tensor:
         return self._labels[int(relation_id)]
 
+    def to(self, device) -> "ContextBank":
+        """Move every row tensor; the disk cache stores CPU tensors, so a GPU
+        run must move a loaded bank before scoring against it."""
+        for rid in list(self._features):
+            self._features[rid] = self._features[rid].to(device)
+            self._labels[rid] = self._labels[rid].to(device)
+        return self
+
     def stacked(self, relation_ids: Optional[Iterable[int]] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """Concatenation of several relations' rows; the relation model's context."""
         ids = sorted(self._features) if relation_ids is None else [int(i) for i in relation_ids]
@@ -255,7 +263,8 @@ def _sample_negatives(graph, u: int, r: int, k: int,
                       generator: torch.Generator) -> torch.Tensor:
     """``k`` entities outside Ans(u, r) -- Ans over the inference graph only."""
     known = ans(graph, u, r)
-    candidate_mask = torch.ones(graph.num_nodes, dtype=torch.bool)
+    candidate_mask = torch.ones(graph.num_nodes, dtype=torch.bool,
+                                device=graph.edge_index.device)
     candidate_mask[known] = False
     candidates = candidate_mask.nonzero(as_tuple=True)[0]
     if len(candidates) == 0:
@@ -305,7 +314,9 @@ def build_bank_entity(graph, encoder, seed: int = 1024,
             for neg in _sample_negatives(graph, u, rid, neg_per_pos, generator).tolist():
                 rows.append(feats[neg])
                 labels.append(0)
-        out.put(rid, torch.stack(rows), torch.tensor(labels, dtype=torch.long))
+        features = torch.stack(rows)
+        out.put(rid, features, torch.tensor(labels, dtype=torch.long,
+                                            device=features.device))
     return out
 
 
@@ -350,7 +361,8 @@ def build_bank_relation(graph, encoder, seed: int = 1024,
             # relations that hold between u and v in the inference graph
             holds = graph.edge_type[(graph.edge_index[0] == u) & (graph.edge_index[1] == v)]
             holds = holds[holds < num_direct].unique()
-            candidate_mask = torch.ones(num_direct, dtype=torch.bool)
+            candidate_mask = torch.ones(num_direct, dtype=torch.bool,
+                                        device=graph.edge_index.device)
             candidate_mask[holds] = False
             candidates = candidate_mask.nonzero(as_tuple=True)[0]
             if len(candidates) == 0:
@@ -361,5 +373,7 @@ def build_bank_relation(graph, encoder, seed: int = 1024,
             for neg in candidates[idx].tolist():
                 rows.append(feats[neg])
                 labels.append(0)
-        out.put(rid, torch.stack(rows), torch.tensor(labels, dtype=torch.long))
+        features = torch.stack(rows)
+        out.put(rid, features, torch.tensor(labels, dtype=torch.long,
+                                            device=features.device))
     return out

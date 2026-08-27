@@ -85,12 +85,18 @@ class CRESTEntity(nn.Module):
     # -- core: add the residual to precomputed encoder outputs --------------
     def residual(self, x_cand: torch.Tensor, z: torch.Tensor, s0: torch.Tensor,
                  r_eff: torch.Tensor, ctx_bank: _bank.ContextBank,
-                 channel_cand: Optional[torch.Tensor] = None) -> torch.Tensor:
+                 channel_cand: Optional[torch.Tensor] = None,
+                 chunk_size: Optional[int] = None) -> torch.Tensor:
         """Residual for a batch: ``x_cand [b, c, d]``, ``z [b, d]``,
         ``s0 [b, c]``, ``r_eff [b]`` -> ``[b, c]``.
 
         Queries are grouped by effective relation id so each group attends
         over its own bank; ids without a bank keep residual 0.
+
+        ``chunk_size`` bounds how many candidates one readout call carries.
+        It is a memory parameter, not a model parameter (docs/CREST_PLAN.md
+        4.1): candidates never attend to each other, so chunking is exact and
+        the chosen value is recorded in PROVENANCE.json, never tuned against.
         """
         rows = _bank.row_features(x_cand, z, s0)
         if channel_cand is not None:
@@ -108,13 +114,19 @@ class CRESTEntity(nn.Module):
                 pad = torch.zeros(feats.shape[0], channel_cand.shape[-1],
                                   dtype=feats.dtype, device=feats.device)
                 feats = torch.cat([feats, pad], dim=-1)
-            out[sel] = self.readout(rows[sel], feats, labels)
+            group = rows[sel]
+            step = group.shape[1] if chunk_size is None else int(chunk_size)
+            pieces = [self.readout(group[:, i:i + step], feats, labels)
+                      for i in range(0, group.shape[1], step)]
+            out[sel] = torch.cat(pieces, dim=1)
         return out
 
     def score(self, x_cand: torch.Tensor, z: torch.Tensor, s0: torch.Tensor,
               r_eff: torch.Tensor, ctx_bank: _bank.ContextBank,
-              channel_cand: Optional[torch.Tensor] = None) -> torch.Tensor:
-        return s0 + self.residual(x_cand, z, s0, r_eff, ctx_bank, channel_cand)
+              channel_cand: Optional[torch.Tensor] = None,
+              chunk_size: Optional[int] = None) -> torch.Tensor:
+        return s0 + self.residual(x_cand, z, s0, r_eff, ctx_bank, channel_cand,
+                                  chunk_size)
 
     # -- convenience: single-query path through the encoder ------------------
     def forward(self, graph, h: int, r_eff: int, candidates: torch.Tensor,

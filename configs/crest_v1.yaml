@@ -1,0 +1,74 @@
+# CREST v1 -- phase 0/2 configuration (docs/CREST_PLAN.md).
+#
+# No jinja templates: unlike TRIX's configs, everything that varies per run
+# (dataset, version, checkpoint, paths, task name) arrives as a crest/run.py
+# argument, so this file is a complete, diffable record of the model.
+# Every hyperparameter changed from this file goes in results/config_diff.md.
+
+seed: 1024  # every run until phase 4, matching every other model here
+
+# The wrapped encoder, byte-for-byte the model block of TRIX's
+# config/run_entity_inductive.yaml at the pin: CREST's phase 0 identity gate
+# is only meaningful if the encoder underneath is exactly the TRIX that
+# produced ranks/trix/.
+trix:
+  batch_size: 32   # TRIX's own test batch size; rank identity on a GPU also
+                   # needs the reductions run at the shape TRIX ran them
+  model:
+    relation_model:
+      class: NBFNet
+      input_dim: 32
+      hidden_dims: [32, 32, 32]
+      message_func: distmult
+      aggregate_func: sum
+      short_cut: yes
+      layer_norm: yes
+    entity_model_1:
+      class: IndNBFNet
+      input_dim: 32
+      hidden_dims: [32, 32]
+      message_func: distmult
+      aggregate_func: sum
+      short_cut: yes
+      layer_norm: yes
+    entity_model_2:
+      class: IndNBFNet
+      input_dim: 32
+      hidden_dims: [32, 32, 32, 32]
+      message_func: distmult
+      aggregate_func: sum
+      short_cut: yes
+      layer_norm: yes
+
+task:
+  # name (InductiveInference/TransductiveInference) is set per group by
+  # run_crest.sh; the metric list mirrors TRIX's so criterion A has the same
+  # columns to compare
+  metric: [mr, mrr, hits@1, hits@3, hits@10, hits@10_50]
+
+# In-context readout (crest/pfn.py). Row dim is 3 * 32 + 2 = 98.
+readout:
+  width: 128
+  depth: 2
+  heads: 4
+
+# Context bank (crest/bank.py): 20 positives x (1 + 3) rows = [80, 98] per
+# relation id, inverse ids separate, rows from the inference graph only.
+bank:
+  num_positive: 20
+  neg_per_pos: 3
+
+# Memory parameter, NOT a model parameter: candidates never attend to each
+# other, so chunking the readout is exact. Sized for this GPU's 15.6 GB, not
+# the 24 GB the original plan assumed; recorded in PROVENANCE.json and any
+# change goes in results/config_diff.md.
+chunk_size: 4096
+
+# Training (crest/train.py); stage A freezes the encoder, stage B unfreezes
+# it at encoder_lr_scale times the base rate and requires a BankRefresher.
+train:
+  lr: 5.0e-4
+  encoder_lr_scale: 0.1
+  num_negative: 32
+  refresh_interval: 500   # bank refresh cadence; the 20% cost gate raises it
+  cost_gate: 0.20

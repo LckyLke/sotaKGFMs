@@ -1,0 +1,31 @@
+# Track B -- random channel (docs/CREST_PLAN.md section 5).
+#
+# Differences from configs/crest_v1.yaml only. Starts from the phase-2
+# checkpoint. FLOCK is a data dependency, never a code dependency: the walk
+# sampler is crest/randchan.py in plain torch, and the PETALS instances are
+# generated ONCE with the FLOCK container into data/raw/petals/ with a
+# manifest recording the generator seed (FLOCK ships np.random.seed commented
+# out in set_seed, so the generation script must seed numpy explicitly or the
+# instances cannot be regenerated).
+#
+# Stop rule B1: a variant proceeds only at >= 95% on PETALS.
+# Stop rule B2: keep the channel if mean entity MRR over all 41 stays within
+# 0.005 of phase 2 AND ind_er MRR rises >= 0.01, or mean relation MRR rises
+# >= 0.01. (Not Metafam: one idiosyncratic graph cannot carry a gate.)
+
+base: crest_v1.yaml
+
+channel:
+  # b1_i: NoiseChannel; b1_ii: walks without anonymisation; b1_iii (default):
+  # WalkChannel with the full recording protocol
+  variant: b1_iii
+  class: WalkChannel
+  feature_dim: 8
+  num_walks: 8      # sampled from the query head only, per query
+  walk_length: 8
+  test_passes: 8    # average 8 passes at test time
+
+petals:
+  root: data/raw/petals
+  manifest: data/raw/petals/MANIFEST.json
+  instances: 220
