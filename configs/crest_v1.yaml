@@ -64,11 +64,23 @@ bank:
 # change goes in results/config_diff.md.
 chunk_size: 4096
 
-# Training (crest/train.py); stage A freezes the encoder, stage B unfreezes
-# it at encoder_lr_scale times the base rate and requires a BankRefresher.
+# Training (crest/train.py, driven by crest/pretrain.py); stage A freezes the
+# encoder, stage B unfreezes it at encoder_lr_scale times the base rate and
+# refreshes banks through a BankRefresher. Objective and sampling are TRIX's
+# pretraining recipe verbatim (repos/trix/config/pretrain_entity.yaml:
+# batch 32, 512 strict negatives, self-adversarial at temperature 1, AdamW
+# 5e-4) -- the plan requires TRIX's loss and negative sampling unchanged, so
+# these numbers are inherited, not tuned.
 train:
+  graphs: [FB15k237, WN18RR, CoDExMedium]   # TRIX's pretraining mix
   lr: 5.0e-4
   encoder_lr_scale: 0.1
-  num_negative: 32
+  batch_size: 32
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  steps: 20000
+  val_interval: 1000      # validate on the mix's validation splits ...
+  val_samples: 500        # ... at TRIX's fast_test size, best by mean MRR
   refresh_interval: 500   # bank refresh cadence; the 20% cost gate raises it
   cost_gate: 0.20

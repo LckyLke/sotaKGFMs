@@ -19,11 +19,34 @@ controls, all implemented in ``BankRefresher``:
    ``results/phase2_cost.json``; on failure the refresh interval is raised
    *before* anything else is tried.
 
-Training here is self-supervised link prediction on the training graph: the
-batch's positive edges are removed from the message graph (TRIX's
-remove_easy_edges, reimplemented on the duck-typed graph), negatives are
-uniform, and the loss is binary cross-entropy over 1 positive and
-``num_negative`` negatives per query -- the NBFNet family's objective.
+------------------------------------------------------------------------------
+The objective is TRIX's own, unchanged
+------------------------------------------------------------------------------
+docs/CREST_PLAN.md inherits section 3.4 of the original plan: TRIX's loss and
+negative sampling are used as they are, because the readout is a residual on
+TRIX's score and a different objective would make the comparison against
+``ranks/trix`` a comparison of objectives, not of models. Concretely, per
+``repos/trix/src/run_entity.py::train_and_validate``:
+
+* positives are sampled from the training graph's target edges;
+* ``negative_sampling`` (strict) replaces tails on the first half of the
+  batch and heads on the second, ``num_negative`` per query;
+* the loss is binary cross-entropy with logits over ``s = s_v0 + s_pfn``,
+  with self-adversarial negative weighting at ``adversarial_temperature``
+  (1 in TRIX's pretraining config, and here).
+
+``edge_match``/``strict_negative_mask``/``negative_sampling`` below are
+verbatim copies of ``trix/tasks.py``, copied rather than imported so the host
+test suite samples exactly the way the container does without needing TRIX --
+the same precedent as ``crest/model.py::compute_ranking``.
+
+The whole batch goes through the encoder in **one** forward
+(``encoder.encode_batch``, the same call ``crest/run.py`` evaluates with);
+the readout then attends with a batch dimension, so no per-query Python loop
+survives on the training path. Encoders that only offer ``encode_single``
+(the host-test toys) fall back to one call per query row, which is fine at
+toy scale and never runs in the container.
+
 Seed 1024 for every run until phase 4, like every other model here.
 """
 
@@ -107,10 +130,18 @@ class BankRefresher:
 
 def _remove_batch_edges(graph, heads, rels, tails):
     """The training-time analogue of TRIX's remove_easy_edges: drop the
-    batch's positive edges and their inverses from the message graph."""
+    batch's positive edges and their inverses from the message graph.
+
+    Only the fallback encoder path uses this; ``encode_batch`` encoders (the
+    TRIX adapter) remove their own easy edges inside the forward when the
+    wrapped model is in training mode, exactly as TRIX training does. Under
+    strict negatives the two removals are the same set: TRIX passes the whole
+    [b, c] batch to ``remove_easy_edges``, but a strict negative is never an
+    edge of the graph, so only the positives (and inverses) actually match.
+    """
     ei, et = graph.edge_index, graph.edge_type
-    num_direct = graph.num_relations // 2
-    keep = torch.ones(et.shape[0], dtype=torch.bool)
+    num_direct = int(graph.num_relations) // 2
+    keep = torch.ones(et.shape[0], dtype=torch.bool, device=et.device)
     for u, r, v in zip(heads.tolist(), rels.tolist(), tails.tolist()):
         r_inv = r + num_direct if r < num_direct else r - num_direct
         keep &= ~(((ei[0] == u) & (ei[1] == v) & (et == r)) |
@@ -122,30 +153,211 @@ def _remove_batch_edges(graph, heads, rels, tails):
     return out
 
 
-def entity_batch_loss(model, graph, ctx_bank: _bank.ContextBank, batch_size: int,
-                      num_negative: int, generator: torch.Generator) -> torch.Tensor:
-    """BCE over 1 positive + ``num_negative`` uniform negatives per query."""
-    n_edges = graph.edge_type.shape[0]
-    picks = torch.randint(n_edges, (batch_size,), generator=generator)
-    heads = graph.edge_index[0, picks]
-    tails = graph.edge_index[1, picks]
-    rels = graph.edge_type[picks]
-    message_graph = _remove_batch_edges(graph, heads, rels, tails)
+# ---------------------------------------------------------------------------
+# Verbatim copies of trix/tasks.py (pin 7596e14e): edge_match,
+# strict_negative_mask, negative_sampling. Copied, not imported, so the host
+# tests sample exactly the way the container does without needing TRIX; the
+# container driver may still pass TRIX's own module through ``sampler``.
+# ---------------------------------------------------------------------------
 
-    losses = []
-    for u, r, v in zip(heads.tolist(), rels.tolist(), tails.tolist()):
-        negs = torch.randint(graph.num_nodes, (num_negative,), generator=generator)
-        candidates = torch.cat([torch.tensor([v]), negs])
-        scores = model(message_graph, u, r, candidates, ctx_bank)
-        target = torch.zeros_like(scores)
-        target[0] = 1.0
-        losses.append(F.binary_cross_entropy_with_logits(scores, target))
-    return torch.stack(losses).mean()
+def edge_match(edge_index, query_index):
+    base = edge_index.max(dim=1)[0] + 1
+    from functools import reduce
+    assert reduce(int.__mul__, base.tolist()) < torch.iinfo(torch.long).max
+    scale = base.cumprod(0)
+    scale = scale[-1] // scale
+    edge_hash = (edge_index * scale.unsqueeze(-1)).sum(dim=0)
+    edge_hash, order = edge_hash.sort()
+    query_hash = (query_index * scale.unsqueeze(-1)).sum(dim=0)
+    start = torch.bucketize(query_hash, edge_hash)
+    end = torch.bucketize(query_hash, edge_hash, right=True)
+    num_match = end - start
+    offset = num_match.cumsum(0) - num_match
+    range_ = torch.arange(num_match.sum(), device=edge_index.device)
+    range_ = range_ + (start - offset).repeat_interleave(num_match)
+    return order[range_], num_match
+
+
+def strict_negative_mask(data, batch):
+    pos_h_index, pos_t_index, pos_r_index = batch.t()
+
+    edge_index = torch.stack([data.edge_index[0], data.edge_type])
+    query_index = torch.stack([pos_h_index, pos_r_index])
+    edge_id, num_t_truth = edge_match(edge_index, query_index)
+    t_truth_index = data.edge_index[1, edge_id]
+    sample_id = torch.arange(len(num_t_truth), device=batch.device).repeat_interleave(num_t_truth)
+    t_mask = torch.ones(len(num_t_truth), data.num_nodes, dtype=torch.bool, device=batch.device)
+    t_mask[sample_id, t_truth_index] = 0
+    t_mask.scatter_(1, pos_t_index.unsqueeze(-1), 0)
+
+    edge_index = torch.stack([data.edge_index[1], data.edge_type])
+    query_index = torch.stack([pos_t_index, pos_r_index])
+    edge_id, num_h_truth = edge_match(edge_index, query_index)
+    h_truth_index = data.edge_index[0, edge_id]
+    sample_id = torch.arange(len(num_h_truth), device=batch.device).repeat_interleave(num_h_truth)
+    h_mask = torch.ones(len(num_h_truth), data.num_nodes, dtype=torch.bool, device=batch.device)
+    h_mask[sample_id, h_truth_index] = 0
+    h_mask.scatter_(1, pos_h_index.unsqueeze(-1), 0)
+
+    return t_mask, h_mask
+
+
+def negative_sampling(data, batch, num_negative, strict=True):
+    batch_size = len(batch)
+    pos_h_index, pos_t_index, pos_r_index = batch.t()
+
+    if strict:
+        t_mask, h_mask = strict_negative_mask(data, batch)
+        t_mask = t_mask[:batch_size // 2]
+        neg_t_candidate = t_mask.nonzero()[:, 1]
+        num_t_candidate = t_mask.sum(dim=-1)
+        rand = torch.rand(len(t_mask), num_negative, device=batch.device)
+        index = (rand * num_t_candidate.unsqueeze(-1)).long()
+        index = index + (num_t_candidate.cumsum(0) - num_t_candidate).unsqueeze(-1)
+        neg_t_index = neg_t_candidate[index]
+
+        h_mask = h_mask[batch_size // 2:]
+        neg_h_candidate = h_mask.nonzero()[:, 1]
+        num_h_candidate = h_mask.sum(dim=-1)
+        rand = torch.rand(len(h_mask), num_negative, device=batch.device)
+        index = (rand * num_h_candidate.unsqueeze(-1)).long()
+        index = index + (num_h_candidate.cumsum(0) - num_h_candidate).unsqueeze(-1)
+        neg_h_index = neg_h_candidate[index]
+    else:
+        neg_index = torch.randint(data.num_nodes, (batch_size, num_negative), device=batch.device)
+        neg_t_index, neg_h_index = neg_index[:batch_size // 2], neg_index[batch_size // 2:]
+
+    h_index = pos_h_index.unsqueeze(-1).repeat(1, num_negative + 1)
+    t_index = pos_t_index.unsqueeze(-1).repeat(1, num_negative + 1)
+    r_index = pos_r_index.unsqueeze(-1).repeat(1, num_negative + 1)
+    t_index[:batch_size // 2, 1:] = neg_t_index
+    h_index[batch_size // 2:, 1:] = neg_h_index
+
+    return torch.stack([h_index, t_index, r_index], dim=-1)
+
+
+# ---------------------------------------------------------------------------
+# The batched CREST training path
+# ---------------------------------------------------------------------------
+
+def sample_positive_triples(graph, batch_size: int,
+                            generator: torch.Generator) -> torch.Tensor:
+    """``[batch_size, 3]`` rows of (h, t, r), the shape TRIX's train loader
+    yields. Target edges are the training split when the graph carries one
+    (TRIX datasets do); the duck-typed toy graphs fall back to their direct
+    edges, since their inverse half restates the same facts."""
+    if getattr(graph, "target_edge_index", None) is not None:
+        ei, et = graph.target_edge_index, graph.target_edge_type
+    else:
+        num_direct = int(graph.num_relations) // 2
+        direct = (graph.edge_type < num_direct).nonzero(as_tuple=True)[0]
+        ei, et = graph.edge_index[:, direct], graph.edge_type[direct]
+    picks = torch.randint(et.shape[0], (batch_size,), generator=generator).to(ei.device)
+    return torch.stack([ei[0, picks], ei[1, picks], et[picks]], dim=-1)
+
+
+def self_adversarial_nll(pred: torch.Tensor, num_negative: int,
+                         adversarial_temperature: float) -> torch.Tensor:
+    """TRIX's loss, verbatim from run_entity.py::train_and_validate:
+    BCE-with-logits over [positive | negatives], negatives weighted by a
+    softmax of their own scores (self-adversarial) at ``adversarial_temperature``,
+    or uniformly at temperature 0."""
+    target = torch.zeros_like(pred)
+    target[:, 0] = 1
+    loss = F.binary_cross_entropy_with_logits(pred, target, reduction="none")
+    neg_weight = torch.ones_like(pred)
+    if adversarial_temperature > 0:
+        with torch.no_grad():
+            neg_weight[:, 1:] = F.softmax(pred[:, 1:] / adversarial_temperature, dim=-1)
+    else:
+        neg_weight[:, 1:] = 1 / num_negative
+    loss = (loss * neg_weight).sum(dim=-1) / neg_weight.sum(dim=-1)
+    return loss.mean()
+
+
+def entity_batch_scores(model, graph, batch: torch.Tensor,
+                        ctx_bank: _bank.ContextBank,
+                        encoder_no_grad: bool = False,
+                        chunk_size=None) -> torch.Tensor:
+    """``s = s_v0 + s_pfn`` for a raw TRIX batch ``[b, c, 3]`` -> ``[b, c]``.
+
+    One encoder forward for the whole batch. The per-row conversion to tail
+    form (candidates, effective relation id) restates TRIX's
+    ``negative_sample_to_tail`` so the residual reads the same bank the score
+    columns were produced under: rows whose head varies are head queries and
+    read the inverse relation's bank.
+
+    ``encoder_no_grad`` runs the encoder under ``torch.no_grad()`` -- stage A
+    freezes it, so building its autograd graph would only cost memory.
+    """
+    h_index, t_index, r_index = batch.unbind(-1)
+    num_direct = int(graph.num_relations) // 2
+    is_t_neg = (h_index == h_index[:, [0]]).all(dim=-1, keepdim=True)
+    cand = torch.where(is_t_neg, t_index, h_index)
+    r_eff = torch.where(is_t_neg.squeeze(-1), r_index[:, 0], r_index[:, 0] + num_direct)
+
+    encoder = model._encoder_ref
+    grad_ctx = torch.no_grad() if encoder_no_grad else torch.enable_grad()
+    with grad_ctx:
+        if hasattr(encoder, "encode_batch"):
+            # the TRIX adapter: easy-edge removal happens inside the wrapped
+            # model when it is in training mode, exactly as in TRIX training
+            x, z, s0_cand = encoder.encode_batch(graph, batch)
+            x_cand = x.gather(1, cand.unsqueeze(-1).expand(-1, -1, x.shape[-1]))
+        else:
+            # host-test fallback: encode_single per query row on one shared
+            # message graph with the batch positives (and inverses) removed
+            message_graph = _remove_batch_edges(
+                graph, h_index[:, 0], r_index[:, 0], t_index[:, 0])
+            head_eff = torch.where(is_t_neg.squeeze(-1), h_index[:, 0], t_index[:, 0])
+            xs, zs, s0s = [], [], []
+            for i in range(batch.shape[0]):
+                x_i, z_i, s0_i = encoder.encode_single(
+                    message_graph, int(head_eff[i]), int(r_eff[i]))
+                xs.append(x_i)
+                zs.append(z_i)
+                s0s.append(s0_i)
+            x, z, s0 = torch.stack(xs), torch.stack(zs), torch.stack(s0s)
+            x_cand = x.gather(1, cand.unsqueeze(-1).expand(-1, -1, x.shape[-1]))
+            s0_cand = s0.gather(1, cand)
+    return model.score(x_cand, z, s0_cand, r_eff, ctx_bank, chunk_size=chunk_size)
+
+
+def entity_loss_from_triples(model, graph, ctx_bank: _bank.ContextBank,
+                             triples: torch.Tensor, num_negative: int,
+                             adversarial_temperature: float = 1.0,
+                             strict: bool = True,
+                             encoder_no_grad: bool = False,
+                             sampler=negative_sampling) -> torch.Tensor:
+    """TRIX's objective on given positives: sample negatives, score in one
+    batched forward, weight self-adversarially. ``sampler`` defaults to the
+    verbatim copy above; the container driver passes ``tasks.negative_sampling``
+    from the patched TRIX tree so the sampling code is literally TRIX's own."""
+    batch = sampler(graph, triples, num_negative, strict=strict)
+    pred = entity_batch_scores(model, graph, batch, ctx_bank, encoder_no_grad)
+    return self_adversarial_nll(pred, num_negative, adversarial_temperature)
+
+
+def entity_batch_loss(model, graph, ctx_bank: _bank.ContextBank, batch_size: int,
+                      num_negative: int, generator: torch.Generator,
+                      adversarial_temperature: float = 1.0, strict: bool = True,
+                      encoder_no_grad: bool = False,
+                      sampler=negative_sampling) -> torch.Tensor:
+    """One training step's loss: TRIX's sampling and loss, batched forward."""
+    triples = sample_positive_triples(graph, batch_size, generator)
+    return entity_loss_from_triples(model, graph, ctx_bank, triples, num_negative,
+                                    adversarial_temperature, strict,
+                                    encoder_no_grad, sampler)
 
 
 def relation_batch_loss(model, graph, ctx_bank: _bank.ContextBank, batch_size: int,
                         generator: torch.Generator) -> torch.Tensor:
-    """Cross-entropy over all direct relations for queries (u, ?, v)."""
+    """Cross-entropy over all direct relations for queries (u, ?, v).
+
+    Still per-query: the relation task enters at track C, which has no driver
+    yet, so this loop only ever runs on toy graphs in host tests. Batching it
+    belongs to the track C work, alongside TRIX's ``negative_sampling_relation``.
+    """
     n_edges = graph.edge_type.shape[0]
     num_direct = graph.num_relations // 2
     # sample direct edges only; the inverse of a triple is the same fact
@@ -176,6 +388,7 @@ def _trainable(model: nn.Module, freeze_encoder: bool) -> List[torch.nn.Paramete
 
 def stage_a(model, graph, ctx_bank: _bank.ContextBank, *, steps: int = 1000,
             batch_size: int = 32, num_negative: int = 32, lr: float = 5e-4,
+            adversarial_temperature: float = 1.0, strict: bool = True,
             seed: int = 1024, refresher: Optional[BankRefresher] = None,
             log_every: int = 100) -> List[float]:
     """Readout-only training; the encoder is frozen so the bank stays valid
@@ -186,7 +399,9 @@ def stage_a(model, graph, ctx_bank: _bank.ContextBank, *, steps: int = 1000,
     for step in range(steps):
         t0 = time.perf_counter()
         optimizer.zero_grad()
-        loss = entity_batch_loss(model, graph, ctx_bank, batch_size, num_negative, generator)
+        loss = entity_batch_loss(model, graph, ctx_bank, batch_size, num_negative,
+                                 generator, adversarial_temperature, strict,
+                                 encoder_no_grad=True)
         loss.backward()
         optimizer.step()
         losses.append(float(loss))
@@ -199,7 +414,9 @@ def stage_a(model, graph, ctx_bank: _bank.ContextBank, *, steps: int = 1000,
 
 def stage_b(model, graph, ctx_bank: _bank.ContextBank, *, steps: int = 1000,
             batch_size: int = 32, num_negative: int = 32, lr: float = 5e-4,
-            encoder_lr_scale: float = 0.1, seed: int = 1024,
+            encoder_lr_scale: float = 0.1,
+            adversarial_temperature: float = 1.0, strict: bool = True,
+            seed: int = 1024,
             refresher: Optional[BankRefresher] = None, log_every: int = 100
             ) -> List[float]:
     """Full finetune. The encoder moves, so bank rows go stale: the caller
@@ -220,7 +437,8 @@ def stage_b(model, graph, ctx_bank: _bank.ContextBank, *, steps: int = 1000,
     for step in range(steps):
         t0 = time.perf_counter()
         optimizer.zero_grad()
-        loss = entity_batch_loss(model, graph, ctx_bank, batch_size, num_negative, generator)
+        loss = entity_batch_loss(model, graph, ctx_bank, batch_size, num_negative,
+                                 generator, adversarial_temperature, strict)
         loss.backward()
         optimizer.step()
         losses.append(float(loss))
@@ -234,6 +452,7 @@ def stage_b(model, graph, ctx_bank: _bank.ContextBank, *, steps: int = 1000,
 def joint(joint_model, graph, entity_bank: _bank.ContextBank,
           relation_bank: _bank.ContextBank, *, steps: int = 1000,
           batch_size: int = 32, num_negative: int = 32, lr: float = 5e-4,
+          adversarial_temperature: float = 1.0, strict: bool = True,
           seed: int = 1024, freeze_encoder: bool = True, log_every: int = 100
           ) -> List[float]:
     """Track C: alternate entity and relation batches one to one."""
@@ -244,7 +463,9 @@ def joint(joint_model, graph, entity_bank: _bank.ContextBank,
         optimizer.zero_grad()
         if step % 2 == 0:
             loss = entity_batch_loss(joint_model.entity, graph, entity_bank,
-                                     batch_size, num_negative, generator)
+                                     batch_size, num_negative, generator,
+                                     adversarial_temperature, strict,
+                                     encoder_no_grad=freeze_encoder)
         else:
             loss = relation_batch_loss(joint_model.relation, graph, relation_bank,
                                        batch_size, generator)

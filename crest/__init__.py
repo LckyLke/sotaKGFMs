@@ -11,9 +11,10 @@ Nothing in this package computes a reported metric. Evaluation is
 ``shared/metrics.py`` over rank dumps in the shared schema, like every other
 model in this harness; there is deliberately no ``crest/eval.py``.
 
-Import discipline: every module here except ``crest/run.py`` depends only on
-torch, so the test suite runs on the host CPU without TRIX, PyG or a GPU.
-TRIX enters through the adapter in ``crest/run.py``, which is container-only.
+Import discipline: every module here except ``crest/run.py`` (evaluation) and
+``crest/pretrain.py`` (training driver) depends only on torch, so the test
+suite runs on the host CPU without TRIX, PyG or a GPU. TRIX enters through
+the adapter in ``crest/run.py``; both drivers are container-only.
 """
 
 __all__ = ["bank", "pfn", "model", "messages", "randchan", "train"]

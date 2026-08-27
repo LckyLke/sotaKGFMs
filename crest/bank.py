@@ -275,6 +275,10 @@ def _sample_negatives(graph, u: int, r: int, k: int,
     return candidates[idx]
 
 
+# no_grad on both builders: bank rows are data, never differentiated through.
+# Without it a mid-training refresh (stage B) would store rows that pin the
+# encoder's autograd graph for as long as the bank lives.
+@torch.no_grad()
 def build_bank_entity(graph, encoder, seed: int = 1024,
                       num_positive: int = N_POSITIVE,
                       neg_per_pos: int = NEG_PER_POS,
@@ -320,6 +324,7 @@ def build_bank_entity(graph, encoder, seed: int = 1024,
     return out
 
 
+@torch.no_grad()
 def build_bank_relation(graph, encoder, seed: int = 1024,
                         num_positive: int = N_POSITIVE,
                         neg_per_pos: int = NEG_PER_POS,
