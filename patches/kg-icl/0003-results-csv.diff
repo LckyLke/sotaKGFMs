@@ -1,0 +1,31 @@
+Reason: record the metric values KG-ICL computes. Upstream logs them and discards them, so there is nothing for criterion A to compare this project's metric code against. The values come from cal_performance over cal_ranks' output, so they correspond to the rank_native column of the dump, not to the shared rank -- the two are different definitions and comparing our metrics over `rank` against these would fail by construction and mean nothing. Applies on top of 0002.
+
+diff --git a/src/experiment.py b/src/experiment.py
+index a0b311e..a948cf7 100644
+--- a/src/experiment.py
++++ b/src/experiment.py
+@@ -231,6 +231,24 @@ class Experiment(object):
+                         i_time = time.time() - i_time
+                         self.args.logger.info(loader.name+' MRR:%.4f H@1:%.4f H@3:%.4f H@5:%.4f H@10:%.4f[TIME] train:%.4f inference:%.4f\n' % (
+                             v_mrr, v_h1, v_h3, v_h5, v_h10, self.t_time, i_time))
++
++                        # Record the metric values KG-ICL computed, so criterion
++                        # A can be run against them. Upstream logs them and
++                        # discards them. These come from cal_performance over
++                        # cal_ranks' own output, so they describe rank_native in
++                        # the dump, not the shared `rank` column.
++                        csv_path = getattr(self.args, 'results_csv', None)
++                        if csv_path and mode == 'test':
++                            import csv as _csv
++                            _new = not os.path.exists(csv_path)
++                            _dir = os.path.dirname(csv_path)
++                            if _dir:
++                                os.makedirs(_dir, exist_ok=True)
++                            with open(csv_path, 'a', newline='') as _f:
++                                _w = _csv.writer(_f)
++                                if _new:
++                                    _w.writerow(['dataset', 'mrr', 'hits@1', 'hits@3', 'hits@5', 'hits@10'])
++                                _w.writerow([loader.name, v_mrr, v_h1, v_h3, v_h5, v_h10])
+                         print(loader.name+' MRR:%.4f H@1:%.4f H@3:%.4f H@5:%.4f H@10:%.4f[TIME] train:%.4f inference:%.4f\n' % (
+                             v_mrr, v_h1, v_h3, v_h5, v_h10, self.t_time, i_time))
+                         out_str = loader.name + ' MRR:%.4f H@1:%.4f H@3:%.4f H@5:%.4f H@10:%.4f[TIME] train:%.4f inference:%.4f\n' % (

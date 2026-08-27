@@ -1,0 +1,142 @@
+Reason: emit one parquet row per scored fact into the shared ranks/ schema, carrying BOTH rank definitions. KG-ICL's utils.cal_ranks breaks ties with rankdata(method='ordinal'), which resolves a tie by entity id -- neither the pessimistic rule ULTRA uses nor the optimistic one, so it is not comparable with either. `rank` is recomputed from the same scores under the shared definition and is what cross-model tables read; `rank_native` is what cal_ranks returned, so criterion A can still compare this project's metric code against KG-ICL's own numbers. The ranking KG-ICL reports is unchanged: cal_ranks now gets a copy of the scores because it mutates its argument in place (filter_scores = scores, then filter_scores[...] = -1e7), which would otherwise corrupt the shared rank computed after it. Head questions are stored in base orientation so (h, r, t) means the same thing here as in every other model's dump.
+
+diff --git a/src/experiment.py b/src/experiment.py
+index e398ce1..a0b311e 100644
+--- a/src/experiment.py
++++ b/src/experiment.py
+@@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import ExponentialLR
+ from encoder.EntityEncoder import *
+ from data_loader import *
+ from utils import cal_ranks, cal_performance
++from rank_dump import Dumper
+ import os, random
+ from tqdm import tqdm
+ from torch.nn import init
+@@ -193,6 +194,12 @@ class Experiment(object):
+                         n_data = len(loader.kg.query)
+                         n_batch = n_data // loader.kg.test_batch_size + int(n_data % loader.kg.test_batch_size > 0)
+                         ranking = []
++                        # rank dump only; the ranking below is untouched
++                        dump_dir = getattr(self.args, 'rank_dump_dir', None)
++                        dumper = None
++                        if dump_dir and mode == 'test':
++                            dumper = Dumper({'dir': dump_dir, 'dataset': loader.name,
++                                             'model': 'kg-icl', 'seed': self.args.seed})
+                         self.model.eval()
+                         i_time = time.time()
+                         for i in tqdm(range(n_batch), ncols=100, position=0, leave=True):
+@@ -209,8 +216,14 @@ class Experiment(object):
+                                 filt_1hot[np.array(filt)] = 1
+                                 filters.append(filt_1hot)
+                             filters = np.array(filters)
+-                            ranks = cal_ranks(scores, objs, filters)
++                            ranks = cal_ranks(scores.copy(), objs, filters)
++                            if dumper is not None:
++                                dumper.add(subs, rels, [np.nonzero(o)[0] for o in objs],
++                                           scores, filters, ranks,
++                                           loader.kg.relation_num)
+                             ranking += list(ranks)
++                        if dumper is not None:
++                            print('Rank dump written to', dumper.write())
+                         ranking = np.array(ranking)
+                         v_mrr, v_h1, v_h3, v_h5, v_h10 = cal_performance(ranking)
+ 
+diff --git a/src/rank_dump.py b/src/rank_dump.py
+new file mode 100644
+index 0000000..ace6319
+--- /dev/null
++++ b/src/rank_dump.py
+@@ -0,0 +1,93 @@
++"""Per-query rank dump for the shared ``ranks/`` schema, for KG-ICL.
++
++KG-ICL is not an ULTRA fork and its evaluation loop has a different shape, so
++this cannot be the same Dumper the other repos use. Two differences matter.
++
++Grouping. KG-ICL scores one row per *query* ``(h, r)`` and carries a list of
++true answers for it, emitting one rank per answer. The ULTRA-derived repos score
++one row per test triple. The two agree in total, and this module emits one row
++per (query, answer) pair, which is the same set of scored facts.
++
++Ranking. ``utils.cal_ranks`` breaks ties with ``rankdata(method='ordinal')``,
++which resolves a tie by entity id. That is neither the pessimistic rule ULTRA
++uses -- where every tied candidate counts against the answer -- nor the
++optimistic one, and it cannot be compared with either. So both are recorded:
++
++  ``rank``         the shared definition, 1-based, pessimistic ties, strict
++                   filtering. This is the column every cross-model table reads.
++  ``rank_native``  exactly what ``cal_ranks`` returned, so criterion A can still
++                   check this project's metric code against KG-ICL's own.
++
++The two are computed from the same scores in the same call. Neither is derived
++from the other.
++"""
++
++import os
++
++import numpy as np
++
++import suite  # shared/suite.py, on PYTHONPATH
++
++
++class Dumper:
++    """Accumulates one row per (query, answer) and writes a single parquet."""
++
++    EXTRA = ["rank_native"]
++
++    def __init__(self, spec):
++        self.spec = spec
++        self.graph = suite.by_run_id(spec["dataset"])
++        self.columns = {name: [] for name in list(suite.RANK_COLUMNS) + self.EXTRA}
++        self.query_id = 0
++
++    def add(self, subs, rels, answers, scores, filters, native_ranks, n_relations):
++        """One batch. ``filters[i]`` is 1 for a known true answer of query i."""
++        native = list(native_ranks)
++        cursor = 0
++        for i in range(len(subs)):
++            keep = filters[i] == 0                      # candidates ULTRA would score
++            n_candidates = int(keep.sum())
++            row_scores = scores[i]
++            for target in answers[i]:
++                target = int(target)
++                # The shared definition: 1-based, pessimistic ties, strict
++                # filtering. Every surviving candidate scoring at least as high
++                # as the answer counts against it, which is what
++                # ``torch.sum((pos_pred <= pred) & mask) + 1`` does in ULTRA.
++                rank = int(np.count_nonzero(keep & (row_scores >= row_scores[target]))) + 1
++                # A relation id at or above half the vocabulary is KG-ICL's
++                # inverse of a base relation, which is how it asks a head
++                # question. The stored triple is put back in base orientation so
++                # (h, r, t) means the same thing as in every other model's dump.
++                inverse = int(rels[i]) >= n_relations // 2
++                base_r = int(rels[i]) - n_relations // 2 if inverse else int(rels[i])
++                head, tail = (target, int(subs[i])) if inverse else (int(subs[i]), target)
++                self.columns["dataset"].append(self.graph.id)
++                self.columns["model"].append(self.spec["model"])
++                self.columns["seed"].append(self.spec["seed"])
++                self.columns["direction"].append("head" if inverse else "tail")
++                self.columns["query_id"].append(self.query_id)
++                self.columns["h"].append(head)
++                self.columns["r"].append(base_r)
++                self.columns["t"].append(tail)
++                self.columns["rank"].append(rank)
++                self.columns["n_candidates"].append(n_candidates)
++                self.columns["rank_native"].append(int(native[cursor]) if cursor < len(native) else -1)
++                cursor += 1
++                self.query_id += 1
++
++    def write(self):
++        import pyarrow
++        import pyarrow.parquet
++
++        arrow_types = {"string": pyarrow.string(), "int64": pyarrow.int64()}
++        fields = [(name, arrow_types[suite.RANK_COLUMN_TYPES[name]]) for name in suite.RANK_COLUMNS]
++        fields += [(name, pyarrow.int64()) for name in self.EXTRA]
++        schema = pyarrow.schema(fields)
++        names = list(suite.RANK_COLUMNS) + self.EXTRA
++        table = pyarrow.table({n: self.columns[n] for n in names}, schema=schema)
++
++        os.makedirs(self.spec["dir"], exist_ok=True)
++        path = os.path.join(self.spec["dir"], "%s.parquet" % self.graph.id.replace(":", "_"))
++        pyarrow.parquet.write_table(table, path)
++        return path
