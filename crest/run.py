@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import math
 import os
 import sys
 import time
@@ -136,7 +137,7 @@ def build_filtered_data(cfg, dataset, train_data, valid_data, test_data):
 
 @torch.no_grad()
 def evaluate(cfg, crest_model, adapter, test_data, filtered_data, ctx_bank,
-             device, dump_spec, chunk_size):
+             dump_spec, chunk_size):
     """run_entity.py::test with the residual added before ranking."""
     test_triplets = torch.cat(
         [test_data.target_edge_index, test_data.target_edge_type.unsqueeze(0)]).t()
@@ -208,7 +209,6 @@ def evaluate(cfg, crest_model, adapter, test_data, filtered_data, ctx_bank,
                 fp_rate = (_ranking - 1) / _num_neg
                 score = 0
                 for i in range(threshold):
-                    import math
                     num_comb = (math.factorial(num_sample - 1) /
                                 math.factorial(i) / math.factorial(num_sample - i - 1))
                     score += num_comb * (fp_rate ** i) * ((1 - fp_rate) ** (num_sample - i - 1))
@@ -310,8 +310,8 @@ def main(argv=None):
             time.perf_counter() - t0, len(ctx_bank)))
     else:
         ctx_bank = crest_bank.ContextBank(dataset_id, ckpt_hash, args.seed)
-        assert readout.residual_is_zero() or args.readout_ckpt is None, (
-            "--bank skip with a trained readout would silently score without "
+        assert readout.residual_is_zero(), (
+            "--bank skip with a live readout would silently score without "
             "context; skip is a phase 0 (zero residual) convenience only")
 
     filtered_data = build_filtered_data(cfg, dataset, train_data, valid_data,
@@ -323,7 +323,7 @@ def main(argv=None):
         "model": "crest", "seed": args.seed,
     }
     metrics = evaluate(cfg, crest_model, adapter, test_data, filtered_data,
-                       ctx_bank, device, dump_spec, crest_cfg.chunk_size)
+                       ctx_bank, dump_spec, crest_cfg.chunk_size)
     for k, v in metrics.items():
         print("%s: %g" % (k, float(v)))
 
