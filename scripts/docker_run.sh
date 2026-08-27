@@ -45,7 +45,12 @@ trap 'rm -f "$RUNNER"' EXIT
 # and so on. Each runner documents the ones it reads.
 UP="$(echo "$MODEL" | tr '[:lower:]-' '[:upper:]_')"
 ENVARGS=()
-for suffix in DATASETS SHARD REDO EXTRA_ARGS WORKDIR RANK_DUMP_DIR; do
+# Any new per-model knob must be added here. A variable that is not in this
+# list is not an error: it is silently absent inside the container, and the
+# runner falls back to its default as if it had never been set. That cost a
+# wasted test run of FLOCK_BATCH_DIVISOR.
+for suffix in DATASETS SHARD REDO EXTRA_ARGS WORKDIR RANK_DUMP_DIR \
+              BATCH_DIVISOR UNSEEDED_WALKS FETCH_ENTITY_LABELS; do
   name="${UP}_${suffix}"
   ENVARGS+=(-e "${name}=${!name:-}")
 done
@@ -53,6 +58,8 @@ done
 exec docker run --rm \
   --gpus '"device=0"' \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+  -e PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-}" \
+  -e OMP_NUM_THREADS="${OMP_NUM_THREADS:-}" \
   "${ENVARGS[@]}" \
   -v "$ROOT:/kgfm-src" \
   -v "$ROOT/output:/kgfm/output" \
