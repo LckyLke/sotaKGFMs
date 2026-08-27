@@ -1,0 +1,70 @@
+Reason: stop fetching 225816 Wikidata entity labels that nothing reads. For the 14 Wikidata graphs in this suite, datasets.py resolves every entity id to an English label, one request per 50 ids, roughly 4500 requests -- and then attrs_to_remove deletes id2entity before the dataset is saved. id2entity and its train_/valid_/test_ copies appear nowhere in this repository outside datasets.py, and never on the right-hand side: SEMMA's semantic stream is built from relation descriptions, not entity ones. Relation labels are still fetched, because those are what edge2id and the description lookup are keyed by. This cannot change a result and takes hours off a run; SEMMA_FETCH_ENTITY_LABELS=1 restores upstream behaviour. Also holds the label cache in memory instead of re-parsing the file once per batch, which was quadratic, and chmods it readable so it can be inspected outside the container.
+
+diff --git a/ultra/datasets.py b/ultra/datasets.py
+index 9ec3380..37148d3 100644
+--- a/ultra/datasets.py
++++ b/ultra/datasets.py
+@@ -59,12 +59,21 @@ WIKIDATA_CACHE = os.environ.get(
+     "SEMMA_WIKIDATA_CACHE", os.path.join(mydir, "wikidata_labels.json"))
+ 
+ 
++_WIKIDATA_CACHE_MEM = None
++
++
+ def _wikidata_cache_read():
+-    try:
+-        with open(WIKIDATA_CACHE) as handle:
+-            return json.load(handle)
+-    except Exception:
+-        return {}
++    # Held in memory. This used to re-parse the whole file on every call, and
++    # every call is one 50-id batch, so filling a large cache cost O(n^2) in
++    # JSON parsing before a single label was used.
++    global _WIKIDATA_CACHE_MEM
++    if _WIKIDATA_CACHE_MEM is None:
++        try:
++            with open(WIKIDATA_CACHE) as handle:
++                _WIKIDATA_CACHE_MEM = json.load(handle)
++        except Exception:
++            _WIKIDATA_CACHE_MEM = {}
++    return _WIKIDATA_CACHE_MEM
+ 
+ 
+ def _wikidata_cache_write(cache):
+@@ -78,6 +87,7 @@ def _wikidata_cache_write(cache):
+         with os.fdopen(fd, "w") as handle:
+             json.dump(cache, handle, indent=0, sort_keys=True)
+         os.replace(tmp, WIKIDATA_CACHE)
++        os.chmod(WIKIDATA_CACHE, 0o644)
+     except Exception as e:
+         print(f"could not write {WIKIDATA_CACHE}: {e}")
+ 
+@@ -98,6 +108,20 @@ def fetch_wikidata(params):
+     return response
+ 
+ def get_entities(entity_ids):
++    # Entity labels are never read. They are fetched from Wikidata one HTTP
++    # request per 50 ids, copied onto train_/valid_/test_ prefixed attributes,
++    # and then the originals are deleted by attrs_to_remove before the dataset
++    # is saved. Nothing in ultra/, script/ or anywhere else in this repository
++    # reads id2entity or any of its prefixed copies -- the semantic half of
++    # SEMMA is built from *relation* descriptions, not entity ones.
++    #
++    # Across the 14 Wikidata graphs in this suite that is 225816 entities, about
++    # 4500 API requests, for a value that is discarded. Skipping it changes no
++    # result and takes hours off a run. The identity mapping is returned rather
++    # than an empty dict so that any future reader sees an id instead of a
++    # KeyError. Set SEMMA_FETCH_ENTITY_LABELS=1 to restore upstream behaviour.
++    if not os.environ.get("SEMMA_FETCH_ENTITY_LABELS"):
++        return {i: i for i in entity_ids}
+     _requested = list(entity_ids)
+     cache = _wikidata_cache_read()
+     missing = [i for i in _requested if i not in cache]
+@@ -228,6 +252,7 @@ def _props_cache_write(cache):
+         with os.fdopen(fd, "w") as handle:
+             json.dump(cache, handle, indent=0, sort_keys=True)
+         os.replace(tmp, _PROPS_CACHE)
++        os.chmod(_PROPS_CACHE, 0o644)
+     except Exception as e:
+         print(f"could not write {_PROPS_CACHE}: {e}")
+ 

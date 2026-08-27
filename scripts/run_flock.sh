@@ -74,6 +74,13 @@ mkdir -p "$CLAIMS"
 cd "$WORKDIR"
 
 MAP="$($PY "$ROOT/scripts/flock_config_map.py" --group "$GROUP")"
+# FLOCK_DATASETS narrows the group to a comma-separated list of suite ids, for
+# a single-graph check or to split a group across workers. The config for each
+# still comes from the map, never from a flag.
+if [ -n "${FLOCK_DATASETS:-}" ]; then
+  MAP="$(awk -F'\t' -v want=",${FLOCK_DATASETS}," 'index(want, ","$1",")' <<<"$MAP")"
+  [ -n "$MAP" ] || { echo "no suite id in FLOCK_DATASETS matched group $GROUP" >&2; exit 2; }
+fi
 echo "datasets  : $(wc -l <<<"$MAP")"
 
 ran=0; skipped=0; failed=0
@@ -87,7 +94,18 @@ while IFS=$'\t' read -r gid spelling config; do
     skipped=$((skipped+1)); continue
   fi
 
-  echo ">>> $gid  ($(basename "$config"))"
+  # Evaluation batch size, chosen for the GPU rather than for the model.
+  # Every config pairs batch_size with walk_num so the product is 512, which is
+  # what an H100 holds and a 16 GB card does not: the first graph asks for 18.8
+  # GiB. Dividing the batch by FLOCK_BATCH_DIVISOR keeps that product uniform
+  # across configs, just smaller. It changes nothing a result depends on --
+  # walk_num, walk_len, test_samples and every model hyper-parameter are
+  # untouched -- and run.py already honours cfg.train.test_batch_size.
+  DIV="${FLOCK_BATCH_DIVISOR:-4}"
+  BS="$(grep -oP '^  batch_size: \K\d+' "$WORKDIR/$config" | head -1)"
+  TEST_BS=$(( BS / DIV )); [ "$TEST_BS" -ge 1 ] || TEST_BS=1
+
+  echo ">>> $gid  ($(basename "$config"), test_batch_size $TEST_BS of $BS)"
   started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   index=$((ran + failed + 1))
   t0=$(date +%s.%N)
@@ -102,6 +120,7 @@ while IFS=$'\t' read -r gid spelling config; do
       --ckpt "$CKPT" \
       --output_dir "$OUT" \
       --data_root "$DATA_ROOT" \
+      --test_batch_size "$TEST_BS" \
       --rank_dump_dir "$RANKS" \
       ${FLOCK_EXTRA_ARGS:-} \
       -d "$spelling"; then
@@ -112,14 +131,15 @@ while IFS=$'\t' read -r gid spelling config; do
     echo "!!! FAILED: $gid"
   fi
   t1=$(date +%s.%N)
-  $PY - "$RANKS/TIMINGS.jsonl" "$id" "$spelling" "$DEVICE" "$status" "$started" "$t0" "$t1" "$index" "$config" <<'TIMEPY'
+  $PY - "$RANKS/TIMINGS.jsonl" "$id" "$spelling" "$DEVICE" "$status" "$started" "$t0" "$t1" "$index" "$config" "$TEST_BS" <<'TIMEPY'
 import json, os, sys
-path, gid, run_id, device, status, started, t0, t1, index, config = sys.argv[1:11]
+path, gid, run_id, device, status, started, t0, t1, index, config, test_bs = sys.argv[1:12]
 with open(path, "a") as handle:
     handle.write(json.dumps({
         "dataset": gid, "run_id": run_id, "model": "flock", "device": device,
         "status": status, "started": started, "seconds": round(float(t1) - float(t0), 3),
         "index": int(index), "config": os.path.basename(config),
+        "test_batch_size": int(test_bs),
     }, sort_keys=True) + "\n")
 TIMEPY
 done <<<"$MAP"

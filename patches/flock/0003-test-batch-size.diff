@@ -1,0 +1,134 @@
+Reason: let the evaluation batch size be set without touching any value that changes a result. FLOCK's README states it was tested on H100s. Every zero-shot config pairs its batch_size with its walk_num so the product is 512 -- 32x16, 16x32, 8x64, 4x128 -- and scoring one batch materialises a GRU input of batch x candidates x walk_num x walk_len x hidden. On a 16 GB card that asks for 18.8 GiB on the first graph and the run dies. run.py already reads cfg.train.test_batch_size when it is present and falls back to batch_size, so this only exposes the knob it already honours. The default is each config's own batch_size, so an unset variable is upstream behaviour unchanged. Nothing here alters walk_num, test_samples, walk_len or any model hyper-parameter.
+
+diff --git a/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml
+index 58ccbea..ad99730 100644
+--- a/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml
+@@ -41,6 +41,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 4
++  test_batch_size: {{ test_batch_size | default(4, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml
+index 6a500a4..38e119f 100644
+--- a/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml
+@@ -41,6 +41,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 32
++  test_batch_size: {{ test_batch_size | default(32, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml
+index abf6e1a..1d15775 100644
+--- a/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml
+@@ -41,6 +41,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 16
++  test_batch_size: {{ test_batch_size | default(16, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml
+index a362227..137fbab 100644
+--- a/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml
+@@ -41,6 +41,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 8
++  test_batch_size: {{ test_batch_size | default(8, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml
+index 1f95a11..3d8acd7 100644
+--- a/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml
+@@ -40,6 +40,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 2
++  test_batch_size: {{ test_batch_size | default(2, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml
+index f8e8b92..24a66fc 100644
+--- a/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml
+@@ -40,6 +40,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 16
++  test_batch_size: {{ test_batch_size | default(16, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml b/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml
+index dd9affa..6f408ea 100644
+--- a/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml
++++ b/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml
+@@ -40,6 +40,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 4
++  test_batch_size: {{ test_batch_size | default(4, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml
+index 0112fea..6ceba43 100644
+--- a/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml
+@@ -40,6 +40,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 8
++  test_batch_size: {{ test_batch_size | default(8, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml b/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml
+index cf5857f..2f9293d 100644
+--- a/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml
++++ b/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml
+@@ -40,6 +40,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 2
++  test_batch_size: {{ test_batch_size | default(2, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml b/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml
+index 35c767b..859ba85 100644
+--- a/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml
++++ b/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml
+@@ -40,6 +40,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 1
++  test_batch_size: {{ test_batch_size | default(1, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}
+diff --git a/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml
+index d2db429..b3db85e 100644
+--- a/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml
+@@ -40,6 +40,7 @@ optimizer:
+ train:
+   gpus: {{ gpus }}
+   batch_size: 4
++  test_batch_size: {{ test_batch_size | default(4, true) }}
+   num_epoch: {{ epochs }}
+   log_interval: 100
+   batch_per_epoch: {{ bpe }}

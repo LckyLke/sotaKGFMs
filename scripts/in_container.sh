@@ -17,7 +17,7 @@ hand_back() {
   status=$?
   if [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
     for d in /kgfm-src/ranks /kgfm-src/results /kgfm-src/output \
-             /kgfm-src/data/roots /kgfm/output /kgfm/ranks; do
+             /kgfm-src/data/roots /kgfm-src/data/raw /kgfm/output /kgfm/ranks; do
       [ -d "$d" ] && chown -R "$HOST_UID:$HOST_GID" "$d" 2>/dev/null
     done
   fi

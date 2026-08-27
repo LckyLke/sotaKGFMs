@@ -1,0 +1,36 @@
+Reason: make FLOCK's inference reproducible. It is the only stochastic model in this suite: it scores by sampling random walks and averaging an ensemble of them. run_many.py::set_seed seeds python's random and torch, but ships the numpy line commented out -- and numpy's generator is the one the walk sampler actually uses, through graph_walker.random_walks_fast(seed=None) and graph_walker._seed(None). As shipped, two runs of one graph from one checkpoint give different numbers, so nothing can be reproduced or compared to a stated precision. The seed value is unchanged: run_many.py already picks 1024 for the first repeat, the seed every other model here runs under. FLOCK_UNSEEDED_WALKS=1 restores upstream behaviour for measuring the sampling spread.
+
+diff --git a/src_entity/run_many.py b/src_entity/run_many.py
+index efce8c0..80f5ffc 100644
+--- a/src_entity/run_many.py
++++ b/src_entity/run_many.py
+@@ -7,6 +7,7 @@ import argparse
+ import random
+ import copy
+ import torch
++import numpy as np
+ from torch_geometric.data import Data
+ 
+ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+@@ -113,7 +114,20 @@ line = "-" * 30
+ 
+ def set_seed(seed):
+     random.seed(seed + util.get_rank())
+-    # np.random.seed(seed + util.get_rank())
++    # Upstream ships this line commented out. It is the only one that reaches
++    # the random walks, and the walks are how FLOCK scores: models.py calls
++    # graph_walker.random_walks_fast without a seed and graph_walker._seed(None),
++    # both of which draw from numpy's global generator. With numpy unseeded,
++    # every run of the same graph with the same checkpoint returns different
++    # numbers, and no result can be reproduced or compared with another model's
++    # to a stated precision.
++    #
++    # Seeding it does not make this run match the published one -- the published
++    # one was not reproducible either -- it makes this run reproducible at all.
++    # Set FLOCK_UNSEEDED_WALKS=1 to restore upstream behaviour, which is what to
++    # do when measuring how much of a FLOCK number is walk-sampling noise.
++    if not os.environ.get("FLOCK_UNSEEDED_WALKS"):
++        np.random.seed(seed + util.get_rank())
+     torch.manual_seed(seed + util.get_rank())
+     torch.cuda.manual_seed(seed + util.get_rank())
+     torch.backends.cudnn.deterministic = True
