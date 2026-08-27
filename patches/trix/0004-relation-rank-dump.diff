@@ -1,0 +1,187 @@
+Reason: give run_relation.py the two outputs every other run here has: a per-query rank dump in the shared schema (direction 'relation', one row per test triple) and a CSV of the model's own metric values for criterion A, which upstream logs and discards. The ranking is untouched. n_candidates is the direct-relation count minus the target, matching all_negative_relation's candidate set of arange(num_relations // 2), so rank <= n_candidates + 1 holds by construction. The evaluation is unfiltered -- other true relations between the same pair stay candidates -- which is TRIX's own protocol for this task and is recorded in docs/report_notes.md; compute_ranking_relation is deliberately not modified. The dump directory arrives by the same TRIX_RANK_DUMP_DIR environment variable as patch 0001, for the same reason: parse_args marks every config template variable required. Also templates the relation configs, whose output_dir and data root patch 0002 only fixed for the entity configs, leaving /output and /kg-datasets/ hardcoded on every relation run.
+
+diff --git a/config/run_relation_inductive.yaml b/config/run_relation_inductive.yaml
+index 51084bf..7f9b222 100644
+--- a/config/run_relation_inductive.yaml
++++ b/config/run_relation_inductive.yaml
+@@ -1,8 +1,8 @@
+-output_dir: /output
++output_dir: {{ output_dir }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: /kg-datasets/
++  root: {{ data_root }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/config/run_relation_transductive.yaml b/config/run_relation_transductive.yaml
+index ed99b3e..36d34bf 100644
+--- a/config/run_relation_transductive.yaml
++++ b/config/run_relation_transductive.yaml
+@@ -1,8 +1,8 @@
+-output_dir: /output
++output_dir: {{ output_dir }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: /kg-datasets/
++  root: {{ data_root }}
+ 
+ model:
+   class: TRIX
+diff --git a/src/run_relation.py b/src/run_relation.py
+index 4d47d57..878242a 100644
+--- a/src/run_relation.py
++++ b/src/run_relation.py
+@@ -17,6 +17,7 @@ from torch_geometric.data import Data
+ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+ from trix import tasks, util
+ from trix.models_relation import TRIX
++from trix.rank_dump_relation import RelationDumper
+ 
+ separator = ">" * 30
+ line = "-" * 30
+@@ -126,7 +127,7 @@ def train_and_validate(cfg, model, train_data, valid_data, device, logger, filte
+ 
+ 
+ @torch.no_grad()
+-def test(cfg, model, test_data, device, logger, filtered_data=None, return_metrics=False):
++def test(cfg, model, test_data, device, logger, filtered_data=None, return_metrics=False, dump=None):
+     world_size = util.get_world_size()
+     rank = util.get_rank()
+ 
+@@ -134,6 +135,9 @@ def test(cfg, model, test_data, device, logger, filtered_data=None, return_metri
+     sampler = torch_data.DistributedSampler(test_triplets, world_size, rank)
+     test_loader = torch_data.DataLoader(test_triplets, cfg.train.batch_size, sampler=sampler)
+ 
++    # rank dump only; everything below is untouched upstream code
++    dumper = RelationDumper(dump, test_triplets, world_size, rank, cfg.train.batch_size) if dump else None
++
+     model.eval()
+     rankings = []
+     num_negatives = []
+@@ -147,10 +151,15 @@ def test(cfg, model, test_data, device, logger, filtered_data=None, return_metri
+         r_pred = model(test_graph, r_batch)
+ 
+         r_ranking = tasks.compute_ranking_relation(r_pred, pos_r_index, None)
++        if dumper is not None:
++            dumper.add(batch, r_ranking, test_graph.num_relations.item() // 2 - 1)
+         rankings += [r_ranking]
+         num_r_negative = test_graph.num_relations // 2 - 1
+         num_negatives += [num_r_negative.expand_as(r_ranking)]
+ 
++    if dumper is not None:
++        logger.warning("Rank dump written to %s" % dumper.write())
++
+     ranking = torch.cat(rankings)
+     num_negative = torch.cat(num_negatives)
+     all_size = torch.zeros(world_size, dtype=torch.long, device=device)
+@@ -282,4 +291,25 @@ if __name__ == "__main__":
+     if util.get_rank() == 0:
+         logger.warning(separator)
+         logger.warning("Evaluate on test")
+-    test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger)
++    dump = None if not os.environ.get("TRIX_RANK_DUMP_DIR") else {
++        "dir": os.environ["TRIX_RANK_DUMP_DIR"],
++        "dataset": vars["dataset"] + (":" + str(vars["version"]) if vars.get("version") not in (None, "") else ""),
++        "model": "trix", "seed": args.seed,
++    }
++    metrics = test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger, dump=dump, return_metrics=True)
++
++    # The model's own metric values, in the shape criterion A reads. Mirrors
++    # patches/trix/0003 for the entity task; upstream only logs them.
++    if util.get_rank() == 0:
++        import csv as _csv, time as _time
++        _row = {k: v.item() if hasattr(v, "item") else v for k, v in metrics.items()}
++        _row["dataset"] = dump["dataset"] if dump else vars["dataset"]
++        _dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "TRIX_relation_results")
++        os.makedirs(_dir, exist_ok=True)
++        _path = os.path.join(_dir, "TRIX_relation_results_%s.csv" % _time.strftime("%Y-%m-%d-%H-%M-%S"))
++        with open(_path, "a", newline="") as _f:
++            _w = _csv.DictWriter(_f, fieldnames=["dataset"] + [k for k in _row if k != "dataset"])
++            if _f.tell() == 0:
++                _w.writeheader()
++            _w.writerow(_row)
++        logger.warning("Results written to %s" % _path)
+diff --git a/src/trix/rank_dump_relation.py b/src/trix/rank_dump_relation.py
+new file mode 100644
+index 0000000..353f802
+--- /dev/null
++++ b/src/trix/rank_dump_relation.py
+@@ -0,0 +1,75 @@
++"""Per-query rank dump for relation prediction, in the shared ranks schema.
++
++One row per test triple, ``direction = "relation"``. The semantics mirror what
++``run_relation.py::test`` computes and nothing more:
++
++* the candidate set is the direct relations only -- ``all_negative_relation``
++  builds ``arange(num_relations // 2)`` -- so ``n_candidates`` is the direct
++  count minus the target, and ``rank <= n_candidates + 1`` holds by
++  construction;
++* the ranking is UNFILTERED: other true relations between the same pair stay in
++  the candidate set. That is TRIX's own protocol for this task, stated in
++  docs/report_notes.md, and belongs beside any table built from these dumps;
++* the rank is 1-based because the unfiltered comparison counts the target
++  against itself; there is no ``+ 1`` and none is needed.
++
++Query order is recovered the same way the entity Dumper recovers it: a second
++``DistributedSampler`` with the same (length, world_size, rank) yields the same
++permutation, so a stable ``query_id`` can be attached without touching the real
++loader.
++"""
++
++import os
++
++from torch.utils import data as torch_data
++
++import suite  # shared/suite.py, on PYTHONPATH
++
++
++class RelationDumper:
++
++    def __init__(self, spec, test_triplets, world_size, rank, batch_size):
++        if world_size != 1:
++            raise RuntimeError(
++                "rank dumping is single-process only (run with --gpus [0]); got "
++                "world_size=%d" % world_size)
++        self.spec = spec
++        self.graph = suite.by_run_id(spec["dataset"])
++        self.order = [int(i) for i in torch_data.DistributedSampler(test_triplets, world_size, rank)]
++        self.cursor = 0
++        self.columns = {name: [] for name in suite.RANK_COLUMNS}
++
++    def add(self, batch, r_ranking, num_negative):
++        size = len(batch)
++        query_ids = self.order[self.cursor:self.cursor + size]
++        self.cursor += size
++        assert len(query_ids) == size, "sampler order desynchronised from the loader"
++
++        pos_h, pos_t, pos_r = [column.tolist() for column in batch.t()]
++        ranking = r_ranking.tolist()
++        for i in range(size):
++            self.columns["dataset"].append(self.graph.id)
++            self.columns["model"].append(self.spec["model"])
++            self.columns["seed"].append(self.spec["seed"])
++            self.columns["direction"].append("relation")
++            self.columns["query_id"].append(query_ids[i])
++            self.columns["h"].append(pos_h[i])
++            self.columns["r"].append(pos_r[i])
++            self.columns["t"].append(pos_t[i])
++            self.columns["rank"].append(ranking[i])
++            self.columns["n_candidates"].append(int(num_negative))
++
++    def write(self):
++        import pyarrow
++        import pyarrow.parquet
++
++        arrow_types = {"string": pyarrow.string(), "int64": pyarrow.int64()}
++        schema = pyarrow.schema([
++            (name, arrow_types[suite.RANK_COLUMN_TYPES[name]]) for name in suite.RANK_COLUMNS
++        ])
++        table = pyarrow.table({name: self.columns[name] for name in suite.RANK_COLUMNS}, schema=schema)
++
++        os.makedirs(self.spec["dir"], exist_ok=True)
++        path = os.path.join(self.spec["dir"], "%s.parquet" % self.graph.id.replace(":", "_"))
++        pyarrow.parquet.write_table(table, path)
++        return path
