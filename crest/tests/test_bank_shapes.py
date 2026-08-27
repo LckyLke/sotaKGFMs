@@ -74,6 +74,36 @@ def test_inverse_relations_have_their_own_banks():
     assert not torch.equal(bank.features(direct), bank.features(inverse))
 
 
+def test_bank_rows_are_detached_data():
+    # bank rows are data, never differentiated through: a builder that stores
+    # grad-tracking rows pins one full encoder autograd graph per row for as
+    # long as the bank lives, which is exactly the OOM that killed the first
+    # live-readout evaluation sweep (38 of 41 graphs on a 15.6 GiB GPU)
+    class GradEncoder(ToyEncoder):
+        def __init__(self):
+            super().__init__()
+            self.scale = torch.ones(1, requires_grad=True)
+
+        def encode_single(self, graph, u, r):
+            x, z, s0 = super().encode_single(graph, u, r)
+            return x * self.scale, z * self.scale, s0 * self.scale
+
+        def encode_relation_single(self, graph, u, v):
+            w, c, s0 = super().encode_relation_single(graph, u, v)
+            return w * self.scale, c * self.scale, s0 * self.scale
+
+    graph = make_toy_graph()
+    bank = crest_bank.build_bank_entity(graph, GradEncoder(), seed=1024, num_positive=4)
+    assert len(bank) > 0
+    for rid in bank.relation_ids():
+        feats = bank.features(rid)
+        assert feats.grad_fn is None and not feats.requires_grad, rid
+    rbank = crest_bank.build_bank_relation(graph, GradEncoder(), seed=1024, num_positive=4)
+    for rid in rbank.relation_ids():
+        feats = rbank.features(rid)
+        assert feats.grad_fn is None and not feats.requires_grad, rid
+
+
 def test_cache_roundtrip_and_key(tmp_path):
     graph = make_toy_graph()
     bank = crest_bank.build_bank_entity(graph, ToyEncoder(), seed=1024, num_positive=4)

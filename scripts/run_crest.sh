@@ -93,6 +93,12 @@ CLAIMS="$ROOT/ranks/.claims-crest"
 mkdir -p "$CLAIMS"
 export TRIX_ROOT="$TRIXDIR"
 export PYTHONPATH="$WORKDIR:$ROOT/shared${PYTHONPATH:+:$PYTHONPATH}"
+# python -m puts the *current directory* ahead of PYTHONPATH, and the image's
+# working directory carries the crest/ baked in at build time. Run from the
+# prepared work tree so the freshly copied package is the one that imports --
+# the baked copy predates the no_grad bank builders, and building a bank with
+# it pins one encoder autograd graph per row until the GPU is full.
+cd "$WORKDIR"
 
 ran=0; skipped=0; failed=0
 for d in ${DATASETS//,/ }; do
