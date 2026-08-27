@@ -13,8 +13,10 @@
     "repository one is primary: it is the implementation being run here."
   ],
   "tolerance": 0.002,
-  "groups": {"ind_e": 18, "ind_er": 23},
-
+  "groups": {
+    "ind_e": 18,
+    "ind_er": 23
+  },
   "ultra": {
     "checkpoint": "ckpts/ultra_3g.pth",
     "primary": "repo",
@@ -22,18 +24,29 @@
       "repo": {
         "source": "repos/ultra/README.md at pin 427966ad, table row 'ULTRA (3g) PyG'",
         "note": "the PyG rewrite's own measured figures. README states these were run on a single RTX 3090, PyTorch 2.1, PyG 2.4, CUDA 11.8, using run_many.py -- the same script this project drives.",
-        "ind_e": {"mrr": 0.420, "hits@10": 0.562},
-        "ind_er": {"mrr": 0.344, "hits@10": 0.511}
+        "ind_e": {
+          "mrr": 0.42,
+          "hits@10": 0.562
+        },
+        "ind_er": {
+          "mrr": 0.344,
+          "hits@10": 0.511
+        }
       },
       "paper": {
         "source": "arXiv 2310.04562; reproduced in repos/ultra/README.md as row 'ULTRA (3g) Paper'",
         "note": "produced with the TorchDrug implementation, which lives in the separate repository DeepGraphLearning/ultra_torchdrug (README line 31). Not the code run here. README line 363 states the preprint numbers came from a TorchDrug-trained model.",
-        "ind_e": {"mrr": 0.430, "hits@10": 0.566},
-        "ind_er": {"mrr": 0.345, "hits@10": 0.512}
+        "ind_e": {
+          "mrr": 0.43,
+          "hits@10": 0.566
+        },
+        "ind_er": {
+          "mrr": 0.345,
+          "hits@10": 0.512
+        }
       }
     }
   },
-
   "motif": {
     "checkpoint": "ckpts/motif_3g.pth",
     "primary": "paper",
@@ -42,12 +55,17 @@
         "source": "arXiv 2502.13339 (ICML 2025), Table 2, row 'Motif (F_3^path)'",
         "caption": "Average zero-shot and fine-tuned link prediction MRR and Hits@10 over 51 KGs.",
         "note": "pretrained on FB15k237, WN18RR and CoDEx Medium. The released ckpts/motif_3g.pth is taken to be this row's checkpoint; the repository ships no other 3-graph checkpoint.",
-        "ind_e": {"mrr": 0.436, "hits@10": 0.577},
-        "ind_er": {"mrr": 0.349, "hits@10": 0.525}
+        "ind_e": {
+          "mrr": 0.436,
+          "hits@10": 0.577
+        },
+        "ind_er": {
+          "mrr": 0.349,
+          "hits@10": 0.525
+        }
       }
     }
   },
-
   "trix": {
     "checkpoint": "entity_prediction.pth",
     "primary": "paper",
@@ -55,12 +73,30 @@
       "paper": {
         "source": "arXiv 2502.19512, Table 1 (zero-shot entity prediction)",
         "note": "entity prediction only. TRIX trains and releases relation prediction as a separate model and checkpoint, which this suite does not measure.",
-        "ind_e": {"mrr": 0.455, "hits@10": 0.592},
-        "ind_er": {"mrr": 0.368, "hits@10": 0.540}
+        "ind_e": {
+          "mrr": 0.455,
+          "hits@10": 0.592
+        },
+        "ind_er": {
+          "mrr": 0.368,
+          "hits@10": 0.54
+        }
+      }
+    },
+    "relation": {
+      "source": "measured in this repository, 2026-08-27: relation_prediction.pth over all 41 inductive graphs, GPU, seed 1024, ranks in ranks-relation/trix/",
+      "protocol": "UNFILTERED, per TRIX's own run_relation.py: other true relations between the same pair stay in the candidate set. Candidates are the direct relations only. State this on every relation table.",
+      "cross_check": "FLOCK paper Table 11 quotes TRIX per graph; all nine inductive DEV10 rows match to the printed third decimal (max |delta| 0.001).",
+      "ind_e": {
+        "mrr": 0.7564,
+        "hits@1": 0.6119
+      },
+      "ind_er": {
+        "mrr": 0.8415,
+        "hits@1": 0.7691
       }
     }
   },
-
   "semma": {
     "checkpoint": "ckpts/semma.pth",
     "primary": "paper",
@@ -69,12 +105,17 @@
         "source": "arXiv 2505.20422, Table 1, row 'Semma'",
         "caption": "Zero-shot results of Semma. Zero-shot link prediction MRR and Hits@10 reported over 54 KGs averaged over 5 runs.",
         "note": "AVERAGED OVER 5 RUNS. This project runs one seed (1024), so a difference within run-to-run spread is expected and the tolerance below is not a like-for-like test. SEMMA-Hybrid is named in the paper but not released, so it is out of scope. Note also that this table's own ULTRA baseline row reads 0.428/0.570 for ind_e, which is neither figure ULTRA's README gives.",
-        "ind_e": {"mrr": 0.447, "hits@10": 0.584},
-        "ind_er": {"mrr": 0.350, "hits@10": 0.514}
+        "ind_e": {
+          "mrr": 0.447,
+          "hits@10": 0.584
+        },
+        "ind_er": {
+          "mrr": 0.35,
+          "hits@10": 0.514
+        }
       }
     }
   },
-
   "crest": {
     "checkpoint": "entity_prediction.pth (phase 0; later phases record their own)",
     "primary": "plan",
@@ -82,14 +123,26 @@
       "plan": {
         "source": "docs/CREST_PLAN.md section 8, targets restated against measurements from this repository",
         "note": "CREST has no paper. These targets are the TRIX group means measured here from ranks/trix/ plus 0.015 MRR (the phase 2 pass rule), with Hits@10 required not to regress. They are goals, not published figures; a criterion B failure against them is a stop-rule verdict, not a reproduction failure.",
-        "ind_e": {"mrr": 0.4712, "hits@10": 0.5931},
-        "ind_er": {"mrr": 0.3829, "hits@10": 0.5409}
+        "ind_e": {
+          "mrr": 0.4712,
+          "hits@10": 0.5931
+        },
+        "ind_er": {
+          "mrr": 0.3829,
+          "hits@10": 0.5409
+        }
       },
       "trix_measured_here": {
         "source": "ranks/trix/ in this repository, GPU, seed 1024, zero-shot entity prediction",
         "note": "the baseline the plan's +0.015 is measured from. Phase 0's identity gate requires equality with ranks/trix/ row by row, not with these means.",
-        "ind_e": {"mrr": 0.4562, "hits@10": 0.5931},
-        "ind_er": {"mrr": 0.3679, "hits@10": 0.5409}
+        "ind_e": {
+          "mrr": 0.4562,
+          "hits@10": 0.5931
+        },
+        "ind_er": {
+          "mrr": 0.3679,
+          "hits@10": 0.5409
+        }
       }
     }
   }
