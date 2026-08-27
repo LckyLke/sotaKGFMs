@@ -1,0 +1,120 @@
+Reason: make the Wikidata lookups work again, and fail loudly when they do not. ILPC2022, WKIngram and WikiTopics -- 14 of the 41 graphs -- do not use their raw relation identifiers as names. datasets.py resolves each P-code to an English label through the Wikidata API, and builds edge2id from those labels, because SEMMA's shipped relation descriptions in openrouter/descriptions/ are keyed by label too. Wikimedia now refuses the default python-requests User-Agent with 403, so every lookup returns the string 'Failed to retrieve data', inverting id2relation collapses every relation onto that one key, and the run dies far away in order_embeddings with KeyError: 0. This adds the User-Agent their policy asks for, raises instead of substituting placeholder text, and caches what it read so a later run cannot get different labels -- and therefore a different relation graph -- from the same checkpoint and the same data.
+
+diff --git a/ultra/datasets.py b/ultra/datasets.py
+index 56a2c6f..449945d 100644
+--- a/ultra/datasets.py
++++ b/ultra/datasets.py
+@@ -36,15 +36,74 @@ fb_id2relation = {}
+ wn18rr_id2relation = {}
+ wn18rr_id2entity = {}
+ 
++import tempfile
++
++# Wikimedia's User-Agent policy refuses the default python-requests string.
++# Every call below answers 403 without one, and the failure is silent: the
++# helpers return "Failed to retrieve data" for every id, edge2id is then built
++# by inverting id2relation, all those identical values collapse to a single
++# entry, and the run dies 300 lines later in order_embeddings with KeyError: 0.
++# Set WIKIDATA_USER_AGENT to identify your own run; the policy asks for a way to
++# be contacted.
++WIKIDATA_USER_AGENT = os.environ.get(
++    "WIKIDATA_USER_AGENT",
++    "sotaKGFMs-benchmark/1.0 (https://github.com/LckyLke/sotaKGFMs) python-requests")
++
++# Labels are cached on disk. Two reasons, and the second is the important one.
++# The API is queried once per relation instead of once per dataset build. And a
++# label on Wikidata can be edited: SEMMA keys its LLM relation descriptions by
++# that label, and builds half its model from the embedding of it, so an
++# uncached run months later can silently produce a different relation graph
++# from the same checkpoint and the same data. The cache pins what was read.
++WIKIDATA_CACHE = os.environ.get(
++    "SEMMA_WIKIDATA_CACHE", os.path.join(mydir, "wikidata_labels.json"))
++
++
++def _wikidata_cache_read():
++    try:
++        with open(WIKIDATA_CACHE) as handle:
++            return json.load(handle)
++    except Exception:
++        return {}
++
++
++def _wikidata_cache_write(cache):
++    try:
++        os.makedirs(os.path.dirname(WIKIDATA_CACHE) or ".", exist_ok=True)
++        # Unique temp name per writer. get_entities runs inside
++        # fetch_in_parallel's ThreadPoolExecutor, so a fixed ".tmp" path is
++        # written and renamed by several threads at once and all but one of
++        # them fail with ENOENT on the rename.
++        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(WIKIDATA_CACHE) or ".", suffix=".tmp")
++        with os.fdopen(fd, "w") as handle:
++            json.dump(cache, handle, indent=0, sort_keys=True)
++        os.replace(tmp, WIKIDATA_CACHE)
++    except Exception as e:
++        print(f"could not write {WIKIDATA_CACHE}: {e}")
++
++
+ def fetch_wikidata(params):
+     url = 'https://www.wikidata.org/w/api.php'
+     try:
+-        return requests.get(url, params=params)
++        response = requests.get(
++            url, params=params, headers={"User-Agent": WIKIDATA_USER_AGENT}, timeout=60)
+     except Exception as e:
+-        print(f"An error occurred: {e}")
+-        return None
++        raise RuntimeError(f"Wikidata request failed: {e}")
++    # Raise rather than return None. A soft failure here does not stay soft: it
++    # becomes a relation graph built from placeholder text, with no error.
++    if response.status_code != 200:
++        raise RuntimeError(
++            f"Wikidata answered {response.status_code} for {params.get('ids','')[:60]}. "
++            f"A 403 means the User-Agent was refused; set WIKIDATA_USER_AGENT.")
++    return response
+ 
+ def get_entities(entity_ids):
++    _requested = list(entity_ids)
++    cache = _wikidata_cache_read()
++    missing = [i for i in _requested if i not in cache]
++    if not missing:
++        return {i: cache[i] for i in _requested}
++    entity_ids = missing
+     params = {
+         'action': 'wbgetentities',
+         'ids': '|'.join(entity_ids),
+@@ -64,11 +123,19 @@ def get_entities(entity_ids):
+                     entities_dict[entity_id] = "No English label found"
+             else:
+                 entities_dict[entity_id] = "Entity not found"
+-        return entities_dict
++        cache.update(entities_dict)
++        _wikidata_cache_write(cache)
++        return {i: cache[i] for i in _requested if i in cache}
+     else:
+-        return {entity_id: "Failed to retrieve data" for entity_id in entity_ids}
++        raise RuntimeError("Wikidata returned no response for " + str(entity_ids[:5]))
+ 
+ def get_properties(property_ids):
++    _requested = list(property_ids)
++    cache = _wikidata_cache_read()
++    missing = [i for i in _requested if i not in cache]
++    if not missing:
++        return {i: cache[i] for i in _requested}
++    property_ids = missing
+     params = {
+         'action': 'wbgetentities',
+         'ids': '|'.join(property_ids),
+@@ -88,9 +155,11 @@ def get_properties(property_ids):
+                     properties_dict[property_id] = "No English label found"
+             else:
+                 properties_dict[property_id] = "Property not found"
+-        return properties_dict
++        cache.update(properties_dict)
++        _wikidata_cache_write(cache)
++        return {i: cache[i] for i in _requested if i in cache}
+     else:
+-        return {property_id: "Failed to retrieve data" for property_id in property_ids}
++        raise RuntimeError("Wikidata returned no response for " + str(property_ids[:5]))
+ 
+ 
+ # ---------------------------------------------------------------------------

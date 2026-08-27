@@ -1,0 +1,231 @@
+Reason: reconcile Wikidata relation labels that have been renamed since SEMMA generated its relation descriptions. SEMMA keys openrouter/descriptions/<llm>/<dataset>.json by a relation's English Wikidata label and looks the live label up at dataset-build time. Labels are editable and seven properties used by the 14 Wikidata graphs in this suite have changed, so the lookup misses and order_embeddings raises a KeyError naming a relation id and nothing else. Six are recovered from the property's own Wikidata aliases, after discarding any alias that is another property's current label in the same graph -- without that guard P112 matches 'creator', which belongs to P170, and one relation silently receives another's description. The seventh, P112 itself, is the one entry in LABEL_OVERRIDES. Anything unresolved raises and names the property, rather than being guessed at.
+
+diff --git a/ultra/datasets.py b/ultra/datasets.py
+index 0e014d6..9ec3380 100644
+--- a/ultra/datasets.py
++++ b/ultra/datasets.py
+@@ -161,6 +161,152 @@ def get_properties(property_ids):
+     else:
+         raise RuntimeError("Wikidata returned no response for " + str(property_ids[:5]))
+ 
++
++# ---------------------------------------------------------------------------
++# Relation-label drift
++# ---------------------------------------------------------------------------
++# SEMMA names a Wikidata relation by its English label, and looks that label up
++# in openrouter/descriptions/<llm>/<dataset>.json, which was generated once.
++# Wikidata labels are editable, and seven properties used by the 14 Wikidata
++# graphs in this suite have been renamed since. The current label is then not a
++# key in the description file, and the run dies in order_embeddings with a
++# KeyError whose number is a relation id and says nothing about the cause.
++#
++# Observed drift, current label on the left, description-file key on the right:
++#
++#     P112   founder                            founded by
++#     P355   child organization or unit         has subsidiary
++#     P410   military, police or special rank   military or police rank
++#     P488   chairman                           chairperson
++#     P607   participated in conflict           conflict
++#     P749   parent organization or unit        parent organization
++#     P1029  crew members                       crew member
++#
++# The authors saw at least one of these: datasets.py carries the bare comment
++# "parent organization/unit -> parent organization" above the ILPC2022 class.
++#
++# Resolution order, per property, per graph:
++#
++#   1. The current label is a key in the description file. Use it.
++#   2. Otherwise, take the property's own Wikidata aliases that are keys, and
++#      drop any alias that is the *current label of another property in the
++#      same graph*. This is not a nicety. P112's aliases include "creator",
++#      which is a key -- but it is P170's label, and P170 appears in the same
++#      graphs. Matching on it would attach one relation's description and
++#      embedding to a different relation, quietly, with no error.
++#   3. Exactly one candidate survives. Use it, and print what was remapped.
++#   4. Nothing survives, or several do. Consult LABEL_OVERRIDES, then raise.
++#
++# Rule 2 settles six of the seven. Only P112 needs the table below.
++LABEL_OVERRIDES = {
++    # Wikidata renamed P112 from "founded by" to "founder". Its current aliases
++    # do not carry the old label, so rule 2 has nothing to find. "founded by"
++    # is a key in every affected description file, and no other property in
++    # those graphs holds it as a label or an alias, so the pairing is forced.
++    "P112": "founded by",
++}
++
++_PROPS_CACHE = WIKIDATA_CACHE + ".properties.json"
++
++
++def _props_cache_read():
++    try:
++        with open(_PROPS_CACHE) as handle:
++            return json.load(handle)
++    except Exception:
++        return {}
++
++
++def _props_cache_write(cache):
++    try:
++        os.makedirs(os.path.dirname(_PROPS_CACHE) or ".", exist_ok=True)
++        # Unique temp name per writer. get_entities runs inside
++        # fetch_in_parallel's ThreadPoolExecutor, so a fixed ".tmp" path is
++        # written and renamed by several threads at once and all but one of
++        # them fail with ENOENT on the rename.
++        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(_PROPS_CACHE) or ".", suffix=".tmp")
++        with os.fdopen(fd, "w") as handle:
++            json.dump(cache, handle, indent=0, sort_keys=True)
++        os.replace(tmp, _PROPS_CACHE)
++    except Exception as e:
++        print(f"could not write {_PROPS_CACHE}: {e}")
++
++
++def get_property_records(property_ids):
++    """{id: {"label": str, "aliases": [str]}} for each property id, cached."""
++    cache = _props_cache_read()
++    missing = [i for i in property_ids if i not in cache]
++    for start in range(0, len(missing), 50):
++        chunk = missing[start:start + 50]
++        response = fetch_wikidata({
++            'action': 'wbgetentities', 'ids': '|'.join(chunk),
++            'format': 'json', 'languages': 'en', 'props': 'labels|aliases',
++        })
++        data = response.json()
++        for pid in chunk:
++            entity = data.get('entities', {}).get(pid, {})
++            cache[pid] = {
++                "label": entity.get('labels', {}).get('en', {}).get('value'),
++                "aliases": [a["value"] for a in entity.get('aliases', {}).get('en', [])],
++            }
++    if missing:
++        _props_cache_write(cache)
++    return {i: cache[i] for i in property_ids if i in cache}
++
++
++def _description_keys(dataset_name):
++    """The relation names this dataset's description file is keyed by."""
++    folder = {"gpt4o": "gpt-4o-2024-11-20",
++              "qwen3-32b": "qwen3-32b",
++              "deepseekv3": "deepseek-chat-v3-0324"}.get(flags.LLM)
++    if folder is None:
++        return set()
++    path = os.path.join(mydir, "openrouter", "descriptions", folder, str(dataset_name) + ".json")
++    try:
++        with open(path) as handle:
++            return set(json.load(handle)["cleaned_relations"])
++    except Exception:
++        return set()
++
++
++def resolve_properties(property_ids, dataset_name):
++    """Wikidata property id -> the name this dataset's descriptions are keyed by."""
++    property_ids = list(property_ids)
++    records = get_property_records(property_ids)
++    keys = _description_keys(dataset_name)
++    if not keys:
++        # No description file to reconcile against; behave as before.
++        return {p: (records.get(p) or {}).get("label") for p in property_ids}
++
++    labels_in_graph = {(records.get(p) or {}).get("label") for p in property_ids}
++    out, remapped, unresolved = {}, [], []
++    for pid in property_ids:
++        record = records.get(pid) or {}
++        label = record.get("label")
++        if label in keys:
++            out[pid] = label
++            continue
++        candidates = [a for a in record.get("aliases", [])
++                      if a in keys and a not in labels_in_graph]
++        if len(candidates) == 1:
++            out[pid] = candidates[0]
++            remapped.append(f"{pid}: {label!r} -> {candidates[0]!r} (alias)")
++        elif pid in LABEL_OVERRIDES and LABEL_OVERRIDES[pid] in keys:
++            out[pid] = LABEL_OVERRIDES[pid]
++            remapped.append(f"{pid}: {label!r} -> {LABEL_OVERRIDES[pid]!r} (override)")
++        else:
++            unresolved.append((pid, label, candidates))
++    if unresolved:
++        detail = "; ".join(f"{p} label={l!r} candidates={c}" for p, l, c in unresolved)
++        raise RuntimeError(
++            f"{dataset_name}: {len(unresolved)} Wikidata properties have no matching key "
++            f"in the description file. Their labels changed on Wikidata since it was "
++            f"generated. Add them to LABEL_OVERRIDES in ultra/datasets.py: {detail}")
++    if remapped:
++        print(f"{dataset_name}: reconciled {len(remapped)} renamed Wikidata label(s): "
++              + "; ".join(remapped))
++    return out
++
+ def fetch_in_parallel(ids_list, fetch_func):
+     batch_size = 50  # Adjust based on API limits
+     batches = [ids_list[i:i + batch_size] for i in range(0, len(ids_list), batch_size)]
+@@ -1322,7 +1468,7 @@ class CoDEx(TransductiveDataset):
+         
+         codex_edge2id = {}
+         relations =  {key: value for key, value in test_results["inv_rel_vocab"].items()}
+-        codex_id2edge = fetch_in_parallel(list(relations.keys()), get_properties)
++        codex_id2edge = resolve_properties(list(relations.keys()), current_dataset)
+         # print(codex_id2edge)
+ 
+         for rel, id in relations.items():
+@@ -1821,7 +1967,7 @@ class WDsinger(SparserKG):
+         relations =  {key: value for key, value in test_results["inv_rel_vocab"].items()}
+         # print("====================================")
+         # print(relations)
+-        wiki_id2edge = fetch_in_parallel(list(relations.keys()), get_properties)
++        wiki_id2edge = resolve_properties(list(relations.keys()), current_dataset)
+         # print(codex_id2edge)
+ 
+         for rel, id in relations.items():
+@@ -2412,7 +2558,7 @@ class WKIngram(IngramInductive):
+         for key, value in wiki_entity2descrip.items():
+             wiki_id2entity[train_res["inv_entity_vocab"][key]] = value
+ 
+-        wiki_relation2descrip = fetch_in_parallel(list(train_res["inv_rel_vocab"].keys()), get_properties)
++        wiki_relation2descrip = resolve_properties(list(train_res["inv_rel_vocab"].keys()), current_dataset)
+         wiki_id2relation = {}
+         for key, value in wiki_relation2descrip.items():
+             wiki_id2relation[train_res["inv_rel_vocab"][key]] = value
+@@ -2435,7 +2581,7 @@ class WKIngram(IngramInductive):
+         for key, value in wiki_inventity2descrip.items():
+             wiki_id2entity_inf[test_res["inv_entity_vocab"][key]] = value
+ 
+-        wiki_invrelation2descrip = fetch_in_parallel(list(test_res["inv_rel_vocab"].keys()), get_properties)
++        wiki_invrelation2descrip = resolve_properties(list(test_res["inv_rel_vocab"].keys()), current_dataset)
+         for key, value in wiki_invrelation2descrip.items():
+             wiki_id2relation_inf[test_res["inv_rel_vocab"][key]] = value
+ 
+@@ -2572,7 +2718,7 @@ class ILPC2022(InductiveDataset):
+         for key, value in wiki_entity2descrip.items():
+             wiki_id2entity[train_res["inv_entity_vocab"][key]] = value
+ 
+-        wiki_relation2descrip = fetch_in_parallel(list(train_res["inv_rel_vocab"].keys()), get_properties)
++        wiki_relation2descrip = resolve_properties(list(train_res["inv_rel_vocab"].keys()), current_dataset)
+         wiki_id2relation = {}
+         for key, value in wiki_relation2descrip.items():
+             wiki_id2relation[train_res["inv_rel_vocab"][key]] = value
+@@ -2591,7 +2737,7 @@ class ILPC2022(InductiveDataset):
+         for key, value in wiki_inventity2descrip.items():
+             wiki_id2entity_inf[test_res["inv_entity_vocab"][key]] = value
+ 
+-        wiki_invrelation2descrip = fetch_in_parallel(list(test_res["inv_rel_vocab"].keys()), get_properties)
++        wiki_invrelation2descrip = resolve_properties(list(test_res["inv_rel_vocab"].keys()), current_dataset)
+         for key, value in wiki_invrelation2descrip.items():
+             wiki_id2relation_inf[test_res["inv_rel_vocab"][key]] = value
+ 
+@@ -3327,7 +3473,7 @@ class WikiTopics(MTDEAInductive):
+         for key, value in wiki_entity2descrip.items():
+             wiki_id2entity[train_res["inv_entity_vocab"][key]] = value
+ 
+-        wiki_relation2descrip = fetch_in_parallel(list(train_res["inv_rel_vocab"].keys()), get_properties)
++        wiki_relation2descrip = resolve_properties(list(train_res["inv_rel_vocab"].keys()), current_dataset)
+         wiki_id2relation = {}
+         for key, value in wiki_relation2descrip.items():
+             wiki_id2relation[train_res["inv_rel_vocab"][key]] = value
+@@ -3342,7 +3488,7 @@ class WikiTopics(MTDEAInductive):
+         for key, value in wiki_inventity2descrip.items():
+             wiki_id2entity_inf[test_res["inv_entity_vocab"][key]] = value
+ 
+-        wiki_invrelation2descrip = fetch_in_parallel(list(test_res["inv_rel_vocab"].keys()), get_properties)
++        wiki_invrelation2descrip = resolve_properties(list(test_res["inv_rel_vocab"].keys()), current_dataset)
+         for key, value in wiki_invrelation2descrip.items():
+             wiki_id2relation_inf[test_res["inv_rel_vocab"][key]] = value
+ 

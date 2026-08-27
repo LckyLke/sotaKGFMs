@@ -1,0 +1,13 @@
+# The build context is the workspace root, because the images need repos/,
+# patches/ and shared/. Everything a *run* produces is excluded: it is large,
+# it is not input to any image, and a container writes it as root, which makes
+# `docker build` fail outright with "no permission to read".
+data/
+ranks/
+results/
+reports/
+output/
+logs/
+.git/
+**/__pycache__/
+*.pyc

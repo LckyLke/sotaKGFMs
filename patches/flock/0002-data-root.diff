@@ -1,0 +1,167 @@
+Reason: give FLOCK its own processed root (data/roots/flock/) so the cache in processed/data.pt cannot be shared with another repo's pre_transform. Upstream points both paths at ~/flock, which exists in no container here. Defaults are supplied so an unset variable is still a valid path rather than a jinja error.
+
+diff --git a/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml
+index fa262fb..58ccbea 100644
+--- a/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n128_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml
+index f10aa0b..6a500a4 100644
+--- a/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n16_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml
+index ada9660..abf6e1a 100644
+--- a/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n32_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml b/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml
+index 64ca19a..a362227 100644
+--- a/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml
++++ b/src_entity/config/zeroshot_inductive/n64_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+   version: {{ version }}
+ 
+ model:
+diff --git a/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml
+index e63f599..1f95a11 100644
+--- a/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n128_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+ 
+ model:
+   class: Flock
+diff --git a/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml
+index c64e030..f8e8b92 100644
+--- a/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n16_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+ 
+ model:
+   class: Flock
+diff --git a/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml b/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml
+index f438e55..dd9affa 100644
+--- a/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml
++++ b/src_entity/config/zeroshot_transductive/n256_ensemble4.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+ 
+ model:
+   class: Flock
+diff --git a/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml
+index 7165697..0112fea 100644
+--- a/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n32_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+ 
+ model:
+   class: Flock
+diff --git a/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml b/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml
+index 9135dea..cf5857f 100644
+--- a/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml
++++ b/src_entity/config/zeroshot_transductive/n512_ensemble2.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+ 
+ model:
+   class: Flock
+diff --git a/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml b/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml
+index 9edf3c9..35c767b 100644
+--- a/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml
++++ b/src_entity/config/zeroshot_transductive/n512_ensemble8.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+ 
+ model:
+   class: Flock
+diff --git a/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml b/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml
+index 8bbd6a8..d2db429 100644
+--- a/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml
++++ b/src_entity/config/zeroshot_transductive/n64_ensemble16.yaml
+@@ -1,8 +1,8 @@
+-output_dir: ~/flock/output-entity
++output_dir: {{ output_dir | default('/kgfm/output', true) }}
+ 
+ dataset:
+   class: {{ dataset }}
+-  root: ~/flock/kg-datasets-entity/
++  root: {{ data_root | default('/kgfm/data/roots/flock/', true) }}
+ 
+ model:
+   class: Flock

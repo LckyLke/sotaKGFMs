@@ -104,6 +104,19 @@ print('cached', name, 'at', rev)"
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1
 
+# Wikidata is a separate matter from Hugging Face, and a run still needs it.
+# ILPC2022, WKIngram and WikiTopics -- 14 of the 41 graphs -- name their
+# relations by P-code in the raw files, and datasets.py resolves each one to an
+# English label through the Wikidata API because SEMMA's own relation
+# descriptions are keyed by label. See patches/semma/0004.
+#
+# The User-Agent is what Wikimedia's policy asks for; without it every call
+# answers 403. Change it to identify your own run. The cache lands on the bind
+# mount, so the labels a result was built from are recorded next to the result
+# instead of being re-read, possibly differently, on the next run.
+ENV WIKIDATA_USER_AGENT="sotaKGFMs-benchmark/1.0 (https://github.com/LckyLke/sotaKGFMs) python-requests" \
+    SEMMA_WIKIDATA_CACHE=/kgfm-src/data/raw/semma/wikidata_labels.json
+
 WORKDIR /kgfm
 
 # Per-repo extensions directory: torch names the build directory after the
