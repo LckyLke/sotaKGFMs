@@ -41,24 +41,28 @@ def table(header, rows):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ranks", default=os.path.join(WORKSPACE, "ranks", "ultra"))
-    parser.add_argument("--csv-glob", default=None,
-                        help="glob for the stock ultra_results_*.csv files")
+    parser.add_argument("--model", default=None,
+                        help="model name; defaults to the basename of --ranks")
+    parser.add_argument("--results", default=os.path.join(WORKSPACE, "results"),
+                        help="root holding the model's own metric CSVs")
     parser.add_argument("--out", default=os.path.join(WORKSPACE, "baseline_report.md"))
     parser.add_argument("--notes", default=os.path.join(WORKSPACE, "docs", "report_notes.md"),
                         help="hand-written sections appended verbatim")
     args = parser.parse_args(argv)
 
+    model = args.model or os.path.basename(os.path.normpath(args.ranks))
     per_dataset = metrics.compute_dir(args.ranks)
 
-    # merge every stock CSV; shards each write their own
-    theirs = {}
-    csv_files = sorted(glob.glob(args.csv_glob)) if args.csv_glob else []
-    for path in csv_files:
-        theirs.update(analyse.read_ultra_csv(path))
+    # Merge this model's own CSVs -- one per graph, since each runner
+    # invocation writes its own file. Discovery is model-aware: SEMMA is an
+    # ULTRA fork that still names its output ultra_results_*.csv, so a plain
+    # recursive glob would read its rows as ULTRA's.
+    csv_files = analyse.find_model_csvs(model, args.results)
+    theirs = analyse.read_model_csvs(model, csv_files)
 
     rows_a, ok_a = analyse.criterion_a(per_dataset, theirs)
     sum_a = analyse.criterion_a_summary(rows_a)
-    rows_b, ok_b = analyse.criterion_b(per_dataset)
+    rows_b, ok_b = analyse.criterion_b(per_dataset, model)
 
     have = {g: sum(1 for i in suite.ids(g) if i in per_dataset) for g in suite.GROUPS}
     want = {g: len(suite.ids(g)) for g in suite.GROUPS}
@@ -115,7 +119,7 @@ def main(argv=None):
         "once regardless of how many test queries it has. The last two columns show the "
         "distance to the paper numbers as well — landing on those instead of the "
         "repository ones would be an anomaly worth reporting.\n")
-    out.append(analyse.render_criterion_b(rows_b, ok_b))
+    out.append(analyse.render_criterion_b(rows_b, ok_b, model))
 
     if os.path.exists(args.notes):
         out.append("\n\n")

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Run a command in one model's container with the work tree bind-mounted.
+#
+#   usage: scripts/docker_run.sh <model> <command> [args...]
+#   e.g.   scripts/docker_run.sh semma /kgfm-src/scripts/run_semma.sh ind_e "[0]"
+#
+# This replaces the four per-model wrappers that used to live in a scratch
+# directory. That directory is session-scoped and gets wiped, which left the
+# project unable to start a run at all until the wrappers were retyped. Nothing
+# needed to reproduce a result belongs outside the repository.
+#
+# The image tag is the first 8 characters of the pin in repos/PINS.json, so a
+# repin cannot silently keep running the old image.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MODEL="${1:?usage: docker_run.sh <model> <command> [args...]}"; shift
+
+TAG="$(python3 - "$ROOT" "$MODEL" <<'PY'
+import json, sys
+root, model = sys.argv[1], sys.argv[2]
+pins = json.load(open(root + "/repos/PINS.json"))
+pins = pins.get("repos", pins)
+info = pins[model]
+sha = info if isinstance(info, str) else (info.get("commit") or info.get("sha"))
+print(sha[:8])
+PY
+)"
+IMAGE="kgfm/${MODEL}:${TAG}"
+docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+  echo "no such image: $IMAGE" >&2
+  echo "build it:  docker build -f containers/$MODEL/Dockerfile -t $IMAGE ." >&2
+  exit 4
+}
+
+# Snapshot the runner rather than mounting it live. bash reads a script
+# incrementally, so editing the mounted file while a container executes it makes
+# the running shell resume at a shifted offset and misparse. That happened here
+# once and corrupted the trap that hands files back to the host user. A
+# per-invocation copy cannot be moved under a running container.
+RUNNER="$(mktemp "${TMPDIR:-/tmp}/kgfm-run.XXXXXX")"
+cp "$ROOT/scripts/in_container.sh" "$RUNNER"; chmod 0755 "$RUNNER"
+trap 'rm -f "$RUNNER"' EXIT
+
+# Pass through this model's own knobs, upper-cased: SEMMA_DATASETS, TRIX_REDO
+# and so on. Each runner documents the ones it reads.
+UP="$(echo "$MODEL" | tr '[:lower:]-' '[:upper:]_')"
+ENVARGS=()
+for suffix in DATASETS SHARD REDO EXTRA_ARGS WORKDIR RANK_DUMP_DIR; do
+  name="${UP}_${suffix}"
+  ENVARGS+=(-e "${name}=${!name:-}")
+done
+
+exec docker run --rm \
+  --gpus '"device=0"' \
+  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+  "${ENVARGS[@]}" \
+  -v "$ROOT:/kgfm-src" \
+  -v "$ROOT/output:/kgfm/output" \
+  -v "$RUNNER:/usr/local/bin/kgfm-run:ro" \
+  --shm-size=8g \
+  "$IMAGE" \
+  kgfm-run "$@"

@@ -129,34 +129,83 @@ with `FileNotFoundError` on `~/git/ULTRA/output`. SEMMA's fork adds the
 `scripts/run_ultra.sh` creates, so only the stock half of the neutrality check
 is affected.
 
-## Deviations from the specified procedure
+## Criterion B: two models pass, ULTRA does not
 
-The environment this ran in has **no GPU** — no `nvidia-smi`, no `nvcc`,
-`torch.cuda.is_available()` is False, 4 CPU cores — and its egress policy blocks
-several hosts the specified procedure requires. Each item below is a fact
-checked in this environment, not an assumption.
+Criterion B compares this project's unweighted group means against the figures
+each model itself published. Targets live in `shared/published.json`, one block
+per model, each carrying its source. They were constants in `analyse.py` once,
+and they were ULTRA's constants, so running the report for any other model
+compared that model against ULTRA's targets and printed a verdict that meant
+nothing.
 
-| step as specified | status | what actually happened |
+Everything below is one GPU run of one seed, 1024, on an RTX 4070 Ti SUPER.
+
+| model | target source | ind_e MRR | ind_e H@10 | ind_er MRR | ind_er H@10 | verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| MOTIF | arXiv 2502.13339 Table 2 | +0.0001 | -0.0003 | +0.0001 | +0.0004 | **PASS** |
+| TRIX | arXiv 2502.19512 Table 1 | +0.0012 | +0.0011 | -0.0001 | +0.0009 | **PASS** |
+| ULTRA | README, row `ULTRA (3g) PyG` | **-0.0042** | **+0.0064** | -0.0019 | -0.0012 | FAIL |
+
+MOTIF and TRIX land on their own published figures to within 0.0012 on all four
+group means, well inside the +/-0.002 band. They are ULTRA forks: same
+`compute_ranking`, same suite, same rank dump, same metric code, same container
+stack, same GPU. Two independent papers reproduced to the printed precision is a
+strong statement about the harness, and it is the reason the ULTRA row can be
+read as a fact about ULTRA rather than a fault in the measurement.
+
+### What the ULTRA gap is not
+
+**It is not the TorchDrug question.** An earlier version of this file said the
+published 0.430 belongs to ULTRA's TorchDrug implementation and that this was
+the whole gap. The first half is true -- `repos/ultra/README.md` line 31 names
+`DeepGraphLearning/ultra_torchdrug` as a separate repository, and line 363 states
+the preprint numbers came from a TorchDrug-trained model. The second half is
+wrong. Criterion B never targeted 0.430. It targets the README's own PyG row,
+0.420, measured by the authors with the same `run_many.py` this project drives,
+and the gap against that row is what fails.
+
+**It is not the device.** MOTIF and TRIX ran on the same GPU, in the same stack,
+over the same 18 graphs, and hit their targets. A float32 kernel difference that
+moved ULTRA by 0.004 would have moved them too.
+
+**It is not one broken graph.** Per graph across ind_e, ULTRA sits below MOTIF
+and TRIX by a margin that grows smoothly with how much those models improve on
+it -- 0.157 on WN18RRInductive:v4, 0.010 on FB15k237Inductive:v4 -- and sits
+above both on the HM and ILPC graphs. That is two better models, not one
+corrupted dataset. Nothing in the per-graph table is anomalous.
+
+**It is not the harness or the rank definition.** Both are shared, and both are
+what MOTIF and TRIX pass with.
+
+### What it might be
+
+The remaining candidates are all specific to the ULTRA row itself: that
+`ckpts/ultra_3g.pth` as shipped is not the checkpoint that produced the README
+table, or that the table was measured against a dataset snapshot that has since
+moved. Neither is settled here, and neither should be asserted without evidence.
+
+One measurement worth recording, because it bears on how firm the target is.
+Four sources give four different values for ULTRA's ind_e MRR on these same 18
+graphs:
+
+| source | ind_e MRR | ind_e H@10 |
 | --- | --- | --- |
-| Build `containers/ultra/` | **not done** | Blocked three independent ways. No Docker daemon is running (`/var/run/docker.sock` absent; only the client is installed). The registry blob CDN `production.cloudfront.docker.com` answers 403, so the CUDA devel base cannot be pulled. And both wheel indexes below are blocked, so the pip layers could not complete even with a daemon. The Dockerfile is written and is the deliverable; it has not been built. |
-| `pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cu118` | **blocked** | `download.pytorch.org` — proxy answers 403 to CONNECT (organization egress policy). |
-| `pip install torch-scatter==2.1.2 torch-sparse==0.6.18 -f https://data.pyg.org/whl/...` | **blocked** | `data.pyg.org` — 403. |
-| Run on a single GPU with `--gpus [0]` | **substituted** | Run on CPU with `--gpus null`, which ULTRA documents and supports; `rspmm` has a CPU code path and was compiled here from source. |
-| CUDA 11.8 devel base, Python 3.9, torch 2.1.0, PyG 2.4.0 | **partly met** | Python 3.9.25, torch 2.1.0, torch-geometric 2.4.0, torch-scatter 2.1.2 — ULTRA's pins exactly. Only the CUDA half is absent. torch came from PyPI (the same 2.1.0, CUDA-12 build, used on CPU) because the pinned index is blocked; torch-scatter 2.1.2 was compiled from its PyPI sdist. **No pin was relaxed to make an install succeed.** One build-tool pin was added: `setuptools==69.5.1`, because torch 2.1.0's `cpp_extension` imports `pkg_resources.packaging`, which setuptools removed in 70. |
+| ULTRA README, `ULTRA (3g) PyG` | 0.420 | 0.562 |
+| ULTRA README, `ULTRA (3g) Paper` | 0.430 | 0.566 |
+| MOTIF paper, ULTRA baseline row | 0.431 | 0.566 |
+| TRIX paper, ULTRA baseline row | 0.431 | 0.566 |
+| SEMMA paper, ULTRA baseline row | 0.428 | 0.570 |
+| this project | 0.4158 | 0.5684 |
 
-Consequences to keep in mind when reading the numbers:
+MOTIF and TRIX both quote 0.431, close to ULTRA's paper row rather than its PyG
+row, which suggests neither re-ran ULTRA. SEMMA quotes a third value again. On
+ind_er every source agrees within 0.001 and so does this project. The
+disagreement is confined to ind_e, and it exists between the published sources
+before this project is added to them.
 
-* **Criterion A is essentially unaffected.** It compares this project's metric
-  code against ULTRA's own metric code over the same ranks from the same
-  process, so whether that process ran on a GPU or a CPU is irrelevant to
-  whether the two agree. The one caveat is the ulp residual above: on a GPU the
-  reduction is CUDA's block tree rather than torch's CPU cascade, so *which*
-  order-dependent values land exactly may differ, while the bound does not.
-* **Criterion B is affected in principle.** ULTRA's published figures were
-  produced on an RTX 3090. CPU and CUDA float32 kernels differ in the low-order
-  bits, which can flip a near-tie and move a rank. The effect is small, but it
-  is not nothing, and a CPU-derived group mean is not strictly the same
-  measurement as the published one.
+Closing this needs `ultra_torchdrug` pinned as an eighth repository and run, so
+that both ULTRA implementations are measured here rather than compared through
+somebody else's table. That is on the task list.
 
 ## Datasets
 
@@ -216,7 +265,7 @@ mirrored.
 * **`--epochs 0` was verified in the logs**, not assumed: every dataset's config
   dump reads `'num_epoch': 0`.
 
-## SEMMA runs without flash-attn, and that is upstream's own choice
+## SEMMA runs without flash-attn, and that was measured, not assumed
 
 SEMMA has two halves. The structural half is ULTRA. The semantic half embeds
 relation descriptions with a sentence encoder, then builds a second relation
@@ -224,39 +273,64 @@ graph from the similarities between those embeddings.
 
 `flags.yaml` selects `jinaai/jina-embeddings-v3` as that encoder. `transformers`
 loads it with `trust_remote_code=True`, so the model repository supplies and
-executes its own `custom_st.py`. That file tries to import `flash_attn`. The
-import fails in this container. The code then prints one line for each attention
-layer and falls back to PyTorch native attention:
+executes its own `custom_st.py`. That code checks for `flash_attn`, does not
+find it, and prints one line for each attention layer:
 
 ```
 flash_attn is not installed. Using PyTorch native attention implementation.
 ```
 
-The encoder reloads once per graph, so the line repeats several hundred times
-per graph and several thousand times per suite. It is log noise, not a fault.
+Upstream ships it this way. `repos/semma/requirements.txt` line 10 comments the
+dependency out, with the authors' note that installation is complex. The gate
+that prints the warning is `get_use_flash_attn` in `modeling_xlm_roberta.py`,
+and it tests `importlib.util.find_spec` only, after `config.use_flash_attn` and
+`torch.cuda.is_available()` both pass. Installing a wheel is therefore the whole
+change. The question is whether to make it.
 
-This matches upstream. `repos/semma/requirements.txt` line 10 comments the
-dependency out, with the authors' own note:
+### The measurement
 
-```
-# flash-attn # Note: flash-attn installation can be complex and may require specific CUDA toolkit versions.
-```
+A matching wheel exists and works:
+`flash_attn-2.5.8+cu118torch2.1cxx11abiFALSE-cp39-cp39`. The container is Python
+3.9, torch 2.1.0+cu118, `_GLIBCXX_USE_CXX11_ABI = False`, and the GPU is compute
+capability 8.9, so every constraint is met. A forward pass runs.
 
-So SEMMA ships with flash-attn off. The container follows that rather than add a
-dependency the authors excluded. Two effects follow, and only the second one
-touches a reported number.
+**Cost.** The encoder is not where SEMMA's time goes. Loading it takes 1.3 s and
+encoding all 237 FB15k-237 relation names takes 0.8 s, against a steady-state
+cost near 27 s per graph. Flash attention can save a fraction of that 0.8 s, so
+under two percent of the suite. The earlier claim in this file, that unfused
+attention was part of why SEMMA is the most expensive model here, was wrong.
+SEMMA's cost is in the structural half.
 
-**Cost.** Unfused attention over a 24-layer encoder, repeated for every graph, is
-part of why SEMMA is the most expensive model in this suite. Measured against
-TRIX over the same graphs, SEMMA costs about six times as much.
+**Numbers.** The two paths do not agree. Encoding the same 237 relation names
+both ways gives a maximum absolute difference of 0.0055 per embedding component,
+and up to 0.0128 in the pairwise cosine similarity.
 
-**Numbers.** Flash attention is an exact algorithm, not an approximation, so the
-mathematics is identical either way. The summation order differs, so the
-embeddings differ in the low-order float bits. SEMMA keeps every relation pair
-whose cosine similarity is above 0.8, and on `FB15k237Inductive:v1` that
-threshold admits 668 pairs. A pair that sits on the boundary can move across it.
-The effect is small. It is not provably zero, so it is stated here for the same
-reason the CPU-versus-GPU note above is stated.
+That looks large until the dtype is checked. `config.torch_dtype` is
+`bfloat16`, and the parameters load as bfloat16 on both paths. One bfloat16 step
+near 1.0 is 0.0078. The measured 0.0055 is therefore below a single
+representable step of the encoder's own precision, which is what a reordered but
+exact attention kernel predicts.
+
+The consequence is still real. SEMMA keeps every relation pair whose cosine
+similarity exceeds 0.8. Over the 27966 pairs among those 237 relations, the
+flash path keeps 363 and the native path keeps 364, and **5 pairs disagree**.
+The semantic relation graph is not the same graph.
+
+### The decision
+
+Run without flash-attn. There is no speed argument, because the encoder is under
+two percent of the cost. There is a correctness argument against, because the
+threshold admits a different set of pairs. And upstream ships it off, so off is
+also the configuration the authors published.
+
+### What this says about SEMMA
+
+The finding worth keeping is not about this container. SEMMA's 0.8 cutoff sits
+inside the numerical noise floor of its own encoder's dtype: one bfloat16 step
+near the threshold is 0.0039, and the observed cosine spread reaches 0.0128. Any
+change that reorders arithmetic in that encoder can move pairs across the cutoff.
+That is a property of the model as published, and it bounds how exactly any
+reimplementation of SEMMA can be expected to match it.
 
 ## The sentence encoder is pinned to one commit
 

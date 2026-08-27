@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import csv
 import glob
+import json
 import math
 import os
 import struct
@@ -28,19 +29,47 @@ except ImportError:  # pragma: no cover - flat sys.path use
     import metrics as _metrics  # type: ignore
     import suite as _suite  # type: ignore
 
-#: ULTRA repository PyG zero-shot figures (README, pin 427966ad).  These are the
-#: acceptance targets -- NOT the paper's 0.430/0.566 and 0.345/0.512.  Landing on
-#: the paper numbers instead would mean something is wrong and is reported as an
-#: anomaly.
-PUBLISHED = {
-    "ind_e": {"n": 18, "mrr": 0.420, "hits@10": 0.562},
-    "ind_er": {"n": 23, "mrr": 0.344, "hits@10": 0.511},
+#: Published group means live in shared/published.json, one block per model,
+#: each carrying its own source. They were constants here once, and they were
+#: ULTRA's constants: running the report for any other model then compared that
+#: model against ULTRA's targets and printed a verdict that meant nothing.
+PUBLISHED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "published.json")
+
+
+def load_published(path: str = PUBLISHED_PATH) -> dict:
+    with open(path) as handle:
+        return json.load(handle)
+
+
+def targets_for(model: str, published: Optional[dict] = None) -> Tuple[dict, str, dict]:
+    """Return (primary target, its key, the other targets) for one model.
+
+    Raises rather than falling back to another model's numbers. A missing entry
+    means the published figures for that model were never recorded, and saying
+    so is the only honest output.
+    """
+    pub = published if published is not None else load_published()
+    if model not in pub:
+        raise KeyError(
+            "no published figures recorded for {!r} in {}. Add a block for it "
+            "rather than comparing against another model.".format(model, PUBLISHED_PATH))
+    entry = pub[model]
+    key = entry["primary"]
+    return entry["targets"][key], key, {k: v for k, v in entry["targets"].items() if k != key}
+
+
+#: Filename each repository writes its own metrics into. SEMMA is an ULTRA fork
+#: that never renamed the output, so its CSVs are called ultra_results_*.csv
+#: too -- a recursive glob for that name under results/ picks up both models'
+#: files and silently merges one into the other.
+CSV_PATTERNS = {
+    "ultra": "ultra_results_*.csv",
+    "semma": "ultra_results_*.csv",
+    "motif": "MOTIF_results_*.csv",
+    "trix": "TRIX_results_*.csv",
 }
-PAPER = {
-    "ind_e": {"mrr": 0.430, "hits@10": 0.566},
-    "ind_er": {"mrr": 0.345, "hits@10": 0.512},
-}
-TOLERANCE = 0.002
+
+TOLERANCE_DEFAULT = 0.002
 
 
 # ---------------------------------------------------------------------------
@@ -82,12 +111,45 @@ def read_ultra_csv(path: str) -> Dict[str, Dict[str, float]]:
     return out
 
 
-def find_latest_ultra_csv(where: str) -> Optional[str]:
-    found = sorted(glob.glob(os.path.join(where, "**", "ultra_results_*.csv"), recursive=True))
-    return found[-1] if found else None
+def model_csv_dir(model: str, root: str = "results") -> str:
+    """Where one model's own metric CSVs live.
+
+    Non-recursive on purpose. ULTRA's sit loose in results/ and every other
+    model has results/<model>/; a recursive search would let SEMMA's
+    ultra_results_*.csv be read as ULTRA's.
+    """
+    nested = os.path.join(root, model)
+    return nested if os.path.isdir(nested) else root
 
 
-# ---------------------------------------------------------------------------
+def find_model_csvs(model: str, root: str = "results") -> List[str]:
+    pattern = CSV_PATTERNS.get(model)
+    if pattern is None:
+        raise KeyError("no CSV filename pattern recorded for model {!r}".format(model))
+    return sorted(glob.glob(os.path.join(model_csv_dir(model, root), pattern)))
+
+
+def read_model_csvs(model: str, paths: Sequence[str]) -> Dict[str, Dict[str, float]]:
+    """Merge one model's per-graph CSVs. Each run writes one file with one row.
+
+    Raises on a duplicate dataset rather than letting the last file win: two
+    rows for one graph means either a re-run that was never cleaned up or two
+    models' files in one directory, and both must be looked at, not averaged
+    over silently.
+    """
+    out: Dict[str, Dict[str, float]] = {}
+    seen: Dict[str, str] = {}
+    for path in paths:
+        for gid, row in read_ultra_csv(path).items():
+            if gid in seen:
+                raise ValueError(
+                    "{} appears twice for model {}: {} and {}. Remove the stale "
+                    "file before reporting.".format(gid, model, seen[gid], path))
+            seen[gid] = path
+            out[gid] = row
+    return out
+
+
 # criterion A
 # ---------------------------------------------------------------------------
 #: Metrics whose reduction is order-independent, so bitwise equality is a
@@ -168,10 +230,18 @@ def criterion_a_summary(rows: Sequence[dict]) -> dict:
 # ---------------------------------------------------------------------------
 # criterion B
 # ---------------------------------------------------------------------------
-def criterion_b(per_dataset: Mapping[str, Mapping[str, float]]) -> Tuple[List[dict], bool]:
+def criterion_b(per_dataset: Mapping[str, Mapping[str, float]],
+                model: str = "ultra") -> Tuple[List[dict], bool]:
+    pub = load_published()
+    primary, primary_key, others = targets_for(model, pub)
+    tolerance = pub.get("tolerance", TOLERANCE_DEFAULT)
+    counts = pub.get("groups", {})
+    alt_key = next(iter(others), None)
     rows: List[dict] = []
     passed = True
-    for group, target in PUBLISHED.items():
+    for group in ("ind_e", "ind_er"):
+        target = dict(primary[group], n=counts.get(group, len(_suite.ids(group))))
+        alt = others[alt_key][group] if alt_key else None
         wanted = set(_suite.ids(group))
         present = {k: v for k, v in per_dataset.items() if k in wanted}
         complete = len(present) == target["n"]
@@ -181,20 +251,23 @@ def criterion_b(per_dataset: Mapping[str, Mapping[str, float]]) -> Tuple[List[di
                     "group": group, "metric": metric, "n_present": 0, "n_expected": target["n"],
                     "ours": float("nan"), "target": target[metric], "delta": float("nan"),
                     "within": False, "complete": False,
-                    "paper": PAPER[group][metric], "paper_delta": float("nan"),
+                    "target_key": primary_key, "alt_key": alt_key,
+                    "paper": (alt[metric] if alt else float("nan")),
+                    "paper_delta": float("nan"),
                 })
                 passed = False
                 continue
             value = _metrics.group_mean(present, metric)
             delta = value - target[metric]
-            within = abs(delta) <= TOLERANCE
+            within = abs(delta) <= tolerance
             rows.append({
                 "group": group, "metric": metric,
                 "n_present": len(present), "n_expected": target["n"],
                 "ours": value, "target": target[metric], "delta": delta,
                 "within": within, "complete": complete,
-                "paper": PAPER[group][metric],
-                "paper_delta": value - PAPER[group][metric],
+                "target_key": primary_key, "alt_key": alt_key,
+                "paper": (alt[metric] if alt else float("nan")),
+                "paper_delta": (value - alt[metric]) if alt else float("nan"),
             })
             if not (within and complete):
                 passed = False
@@ -251,20 +324,34 @@ def render_criterion_a(rows: Sequence[dict], passed: bool) -> str:
     return "\n".join(summary) + "\n\n" + head
 
 
-def render_criterion_b(rows: Sequence[dict], passed: bool) -> str:
-    body = [
-        [r["group"], r["metric"], "{}/{}".format(r["n_present"], r["n_expected"]),
-         "{:.4f}".format(r["ours"]) if not math.isnan(r["ours"]) else "n/a",
-         "{:.3f}".format(r["target"]),
-         "{:+.4f}".format(r["delta"]) if not math.isnan(r["delta"]) else "n/a",
-         "yes" if r["within"] else "**no**",
-         "{:.3f}".format(r["paper"]),
-         "{:+.4f}".format(r["paper_delta"]) if not math.isnan(r["paper_delta"]) else "n/a"]
-        for r in rows
-    ]
-    head = _table(["group", "metric", "datasets", "ours", "repo target", "delta",
-                   "within +/-0.002", "paper", "delta vs paper"], body)
-    return "**Criterion B: {}**\n\n".format("PASS" if passed else "FAIL") + head
+def render_criterion_b(rows: Sequence[dict], passed: bool, model: str = "ultra") -> str:
+    if not rows:
+        return "_Criterion B not evaluated._"
+    target_key = rows[0].get("target_key", "repo")
+    alt_key = rows[0].get("alt_key")
+    header = ["group", "metric", "datasets", "ours",
+              "{} target".format(target_key), "delta", "within +/-0.002"]
+    body = []
+    for r in rows:
+        cells = [r["group"], r["metric"], "{}/{}".format(r["n_present"], r["n_expected"]),
+                 "{:.4f}".format(r["ours"]) if not math.isnan(r["ours"]) else "n/a",
+                 "{:.3f}".format(r["target"]),
+                 "{:+.4f}".format(r["delta"]) if not math.isnan(r["delta"]) else "n/a",
+                 "yes" if r["within"] else "**no**"]
+        if alt_key:
+            cells += ["{:.3f}".format(r["paper"]),
+                      "{:+.4f}".format(r["paper_delta"]) if not math.isnan(r["paper_delta"]) else "n/a"]
+        body.append(cells)
+    if alt_key:
+        header += [alt_key, "delta vs {}".format(alt_key)]
+    pub = load_published().get(model, {})
+    target = pub.get("targets", {}).get(target_key, {})
+    lines = ["**Criterion B ({}): {}**".format(model, "PASS" if passed else "FAIL"), ""]
+    if target.get("source"):
+        lines += ["Target: `{}`.".format(target["source"]), ""]
+    if target.get("note"):
+        lines += [target["note"], ""]
+    return "\n".join(lines) + "\n" + _table(header, body)
 
 
 def render_per_dataset(per_dataset: Mapping[str, Mapping[str, float]]) -> str:
@@ -287,27 +374,36 @@ def render_per_dataset(per_dataset: Mapping[str, Mapping[str, float]]) -> str:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ranks", default="ranks/ultra", help="directory of rank parquets")
-    parser.add_argument("--ultra-csv", default=None, help="stock ultra_results_*.csv")
-    parser.add_argument("--search", default="output", help="where to look for the CSV if not given")
+    parser.add_argument("--model", default=None,
+                        help="model name; defaults to the basename of --ranks")
+    parser.add_argument("--search", default="results",
+                        help="root holding the model's own metric CSVs")
     parser.add_argument("--dtype", default="float32", choices=("float32", "float64"))
     args = parser.parse_args(argv)
 
+    model = args.model or os.path.basename(os.path.normpath(args.ranks))
     per_dataset = _metrics.compute_dir(args.ranks, dtype=args.dtype)
     print("## Per-dataset results\n")
     print(render_per_dataset(per_dataset))
 
-    csv_path = args.ultra_csv or find_latest_ultra_csv(args.search)
+    csv_paths = find_model_csvs(model, args.search)
     print("\n\n## Criterion A -- metric equivalence\n")
-    if csv_path and per_dataset:
-        rows, ok = criterion_a(per_dataset, read_ultra_csv(csv_path))
-        print("Source CSV: `{}`\n".format(csv_path))
+    if csv_paths and per_dataset:
+        theirs = read_model_csvs(model, csv_paths)
+        rows, ok = criterion_a(per_dataset, theirs)
+        print("Source: {} CSV(s) in `{}`, {} datasets.\n".format(
+            len(csv_paths), model_csv_dir(model, args.search), len(theirs)))
         print(render_criterion_a(rows, ok))
     else:
-        print("_Not evaluated: no ultra_results_*.csv found._")
+        print("_Not evaluated: no {} CSV found under {}._".format(
+            CSV_PATTERNS.get(model, "?"), args.search))
 
     print("\n\n## Criterion B -- published numbers\n")
-    rows_b, ok_b = criterion_b(per_dataset)
-    print(render_criterion_b(rows_b, ok_b))
+    try:
+        rows_b, ok_b = criterion_b(per_dataset, model)
+        print(render_criterion_b(rows_b, ok_b, model))
+    except KeyError as exc:
+        print("_Not evaluated: {}_".format(exc))
     return 0
 
 
