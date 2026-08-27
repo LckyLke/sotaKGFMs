@@ -2,18 +2,11 @@
   "gate": "phase 0 identity: CREST with a zeroed readout must equal TRIX exactly",
   "why": "s = s_v0 + s_pfn and the readout's last linear layer is zero, so CREST is arithmetically TRIX. A rank that differs is a defect in the wrapper, the data root or the dump, not a modelling difference. No tolerance is used or needed.",
   "how": "run with --bank skip and no readout checkpoint, inside kgfm/trix:7596e14e (no CREST image was built), comparing ranks/crest/ against ranks/trix/ after aligning both on (direction, h, r, t) because query order need not match.",
-  "graphs_compared": 39,
+  "graphs_compared": 41,
   "graphs_in_suite": 41,
-  "ranks_compared": 135694,
+  "ranks_compared": 185870,
   "ranks_differing": 0,
-  "verdict": "PASS on every graph compared; gate is incomplete until all 41 are covered",
-  "deferred": {
-    "graphs": [
-      "ILPC2022:large",
-      "HM:indigo"
-    ],
-    "reason": "system RAM was down to 4 GB with the FLOCK run holding 25 GB; an OOM would have taken that 21-hour run with it"
-  },
+  "verdict": "PASS: all 41 graphs, every rank identical",
   "per_graph": [
     {
       "graph": "FB15k237Inductive_v1",
@@ -73,6 +66,16 @@
     {
       "graph": "HM_5k",
       "rows": 4248,
+      "ranks_differing": 0
+    },
+    {
+      "graph": "HM_indigo",
+      "rows": 29808,
+      "ranks_differing": 0
+    },
+    {
+      "graph": "ILPC2022_large",
+      "rows": 20368,
       "ranks_differing": 0
     },
     {
@@ -210,5 +213,6 @@
       "rows": 2776,
       "ranks_differing": 0
     }
-  ]
+  ],
+  "completion_note": "ILPC2022:large and HM:indigo were deferred while the FLOCK run held system RAM; run after the host crash freed it. The in-image test suite also passed on torch 2.1.0 (27 passed, 1 skipped), retiring the version-compatibility risk noted at build time."
 }
