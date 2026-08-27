@@ -1,0 +1,13 @@
+{"dataset": "FBIngram_25", "device": "gpu", "index": 1, "model": "kg-icl", "run_id": "FBIngram:25", "seconds": 90.986, "started": "2026-08-27T09:12:05Z", "status": "ok"}
+{"dataset": "FBIngram_50", "device": "gpu", "index": 2, "model": "kg-icl", "run_id": "FBIngram:50", "seconds": 53.137, "started": "2026-08-27T09:13:36Z", "status": "ok"}
+{"dataset": "FBIngram_75", "device": "gpu", "index": 3, "model": "kg-icl", "run_id": "FBIngram:75", "seconds": 22.494, "started": "2026-08-27T09:14:30Z", "status": "ok"}
+{"dataset": "FBIngram_100", "device": "gpu", "index": 4, "model": "kg-icl", "run_id": "FBIngram:100", "seconds": 15.367, "started": "2026-08-27T09:14:52Z", "status": "ok"}
+{"dataset": "WKIngram_25", "device": "gpu", "index": 5, "model": "kg-icl", "run_id": "WKIngram:25", "seconds": 6.171, "started": "2026-08-27T09:15:08Z", "status": "ok"}
+{"dataset": "WKIngram_50", "device": "gpu", "index": 6, "model": "kg-icl", "run_id": "WKIngram:50", "seconds": 10.937, "started": "2026-08-27T09:15:14Z", "status": "ok"}
+{"dataset": "WKIngram_75", "device": "gpu", "index": 7, "model": "kg-icl", "run_id": "WKIngram:75", "seconds": 3.398, "started": "2026-08-27T09:15:25Z", "status": "ok"}
+{"dataset": "WKIngram_100", "device": "gpu", "index": 8, "model": "kg-icl", "run_id": "WKIngram:100", "seconds": 25.577, "started": "2026-08-27T09:15:28Z", "status": "ok"}
+{"dataset": "NLIngram_0", "device": "gpu", "index": 9, "model": "kg-icl", "run_id": "NLIngram:0", "seconds": 5.233, "started": "2026-08-27T09:15:54Z", "status": "ok"}
+{"dataset": "NLIngram_25", "device": "gpu", "index": 10, "model": "kg-icl", "run_id": "NLIngram:25", "seconds": 4.56, "started": "2026-08-27T09:15:59Z", "status": "ok"}
+{"dataset": "NLIngram_50", "device": "gpu", "index": 11, "model": "kg-icl", "run_id": "NLIngram:50", "seconds": 4.701, "started": "2026-08-27T09:16:04Z", "status": "ok"}
+{"dataset": "NLIngram_75", "device": "gpu", "index": 12, "model": "kg-icl", "run_id": "NLIngram:75", "seconds": 3.447, "started": "2026-08-27T09:16:08Z", "status": "ok"}
+{"dataset": "NLIngram_100", "device": "gpu", "index": 13, "model": "kg-icl", "run_id": "NLIngram:100", "seconds": 4.587, "started": "2026-08-27T09:16:12Z", "status": "ok"}
