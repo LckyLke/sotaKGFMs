@@ -96,9 +96,28 @@ class Dumper:
 
     EXTRA = ["rank_native"]
 
+    @staticmethod
+    def _resolve(name):
+        """Suite graph for a dataset directory name.
+
+        scripts/build_kgicl_datasets.py names each directory after the suite id
+        with ':' replaced by '_', because a colon is awkward in a path. KG-ICL
+        passes that directory name through as loader.name, so 'HM:1k' arrives
+        here as 'HM_1k' and by_run_id does not know it. Matching against the
+        sanitised form of every suite id is exact; splitting on the last
+        underscore would only be a guess.
+        """
+        try:
+            return suite.by_run_id(name)
+        except KeyError:
+            for gid in suite.ids():
+                if gid.replace(":", "_") == name:
+                    return suite.by_id(gid)
+            raise
+
     def __init__(self, spec):
         self.spec = spec
-        self.graph = suite.by_run_id(spec["dataset"])
+        self.graph = self._resolve(spec["dataset"])
         self.columns = {name: [] for name in list(suite.RANK_COLUMNS) + self.EXTRA}
         self.query_id = 0
 
