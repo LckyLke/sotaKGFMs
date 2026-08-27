@@ -1,0 +1,3 @@
+{"config": "n16_ensemble16.yaml", "dataset": "FB15k237Inductive_v1", "device": "gpu", "index": 1, "model": "flock", "run_id": "FB15k237Inductive:v1", "seconds": 33.689, "started": "2026-08-27T06:38:03Z", "status": "failed"}
+{"config": "n16_ensemble16.yaml", "dataset": "FB15k237Inductive_v1", "device": "gpu", "index": 1, "model": "flock", "run_id": "FB15k237Inductive:v1", "seconds": 17.8, "started": "2026-08-27T06:39:14Z", "status": "failed"}
+{"config": "n16_ensemble16.yaml", "dataset": "FB15k237Inductive_v1", "device": "gpu", "index": 1, "model": "flock", "run_id": "FB15k237Inductive:v1", "seconds": 401.799, "started": "2026-08-27T06:40:22Z", "status": "ok"}
