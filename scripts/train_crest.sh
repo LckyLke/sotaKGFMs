@@ -72,6 +72,10 @@ PROVPY
 
 export TRIX_ROOT="$TRIXDIR"
 export PYTHONPATH="$WORKDIR:$ROOT/shared${PYTHONPATH:+:$PYTHONPATH}"
+# python -m puts the *current directory* ahead of PYTHONPATH, and the image's
+# working directory carries the crest/ baked in at build time. Run from the
+# prepared work tree so the freshly copied package is the one that imports.
+cd "$WORKDIR"
 
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 t0=$(date +%s.%N)
