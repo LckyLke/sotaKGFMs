@@ -5,6 +5,6 @@
   "device": "gpu",
   "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER, 610.57.04",
   "host": "Linux-7.1.9-arch1-2-x86_64-with-glibc2.35",
-  "readout_checkpoint": "crest_stagea_best.pth",
+  "readout_checkpoint": "crest_stageb_best.pth",
   "seed": 1024
 }
