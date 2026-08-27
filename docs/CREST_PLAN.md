@@ -359,3 +359,122 @@ If a phase exceeds twice its budget, write `results/STOP.md` and stop.
 | seed 0 conflicts with the project | **fixed**, 1024 throughout |
 | `Ans(u, r)` source graph unspecified | **fixed**, inference graph, asserted in the test |
 | "wrap, do not edit" meets a repo that resists it | **accepted**, TRIX changes are diffs in `patches/trix/` |
+
+---
+
+# Revision 3. CREST owns its encoder
+
+This section is additive. It revises sections 1, 2 and 7 above, and changes
+nothing about the model, the readout, the bank or any stop rule after phase 1.
+It will be folded into the body once the current implementation pass lands.
+
+Decision: **CREST reimplements the TRIX encoder inside `crest/` and loads TRIX's
+released weights.** It does not import `repos/trix` at run time.
+
+Two things follow. CREST becomes a self-contained implementation that can be
+built and run without cloning another repository. And the stack stops being
+pinned to torch 2.1.0, CUDA 11.8 and Python 3.9 by somebody else's requirements.
+
+## P.1 What is ported, and what is not
+
+Measured surface of TRIX at pin 7596e14e:
+
+| file | lines | ported |
+| --- | --- | --- |
+| `models_entity.py` | 243 | yes |
+| `models_relation.py` | 256 | yes |
+| `layers.py` | 235 | yes |
+| `tasks.py` | 277 | ranking and relation-graph construction only |
+| `util.py` | 165 | partly |
+| `datasets.py` | 1237 | **no** |
+
+`datasets.py` is not ported. `scripts/build_kgicl_datasets.py` already
+demonstrates that all 54 graphs are readable with one generic loader plus a
+per-family table of file names, in roughly 200 lines. Reuse that mapping. It is
+the same raw data every other model here reads.
+
+## P.2 The checkpoint pins the architecture
+
+CREST loads `entity_prediction.pth` and `relation_prediction.pth`: 154 tensors
+and 87138 parameters for the entity model. Keys look like
+`relation_model.layers_hh.0.relation_projection.0.weight`.
+
+This is a re-expression with identical parameter semantics, **not** a redesign.
+Either match the module structure so the state dict loads directly, or write an
+explicit key-remapping loader and test it. State which was chosen.
+
+For scale, and it is worth knowing when reading phase 2: the readout specified
+in section 3.3 is 427009 parameters, **4.9 times the encoder**. TRIX is a very
+small model. If CREST gains, most of the capacity doing the gaining is new.
+
+The checkpoints are committed in TRIX's own repository, are 1.2 MB and 2.1 MB,
+and are therefore declared as a hashed data dependency rather than reached for
+inside a clone:
+
+```
+data/raw/trix-checkpoints/entity_prediction.pth     sha256 8f6e7266093c2d15...
+data/raw/trix-checkpoints/relation_prediction.pth   sha256 5d15d0b50c9df4e4...
+```
+
+Record them in `data/raw/MANIFEST-trix-checkpoints.json` in the same shape as
+the other manifests, with the source URL and the pin they came from.
+
+## P.3 Verification: two tiers, in this order
+
+Bitwise verification and newer packages are **mutually exclusive**. `rspmm`
+fuses its reduction; any `scatter_reduce` equivalent sums in a different order,
+so float32 results differ and ranks flip on ties. Changing torch versions does
+the same. This is measured, not theoretical: moving ULTRA from CPU to GPU
+changed ranks on 1 of 37 graphs here, worth 0.0145 MRR on NELLInductive:v1.
+
+So the two variables are separated, and the order is mandatory.
+
+### Tier 1. Prove the port
+
+Stack unchanged: torch 2.1.0, CUDA 11.8, Python 3.9, `rspmm` kept as it is.
+Only the code changes.
+
+* **Gate:** run the port over all 41 inductive graphs and compare against
+  `ranks/trix/*.parquet` row by row. Every rank must be identical. Roughly
+  700000 per-query ranks, from a model we did not write.
+* **Stop:** any rank differs. Find it before continuing. There is no tolerance
+  at this tier, because there does not need to be one.
+
+### Tier 2. Move the stack
+
+Now, and only now, change one thing at a time: torch 2.5 or newer, `rspmm`
+replaced by `scatter_reduce`. KG-ICL's `EntityEncoder` carries a working
+pure-torch fallback of the same shape (`message = hs + hr`, then `scatter_add`)
+and is the reference for what the kernel computes.
+
+* **Gate:** compare against tier 1's own dump. Report the percentage of ranks
+  that are identical and the change in each group mean. This is a **measured
+  and published property of the port**, not a pass or fail.
+* Record it in `docs/report_notes.md` beside the CPU-versus-GPU note, which is
+  the same class of effect.
+
+If tier 1 and tier 2 are done together and a rank differs, nothing can be
+concluded about which change caused it. That is the entire reason for the split.
+
+## P.4 What the container no longer needs
+
+`containers/crest/Dockerfile` copies `shared/` and `crest/`. It does not copy
+`repos/trix`, does not apply `patches/trix/`, and does not compile `rspmm` from
+another repository's source tree at tier 2.
+
+`patches/trix/` still exists and is still applied when running TRIX itself,
+including the `compute_ranking_relation` fix from phase 1. CREST's own port must
+carry that fix natively: 1-based ranks in both branches, filtered and
+unfiltered.
+
+## P.5 Effect on the phases above
+
+* **Phase 0** is unchanged in intent and stronger in effect. The identity gate
+  now proves two things at once: that the readout is correctly zeroed, and that
+  the ported encoder reproduces TRIX exactly.
+* **Phase 1** is unchanged. The relation baseline still comes from running TRIX
+  itself, from `repos/trix`, so the port is checked against an independent
+  implementation rather than against itself.
+* **Phases 2, 3 and 4** are unchanged.
+* Budget: add **4 days** for the port and its two verification tiers, between
+  phase 1 and phase 2.
