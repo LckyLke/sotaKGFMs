@@ -57,6 +57,10 @@ readout:
 bank:
   num_positive: 20
   neg_per_pos: 3
+  # Encoder passes per chunk during a build; a memory/time parameter like
+  # chunk_size below, never a model parameter: the bank's composition is
+  # drawn before any encoding and does not depend on it (crest/bank.py).
+  build_batch_size: 32
 
 # Memory parameter, NOT a model parameter: candidates never attend to each
 # other, so chunking the readout is exact. Sized for this GPU's 15.6 GB, not

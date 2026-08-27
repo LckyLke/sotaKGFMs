@@ -303,7 +303,8 @@ def main(argv=None):
                 test_data, adapter, seed=args.seed,
                 num_positive=crest_cfg.bank.num_positive,
                 neg_per_pos=crest_cfg.bank.neg_per_pos,
-                bank=empty),
+                bank=empty,
+                build_batch_size=crest_cfg.bank.get("build_batch_size", 32)),
             dataset_id, ckpt_hash, args.seed)
         ctx_bank.to(device)  # a cache hit loads CPU tensors
         print("bank ready in %.1fs (%d relation ids)" % (

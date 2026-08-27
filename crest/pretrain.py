@@ -318,7 +318,8 @@ def main(argv=None):
             lambda empty, g=graph: crest_bank.build_bank_entity(
                 g, adapter, seed=args.seed,
                 num_positive=cfg.bank.num_positive,
-                neg_per_pos=cfg.bank.neg_per_pos, bank=empty),
+                neg_per_pos=cfg.bank.neg_per_pos, bank=empty,
+                build_batch_size=cfg.bank.get("build_batch_size", 32)),
             bank_id, ckpt_hash, args.seed)
         ctx_bank.to(device)
         dt = time.perf_counter() - t0

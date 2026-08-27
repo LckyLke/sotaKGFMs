@@ -14,7 +14,16 @@ Leakage contract (docs/CREST_PLAN.md 4.1) -- the property the design rests on
   inference-graph edge.
 * For each sampled edge, that edge **and its inverse** are removed from the
   message graph before the encoder runs, so no row encodes the trivial
-  answer of reading the queried edge off the graph.
+  answer of reading the queried edge off the graph. Encoder passes are
+  chunked for throughput -- a single-query TRIX forward costs nearly as much
+  wall time as a batch of 32, so per-edge passes waste the GPU ~30x -- and a
+  chunk's edges are removed *together* from one shared message graph. Chunks
+  are built round-robin, at most one sampled edge per relation id per chunk,
+  so a row's graph is missing its own edge (the contract above) plus at most
+  ``build_batch_size - 1`` single edges of *other* relations, the same
+  perturbation TRIX training itself applies when ``remove_easy_edges`` drops
+  a whole batch. ``build_batch_size`` is a memory/time parameter, not a
+  model parameter.
 * ``Ans(u, r)`` -- the set a negative must avoid -- is computed over the
   **inference graph only**, never over a graph containing test edges. A test
   triple (u, r, x) therefore *can* appear as a negative here, which is
@@ -275,6 +284,29 @@ def _sample_negatives(graph, u: int, r: int, k: int,
     return candidates[idx]
 
 
+def _remove_chunk_edges(graph, jobs):
+    """One message graph missing every chunk edge and its inverse.
+
+    Each edge is asserted present, like ``remove_edge_and_inverse`` -- bank
+    edges must come from the inference graph.
+    """
+    ei, et = graph.edge_index, graph.edge_type
+    drop = torch.zeros(et.shape[0], dtype=torch.bool, device=et.device)
+    for u, rid, v, _ in jobs:
+        r_inv = inverse_relation(rid, graph.num_relations)
+        this = ((ei[0] == u) & (ei[1] == v) & (et == rid)) | \
+               ((ei[0] == v) & (ei[1] == u) & (et == r_inv))
+        assert bool(this.any()), (
+            "edge (%d, %d, %d) is not in the graph it is being removed from -- "
+            "bank edges must come from the inference graph" % (u, rid, v))
+        drop |= this
+    import copy as _copy
+    out = _copy.copy(graph)
+    out.edge_index = ei[:, ~drop]
+    out.edge_type = et[~drop]
+    return out
+
+
 # no_grad on both builders: bank rows are data, never differentiated through.
 # Without it a mid-training refresh (stage B) would store rows that pin the
 # encoder's autograd graph for as long as the bank lives.
@@ -283,13 +315,23 @@ def build_bank_entity(graph, encoder, seed: int = 1024,
                       num_positive: int = N_POSITIVE,
                       neg_per_pos: int = NEG_PER_POS,
                       relation_ids: Optional[Iterable[int]] = None,
-                      bank: Optional[ContextBank] = None) -> ContextBank:
+                      bank: Optional[ContextBank] = None,
+                      build_batch_size: int = 32) -> ContextBank:
     """Build (or partially refresh) the entity-task bank from ``graph``.
 
     ``graph`` MUST be the inference graph -- see the module docstring's
-    leakage contract. ``encoder.encode_single(graph, u, r)`` must return
-    ``(x [num_nodes, d], z [d], s0 [num_nodes])`` for the query (u, r, ?);
-    ``crest/run.py`` provides the TRIX adapter, tests provide a toy one.
+    leakage contract. The encoder is used through ``encode_batch`` when it
+    offers one (the TRIX adapter: ``batch [m, c, 3]`` -> ``(x [m, n, d],
+    z [m, d], s0 [m, c])``) and through per-query ``encode_single`` otherwise
+    (the host-test toys); both paths see the same chunked message graph, so
+    they produce the same rows.
+
+    Chunking (module docstring): the sampled edges are processed in rounds of
+    at most one edge per relation id, and each round in chunks of
+    ``build_batch_size`` whose edges are removed together. The sampling
+    itself -- which edges, which negatives -- is drawn in the same generator
+    order as a per-edge build, so a bank's composition depends only on
+    (graph, seed), never on the chunk size.
 
     ``relation_ids`` restricts the build to the given ids -- this is the
     partial-refresh path of docs/CREST_PLAN.md 4.2: during training only the
@@ -301,26 +343,68 @@ def build_bank_entity(graph, encoder, seed: int = 1024,
     out = bank if bank is not None else ContextBank(seed=seed)
     generator = torch.Generator().manual_seed(int(seed))
     wanted = range(graph.num_relations) if relation_ids is None else sorted(set(int(i) for i in relation_ids))
+    device = graph.edge_index.device
+
+    # draw the plan first, in the exact order the per-edge builder drew it
+    plan = {}  # rid -> [(u, rid, v, candidates [1 + neg_per_pos])]
     for rid in wanted:
         edge_ids = relation_edges(graph, rid)
         if len(edge_ids) == 0:
             continue
         chosen = _sample_edges(edge_ids, num_positive, generator)
-        rows, labels = [], []
+        entries = []
         for e in chosen.tolist():
             u = int(graph.edge_index[0, e])
             v = int(graph.edge_index[1, e])
-            message_graph = remove_edge_and_inverse(graph, u, rid, v)
-            x, z, s0 = encoder.encode_single(message_graph, u, rid)
-            feats = row_features(x, z, s0)  # [num_nodes, 3d + 2]
-            rows.append(feats[v])
-            labels.append(1)
-            for neg in _sample_negatives(graph, u, rid, neg_per_pos, generator).tolist():
-                rows.append(feats[neg])
-                labels.append(0)
-        features = torch.stack(rows)
-        out.put(rid, features, torch.tensor(labels, dtype=torch.long,
-                                            device=features.device))
+            negs = _sample_negatives(graph, u, rid, neg_per_pos, generator)
+            cand = torch.cat([torch.tensor([v], device=device), negs.to(device)])
+            entries.append((u, rid, v, cand))
+        plan[rid] = entries
+
+    rows_by_rid = {rid: [] for rid in plan}
+    present = sorted(plan)
+    # direct and inverse ids are chunked separately: an inverse id's sampled
+    # edge removes a direct-typed edge too (the pair), so mixing a base
+    # relation's two ids in one chunk could remove a second edge of the type
+    # a row is being built for -- exactly what the contract forbids
+    num_direct = int(graph.num_relations) // 2
+    halves = ([rid for rid in present if rid < num_direct],
+              [rid for rid in present if rid >= num_direct])
+    rounds = [[plan[rid][k] for rid in half]
+              for k in range(num_positive) for half in halves if half]
+    for round_jobs in rounds:
+        for start in range(0, len(round_jobs), int(build_batch_size)):
+            jobs = round_jobs[start:start + int(build_batch_size)]
+            message_graph = _remove_chunk_edges(graph, jobs)
+            cand = torch.stack([j[3] for j in jobs])  # [m, 1 + neg]
+            if hasattr(encoder, "encode_batch"):
+                m, n = len(jobs), graph.num_nodes
+                all_index = torch.arange(n, device=device).expand(m, n)
+                h_index = torch.tensor([j[0] for j in jobs], device=device
+                                       ).unsqueeze(-1).expand(m, n)
+                r_index = torch.tensor([j[1] for j in jobs], device=device
+                                       ).unsqueeze(-1).expand(m, n)
+                batch = torch.stack([h_index, all_index, r_index], dim=-1)
+                x, z, s0 = encoder.encode_batch(message_graph, batch)
+            else:
+                xs, zs, s0s = [], [], []
+                for u, rid, _, _ in jobs:
+                    x_i, z_i, s0_i = encoder.encode_single(message_graph, u, rid)
+                    xs.append(x_i)
+                    zs.append(z_i)
+                    s0s.append(s0_i)
+                x, z, s0 = torch.stack(xs), torch.stack(zs), torch.stack(s0s)
+            x_cand = x.gather(1, cand.unsqueeze(-1).expand(-1, -1, x.shape[-1]))
+            s0_cand = s0.gather(1, cand)
+            feats = row_features(x_cand, z, s0_cand)  # [m, 1 + neg, 3d + 2]
+            for j, (_, rid, _, _) in enumerate(jobs):
+                rows_by_rid[rid].append(feats[j])
+
+    label_block = torch.tensor([1] + [0] * neg_per_pos, dtype=torch.long,
+                               device=device)
+    for rid in present:
+        features = torch.cat(rows_by_rid[rid], dim=0)
+        out.put(rid, features, label_block.repeat(num_positive))
     return out
 
 

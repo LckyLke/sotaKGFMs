@@ -22,6 +22,10 @@ def _triples(edge_index, edge_type):
 
 
 def test_message_graph_never_contains_the_sampled_edge():
+    # a chunk removes its own edge plus at most one edge per *other* relation
+    # (bank.py module docstring); the contract asserted per call is therefore:
+    # every removed edge of the query's own relation belongs to this query,
+    # the query's edge really is gone, and nothing non-inference ever appears
     graph = make_toy_graph()
     encoder = RecordingEncoder()
     crest_bank.build_bank_entity(graph, encoder, seed=1024, num_positive=4)
@@ -32,13 +36,30 @@ def test_message_graph_never_contains_the_sampled_edge():
         u, r = call["u"], call["r"]
         r_inv = crest_bank.inverse_relation(r, graph.num_relations)
         removed = inference - seen
-        # something was removed, all of it is the sampled edge or its inverse,
-        # and nothing outside the inference graph ever appeared
         assert removed, "encoder saw the full inference graph"
-        assert all(t[1] in (r, r_inv) for t in removed), removed
+        # the chunk holds one edge per relation id, so the removed edges of
+        # the query's own relation (and its inverse) are the query's edge
+        own = {t for t in removed if t[1] in (r, r_inv)}
+        assert own, "the query's own edge was not removed"
         assert all((t[0] == u and t[1] == r) or (t[1] == r_inv and t[2] == u)
-                   for t in removed), removed
+                   for t in own), own
         assert seen <= inference, "message graph contains non-inference edges"
+
+
+def test_bank_composition_ignores_the_chunk_size():
+    # which edges and negatives make up the bank is drawn before any encoding,
+    # so composition depends on (graph, seed) alone; build_batch_size=1 is
+    # the per-edge build, and larger chunks may only perturb feature values
+    # (the shared message graph), never rows or labels
+    graph = make_toy_graph()
+    b1 = crest_bank.build_bank_entity(graph, RecordingEncoder(), seed=1024,
+                                      num_positive=4, build_batch_size=1)
+    b32 = crest_bank.build_bank_entity(graph, RecordingEncoder(), seed=1024,
+                                       num_positive=4, build_batch_size=32)
+    assert b1.relation_ids() == b32.relation_ids()
+    for rid in b1.relation_ids():
+        assert torch.equal(b1.labels(rid), b32.labels(rid))
+        assert b1.features(rid).shape == b32.features(rid).shape
 
 
 def test_ans_ignores_test_edges_so_they_are_legal_negatives():
