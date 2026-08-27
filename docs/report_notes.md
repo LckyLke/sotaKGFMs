@@ -332,6 +332,133 @@ change that reorders arithmetic in that encoder can move pairs across the cutoff
 That is a property of the model as published, and it bounds how exactly any
 reimplementation of SEMMA can be expected to match it.
 
+## SEMMA could not run 14 of the 41 graphs, for two separate reasons
+
+ILPC2022, WKIngram and WikiTopics -- 2 graphs in ind_e and 12 in ind_er -- do
+not use their raw relation identifiers as relation names. The raw files carry
+Wikidata property codes such as `P101`, while SEMMA's own LLM relation
+descriptions in `openrouter/descriptions/` are keyed by English labels such as
+`field of work`. `datasets.py` bridges the two by resolving each code through
+the Wikidata API, and builds `edge2id` from the labels it gets back.
+
+Both halves of that were broken, and neither said so.
+
+### The API refuses the default User-Agent
+
+Wikimedia's policy rejects `python-requests`' default string. Every call
+answered 403. `fetch_wikidata` caught the failure and returned `None`, the
+helpers substituted the string `"Failed to retrieve data"` for every relation,
+and `edge2id = {v: k for k, v in id2relation.items()}` then collapsed every
+relation onto that single key. The run died about 300 lines later in
+`order_embeddings` with `KeyError: 0`, which names a relation id and says
+nothing about a network call.
+
+`patches/semma/0004` sends the User-Agent the policy asks for, raises instead
+of substituting placeholder text, and caches what it read. The cache is the
+reproducibility half: a Wikidata label is editable, and SEMMA builds half its
+model from the embedding of that label.
+
+### Seven property labels have been renamed since
+
+With the API answering, the labels still did not all match. Wikidata labels are
+editable and seven of these properties have changed:
+
+| property | label now | key in SEMMA's description file |
+| --- | --- | --- |
+| P112 | founder | founded by |
+| P355 | child organization or unit | has subsidiary |
+| P410 | military, police or special rank | military or police rank |
+| P488 | chairman | chairperson |
+| P607 | participated in conflict | conflict |
+| P749 | parent organization or unit | parent organization |
+| P1029 | crew members | crew member |
+
+The authors saw at least one. `datasets.py` carries the bare comment
+`# parent organization/unit -> parent organization` above the ILPC2022 class.
+
+`patches/semma/0005` recovers six of the seven from each property's own
+Wikidata aliases. It first discards any alias that is another property's
+current label in the same graph, and that guard is the point of the patch
+rather than a detail: P112's aliases include `creator`, which is a real key in
+these description files -- but it belongs to P170, which appears in the same
+graphs. Matching on it would attach one relation's description and its
+embedding to a different relation, with no error anywhere. P112 is then the
+only entry in `LABEL_OVERRIDES`. Anything unresolved raises and names the
+property rather than being guessed at.
+
+On the first affected graph the patch reports what it did:
+
+```
+reconciled 3 renamed Wikidata label(s):
+  P112: 'founder' -> 'founded by' (override);
+  P749: 'parent organization or unit' -> 'parent organization' (alias);
+  P488: 'chairman' -> 'chairperson' (alias)
+```
+
+### What this means for SEMMA as published
+
+SEMMA reads a live, editable database at dataset-build time and matches what it
+finds against a file generated once. That is not a bug in one function, it is
+the design of its relation naming, and it means SEMMA's published numbers are
+attached to a moment in Wikidata's history that is not recorded anywhere. The
+cache this project writes pins the moment for these runs. Nothing can recover
+the authors'.
+
+## SEMMA fetched 225816 labels it then deleted
+
+For the same 14 graphs, `datasets.py` also resolved every *entity* id to a
+label -- 225816 entities, roughly 4500 API requests -- copied the result onto
+`train_`, `valid_` and `test_` prefixed attributes, and then deleted the
+originals in `attrs_to_remove` before saving the dataset.
+
+`id2entity` appears nowhere in the repository outside `datasets.py`, and never
+on the right-hand side of an expression. Neither do its prefixed copies. The
+semantic stream is built from relation descriptions, so no entity label can
+reach a number.
+
+`patches/semma/0006` skips the fetch. Measured on ILPC2022:small, which is not
+the largest of the 14: 142 s and a failure before, 42.8 s and a rank dump
+after. `SEMMA_FETCH_ENTITY_LABELS=1` restores upstream behaviour.
+
+## FLOCK: two things stood between it and a result
+
+### It does not fit on a 16 GB card
+
+FLOCK's README states it was tested on H100s. Every zero-shot config pairs
+`batch_size` with `walk_num` so the product is 512 -- 32x16, 16x32, 8x64,
+4x128 -- and scoring one batch materialises a GRU input of
+`batch x candidates x walk_num x walk_len x hidden`. On the first graph that
+asks for 18.8 GiB against 15.6 available.
+
+`run.py` already reads `cfg.train.test_batch_size` and falls back to
+`batch_size`, so `patches/flock/0003` only exposes the knob it already honours,
+defaulting to each config's own `batch_size`. The runner divides by 4, holding
+the product uniform at 128 across all configs. No walk count, walk length,
+ensemble size or model hyper-parameter changes.
+
+### It is not reproducible as shipped
+
+FLOCK is the only stochastic model in this suite. It scores by sampling random
+walks and averaging an ensemble of `test_samples` of them. `run_many.py`'s
+`set_seed` seeds python's `random` and torch, and ships the numpy line
+commented out:
+
+```
+    # np.random.seed(seed + util.get_rank())
+```
+
+Numpy's generator is the one the walk sampler uses, through
+`graph_walker.random_walks_fast(seed=None)` and `graph_walker._seed(None)`. So
+as shipped, two runs of one graph from one checkpoint return different numbers.
+
+`patches/flock/0004` uncomments it. This does not make the run match the
+published one: that run was not reproducible either, and no run can be made to
+match it. It makes this run reproducible at all, at seed 1024, the seed every
+other model here uses. `FLOCK_UNSEEDED_WALKS=1` restores upstream behaviour,
+which is how to measure what share of a FLOCK number is walk-sampling noise.
+Until that is measured, FLOCK's figures carry an uncertainty the other six do
+not, and a comparison that ignores it is not on equal footing.
+
 ## The sentence encoder is pinned to one commit
 
 `patches/semma/0003-pin-encoder.diff` adds a `revision` to the
