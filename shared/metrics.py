@@ -65,6 +65,14 @@ and once predicting the head from (?, r, t) -- and takes metrics over the
 concatenation of both.  On the five tail-only graphs (see shared/suite.py) only
 the tail rows exist and metrics run over those alone.
 
+Relation prediction (``task="relation"``) scores every test triple once,
+predicting the relation from (h, ?, t).  Those dumps live under
+``ranks-relation/<model>/`` with ``direction == "relation"`` on every row and
+``n_candidates`` counting relations rather than entities; the rank definition
+(1-based, pessimistic ties, strict filtering, target excluded from
+``n_candidates``) is identical.  The default ``task="entity"`` leaves the
+original validation untouched.
+
 ==============================================================================
 FLOATING POINT -- why float32 is the default
 ==============================================================================
@@ -141,10 +149,13 @@ _DTYPES = {"float32": np.float32, "float64": np.float64}
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
-def read_ranks(path: str, validate: bool = True) -> Dict[str, np.ndarray]:
+def read_ranks(path: str, validate: bool = True, task: str = "entity") -> Dict[str, np.ndarray]:
     """Read one rank parquet into a dict of column name -> numpy array.
 
     Validates the file against ``suite.RANK_COLUMNS`` unless ``validate=False``.
+    ``task`` selects which direction values are legal: ``"entity"`` (the
+    default) expects "head"/"tail" rows per the tail-only rule, ``"relation"``
+    expects ``direction == "relation"`` on every row.
     """
     columns = list(_suite.RANK_COLUMNS)
     try:
@@ -165,11 +176,13 @@ def read_ranks(path: str, validate: bool = True) -> Dict[str, np.ndarray]:
         data = {c: frame[c].to_numpy() for c in columns}
 
     if validate:
-        _validate(path, data)
+        _validate(path, data, task=task)
     return data
 
 
-def _validate(path: str, data: Mapping[str, np.ndarray]) -> None:
+def _validate(path: str, data: Mapping[str, np.ndarray], task: str = "entity") -> None:
+    if task not in ("entity", "relation"):
+        raise ValueError("task must be 'entity' or 'relation', got {!r}".format(task))
     rank = data["rank"]
     n_cand = data["n_candidates"]
     if len(rank) == 0:
@@ -184,7 +197,14 @@ def _validate(path: str, data: Mapping[str, np.ndarray]) -> None:
         )
 
     directions = set(np.unique(data["direction"]).tolist())
-    if not directions <= {"head", "tail"}:
+    if task == "relation":
+        # relation prediction scores each triple once; there is no head/tail
+        # split and the tail-only rule does not apply
+        if directions != {"relation"}:
+            raise ValueError(
+                "{}: relation task expects direction == 'relation' on every row, "
+                "found {}".format(path, sorted(directions)))
+    elif not directions <= {"head", "tail"}:
         raise ValueError("{}: unexpected direction values {}".format(path, sorted(directions)))
 
     names = set(np.unique(data["dataset"]).tolist())
@@ -192,7 +212,9 @@ def _validate(path: str, data: Mapping[str, np.ndarray]) -> None:
         raise ValueError("{}: expected exactly one dataset, found {}".format(path, sorted(names)))
     name = names.pop()
     graph = _suite.by_id(name)
-    if graph.tail_only:
+    if task == "relation":
+        pass  # direction already fully validated above
+    elif graph.tail_only:
         if directions != {"tail"}:
             raise ValueError(
                 "{}: {} is tail-only, expected tail rows only, found {}".format(
@@ -290,15 +312,18 @@ def hits_at_k_unbiased(
 
 
 def compute_file(path: str, dtype: str = "float32",
-                 rank_column: str = "rank") -> Dict[str, float]:
+                 rank_column: str = "rank", task: str = "entity") -> Dict[str, float]:
     """Metrics for one ``ranks/<model>/<dataset>.parquet``.
 
     ``rank_column`` exists for KG-ICL, which dumps two. ``rank`` is the shared
     definition every cross-model table reads; ``rank_native`` is what its own
     ``cal_ranks`` returned, and criterion A has to use that one, because the
     CSV it is compared against was computed from it.
+
+    ``task="relation"`` reads a relation-prediction dump (see the module
+    docstring); the metric arithmetic is identical, only validation differs.
     """
-    data = read_ranks(path)
+    data = read_ranks(path, task=task)
     if rank_column != "rank":
         import pyarrow.parquet as pq
 
@@ -318,6 +343,7 @@ def compute_dir(
     graph_ids: Optional[Iterable[str]] = None,
     dtype: str = "float32",
     rank_column: str = "rank",
+    task: str = "entity",
 ) -> Dict[str, Dict[str, float]]:
     """Metrics for every graph in ``graph_ids`` found under ``rank_dir``.
 
@@ -333,7 +359,7 @@ def compute_dir(
             if not os.path.exists(legacy):
                 continue
             path = legacy
-        out[gid] = compute_file(path, dtype=dtype, rank_column=rank_column)
+        out[gid] = compute_file(path, dtype=dtype, rank_column=rank_column, task=task)
     return out
 
 

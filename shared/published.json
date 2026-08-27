@@ -73,5 +73,24 @@
         "ind_er": {"mrr": 0.350, "hits@10": 0.514}
       }
     }
+  },
+
+  "crest": {
+    "checkpoint": "entity_prediction.pth (phase 0; later phases record their own)",
+    "primary": "plan",
+    "targets": {
+      "plan": {
+        "source": "docs/CREST_PLAN.md section 8, targets restated against measurements from this repository",
+        "note": "CREST has no paper. These targets are the TRIX group means measured here from ranks/trix/ plus 0.015 MRR (the phase 2 pass rule), with Hits@10 required not to regress. They are goals, not published figures; a criterion B failure against them is a stop-rule verdict, not a reproduction failure.",
+        "ind_e": {"mrr": 0.4712, "hits@10": 0.5931},
+        "ind_er": {"mrr": 0.3829, "hits@10": 0.5409}
+      },
+      "trix_measured_here": {
+        "source": "ranks/trix/ in this repository, GPU, seed 1024, zero-shot entity prediction",
+        "note": "the baseline the plan's +0.015 is measured from. Phase 0's identity gate requires equality with ranks/trix/ row by row, not with these means.",
+        "ind_e": {"mrr": 0.4562, "hits@10": 0.5931},
+        "ind_er": {"mrr": 0.3679, "hits@10": 0.5409}
+      }
+    }
   }
 }
