@@ -52,16 +52,22 @@ ENVARGS=()
 # runner falls back to its default as if it had never been set. That cost a
 # wasted test run of FLOCK_BATCH_DIVISOR.
 for suffix in DATASETS SHARD REDO EXTRA_ARGS WORKDIR RANK_DUMP_DIR \
-              BATCH_DIVISOR UNSEEDED_WALKS FETCH_ENTITY_LABELS; do
+              BATCH_DIVISOR UNSEEDED_WALKS FETCH_ENTITY_LABELS \
+              DATA RANKS RESULTS; do
   name="${UP}_${suffix}"
-  ENVARGS+=(-e "${name}=${!name:-}")
+  # Only forward what is set. `-e VAR=` sets the variable to the empty string
+  # rather than leaving it unset, and some consumers reject that outright:
+  # libgomp aborts with "Invalid value for environment variable
+  # OMP_NUM_THREADS" when it is empty.
+  [ -n "${!name:-}" ] && ENVARGS+=(-e "${name}=${!name}")
+done
+for name in PYTORCH_CUDA_ALLOC_CONF OMP_NUM_THREADS; do
+  [ -n "${!name:-}" ] && ENVARGS+=(-e "${name}=${!name}")
 done
 
 exec docker run --rm \
   --gpus '"device=0"' \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-  -e PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-}" \
-  -e OMP_NUM_THREADS="${OMP_NUM_THREADS:-}" \
   "${ENVARGS[@]}" \
   -v "$ROOT:/kgfm-src" \
   -v "$ROOT/output:/kgfm/output" \

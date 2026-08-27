@@ -25,8 +25,8 @@ PY="${3:-python3.9}"
 WORKDIR="${KGICL_WORKDIR:-/kgfm/repos/kg-icl}"
 CKPT="$WORKDIR/checkpoint/KG-ICL-6L"
 DATA="${KGICL_DATA:-$ROOT/output/kgicl-data}"
-RANKS="$ROOT/ranks/kg-icl"
-RESULTS="$ROOT/results/kg-icl/KGICL_results.csv"
+RANKS="${KGICL_RANKS:-$ROOT/ranks/kg-icl}"
+RESULTS="${KGICL_RESULTS:-$ROOT/results/kg-icl/KGICL_results.csv}"
 
 DATASETS="${KGICL_DATASETS:-$($PY "$ROOT/shared/suite.py" "$GROUP")}"
 

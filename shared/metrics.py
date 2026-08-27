@@ -289,9 +289,21 @@ def hits_at_k_unbiased(
     return float(np.mean(score, dtype=np_dtype))
 
 
-def compute_file(path: str, dtype: str = "float32") -> Dict[str, float]:
-    """Metrics for one ``ranks/<model>/<dataset>.parquet``."""
+def compute_file(path: str, dtype: str = "float32",
+                 rank_column: str = "rank") -> Dict[str, float]:
+    """Metrics for one ``ranks/<model>/<dataset>.parquet``.
+
+    ``rank_column`` exists for KG-ICL, which dumps two. ``rank`` is the shared
+    definition every cross-model table reads; ``rank_native`` is what its own
+    ``cal_ranks`` returned, and criterion A has to use that one, because the
+    CSV it is compared against was computed from it.
+    """
     data = read_ranks(path)
+    if rank_column != "rank":
+        import pyarrow.parquet as pq
+
+        column = pq.read_table(path, columns=[rank_column]).column(rank_column)
+        data = dict(data, rank=column.to_numpy(zero_copy_only=False))
     result = compute(data["rank"], dtype=dtype)
     result["hits@10_50"] = hits_at_k_unbiased(
         data["rank"], data["n_candidates"], k=10, num_sample=50, dtype=dtype
@@ -305,6 +317,7 @@ def compute_dir(
     rank_dir: str,
     graph_ids: Optional[Iterable[str]] = None,
     dtype: str = "float32",
+    rank_column: str = "rank",
 ) -> Dict[str, Dict[str, float]]:
     """Metrics for every graph in ``graph_ids`` found under ``rank_dir``.
 
@@ -320,7 +333,7 @@ def compute_dir(
             if not os.path.exists(legacy):
                 continue
             path = legacy
-        out[gid] = compute_file(path, dtype=dtype)
+        out[gid] = compute_file(path, dtype=dtype, rank_column=rank_column)
     return out
 
 

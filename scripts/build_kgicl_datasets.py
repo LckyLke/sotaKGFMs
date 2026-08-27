@@ -94,6 +94,11 @@ def read_triples(path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, help="processed_data directory to write")
+    parser.add_argument("--convention", default="ultra", choices=("ultra", "kgicl"),
+                        help="'ultra': test graph is the inference graph, filter follows "
+                             "run_many.py. 'kgicl': reproduce KG-ICL's own preprocessor, which "
+                             "adds the validation edges to both. Use it to measure what those "
+                             "edges are worth, not to produce comparable numbers.")
     parser.add_argument("--only", default=None, help="comma-separated suite ids")
     parser.add_argument("--utils", default=None,
                         help="utils_all.py from datasets.zip (default: extract it)")
@@ -145,8 +150,16 @@ def main(argv=None):
         # ULTRA's conventions, and the reason this script exists:
         #   test message graph = the inference graph, alone.
         #   test filter        = inference + test, plus valid only for ILPC/Ingram.
-        test_background = inference_i
-        test_filter = inference_i + test_i + (valid_i if spec["filter_valid"] else [])
+        if args.convention == "kgicl":
+            # KG-ICL's fully-inductive preprocessor writes the test background as
+            # `inference + valid` and the filter as `inference + valid + test`,
+            # for every family. Those validation edges are input to message
+            # passing, so this is a different experiment, not a different score.
+            test_background = inference_i + valid_i
+            test_filter = inference_i + valid_i + test_i
+        else:
+            test_background = inference_i
+            test_filter = inference_i + test_i + (valid_i if spec["filter_valid"] else [])
 
         kg_te = KG(test_background, len(e2i_te), len(r2i_te))
         cases_te = kg_te.build_cases_for_large_graph(case_num=25, enclosing=False, hop=3)

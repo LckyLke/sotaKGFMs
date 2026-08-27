@@ -41,6 +41,8 @@ def table(header, rows):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ranks", default=os.path.join(WORKSPACE, "ranks", "ultra"))
+    parser.add_argument("--rank-column", default="rank",
+                        help="which rank column to score; KG-ICL dumps rank and rank_native")
     parser.add_argument("--model", default=None,
                         help="model name; defaults to the basename of --ranks")
     parser.add_argument("--results", default=os.path.join(WORKSPACE, "results"),
@@ -51,7 +53,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     model = args.model or os.path.basename(os.path.normpath(args.ranks))
-    per_dataset = metrics.compute_dir(args.ranks)
+    per_dataset = metrics.compute_dir(args.ranks, rank_column=args.rank_column)
 
     # Merge this model's own CSVs -- one per graph, since each runner
     # invocation writes its own file. Discovery is model-aware: SEMMA is an

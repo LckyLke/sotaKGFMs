@@ -67,6 +67,8 @@ CSV_PATTERNS = {
     "semma": "ultra_results_*.csv",
     "motif": "MOTIF_results_*.csv",
     "trix": "TRIX_results_*.csv",
+    # KG-ICL appends every dataset to one file rather than writing one per run.
+    "kg-icl": "KGICL_results.csv",
 }
 
 TOLERANCE_DEFAULT = 0.002

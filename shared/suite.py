@@ -250,7 +250,19 @@ def by_run_id(run_id: str) -> Graph:
     try:
         return _BY_RUN_ID[run_id]
     except KeyError:
+        pass
+    try:
         return by_id(run_id)
+    except KeyError:
+        pass
+    # Path-safe spelling: a colon is awkward in a directory name, so rank dumps
+    # and KG-ICL's dataset directories both use the id with ':' replaced by
+    # '_'. Matching against the sanitised form of every id is exact; splitting
+    # on the last underscore would be a guess that happens to work for these 41.
+    for graph in GRAPHS:
+        if graph.id.replace(":", "_") == run_id:
+            return graph
+    return by_id(run_id)
 
 
 def of_group(group: str) -> Tuple[Graph, ...]:
