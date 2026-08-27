@@ -129,6 +129,58 @@ with `FileNotFoundError` on `~/git/ULTRA/output`. SEMMA's fork adds the
 `scripts/run_ultra.sh` creates, so only the stock half of the neutrality check
 is affected.
 
+## The unfiltered rank offset is correct, and looks like a bug
+
+`ultra/tasks.py` and every fork of it carry two ranking functions whose
+unfiltered branches disagree:
+
+```python
+def compute_ranking(pred, target, mask=None):          # entity
+    if mask is not None:
+        ranking = torch.sum((pos_pred <= pred) & mask, dim=-1) + 1
+    else:
+        ranking = torch.sum(pos_pred <= pred, dim=-1) + 1
+
+def compute_ranking_relation(pred, target, mask=None):  # relation, TRIX
+    if mask is not None:
+        ranking = torch.sum((pos_pred <= pred) & mask, dim=-1) + 1
+    else:
+        ranking = torch.sum(pos_pred <= pred, dim=-1)    # no + 1
+```
+
+The missing `+ 1` reads as an omission. It is not. The two branches count
+different things:
+
+* **Filtered.** `mask` is 0 at the target, so the target is excluded from the
+  sum. A perfect prediction sums to 0, and the `+ 1` makes it rank 1.
+* **Unfiltered.** There is no mask, so `pos_pred <= pred` is true at the target
+  itself and the sum is never below 1. It is already 1-based. Adding `+ 1`
+  would make a perfect prediction rank 2.
+
+Verified numerically on one query with five candidates and the target scoring
+highest:
+
+| branch | rank of a perfect prediction |
+| --- | --- |
+| filtered, `+ 1` | 1 |
+| unfiltered, `+ 1` | **2** |
+| unfiltered, no `+ 1` | 1 |
+
+So `compute_ranking_relation` is right, and it matters: `run_relation.py` line
+149 calls it with `mask=None`, so relation prediction takes that branch for
+every query. "Fixing" it would add 1 to every relation rank, which on a model
+scoring near 0.745 MRR would roughly halve the number.
+
+The genuine off-by-one is the other one: `compute_ranking`'s unfiltered branch
+does add `+ 1` where it should not. It is unreachable, because
+`run_entity.py` always passes a mask, so no entity number is affected.
+
+This is recorded because it was misread once here, and a patch was written to
+"correct" it before the arithmetic was checked. Relation prediction in TRIX is
+unfiltered by design: it does not filter out other true relations holding
+between the same pair. That is a modelling choice worth stating on any relation
+table, and it is not the same thing as a rank offset.
+
 ## Criterion B: two models pass, ULTRA does not
 
 Criterion B compares this project's unweighted group means against the figures

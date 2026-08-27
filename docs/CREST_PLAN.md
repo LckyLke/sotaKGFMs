@@ -83,18 +83,15 @@ This harness has never run relation prediction. There is nothing to compare
 against, so the baseline must be produced before CREST's relation model can be
 gated. This phase is new and is not optional.
 
-1. **Patch `compute_ranking_relation` first.** In `repos/trix/src/trix/tasks.py`
-   the unfiltered branch omits the `+ 1` that the filtered branch and all entity
-   ranking have:
-
-   ```python
-   ranking = torch.sum((pos_pred <= pred) & mask, dim=-1) + 1   # filtered
-   ranking = torch.sum(pos_pred <= pred, dim=-1)                # unfiltered, 0-based
-   ```
-
-   A rank of 0 makes the reciprocal infinite. Add the `+ 1` as a new diff in
-   `patches/trix/`, or assert that the unfiltered path is never taken. Do not
-   record a relation number until this is settled.
+1. **Do not patch `compute_ranking_relation`.** An earlier revision of this
+   plan claimed its unfiltered branch was 0-based and had to be fixed. That was
+   wrong, and the arithmetic is in `docs/report_notes.md` under "The unfiltered
+   rank offset is correct, and looks like a bug". Without a mask the target
+   counts itself, so the sum is never below 1 and the branch is already 1-based;
+   adding `+ 1` would inflate every relation rank by one. Record instead that
+   **TRIX evaluates relation prediction unfiltered**, so other true relations
+   between the same pair are not removed from the candidate set. State that on
+   every relation table. It is a modelling choice, not a defect.
 2. Extend the rank schema for the second task. Relation dumps go to
    `ranks-relation/<model>/<graph>.parquet`, same columns, with
    `direction = "relation"` and `n_candidates` counting relations rather than

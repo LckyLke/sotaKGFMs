@@ -64,7 +64,10 @@ except Exception:
 json.dump(prov, open(path, "w"), indent=2, sort_keys=True)
 PROVPY
 
-CLAIMS="$ROOT/ranks/.claims-kg-icl"
+# Claims follow the rank directory, not the model name. An alternate build
+# writing elsewhere would otherwise see the main run's claims and skip
+# every graph, reporting success while doing nothing.
+CLAIMS="$(dirname "$RANKS")/.claims-$(basename "$RANKS")"
 mkdir -p "$CLAIMS"
 cd "$WORKDIR/src"
 
