@@ -60,7 +60,12 @@ ENV PYTHONPATH=/kgfm/shared
 COPY repos/kg-icl/ /kgfm/repos/kg-icl/
 COPY patches/kg-icl/ /kgfm/patches/kg-icl/
 
+# KG-ICL ships CRLF sources. `git diff` emits LF context whatever the file
+# holds, so a patch generated from them is refused by `patch` with
+# "different line endings". Both sides normalise to LF -- here, and in
+# scripts/gen_kgicl_patches.py. Nothing but line endings changes.
 RUN find /kgfm/repos/kg-icl -name "__pycache__" -type d -prune -exec rm -rf {} + \
+    && find /kgfm/repos/kg-icl -name "*.py" -exec sed -i "s/\r$//" {} + \
     && cd /kgfm/repos/kg-icl \
     && for p in /kgfm/patches/kg-icl/*.diff; do \
          echo "applying $p"; patch -p1 --batch --forward < "$p" || exit 1; \

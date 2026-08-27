@@ -1,7 +1,7 @@
 Reason: add --rank_dump_dir and --results_csv. Upstream logs its metrics and discards them, so there is nothing for criterion A to compare against; ULTRA, MOTIF and TRIX all write a CSV and this makes KG-ICL comparable the same way. Applies on top of 0001.
 
 diff --git a/src/evaluation.py b/src/evaluation.py
-index f26d278..9a74b23 100644
+index 6aea57e..75b7b0a 100644
 --- a/src/evaluation.py
 +++ b/src/evaluation.py
 @@ -127,6 +127,10 @@ parser.add_argument('--save_path', type=str, default='../checkpoint/pretrain/')

@@ -1,7 +1,7 @@
 Reason: emit one parquet row per scored fact into the shared ranks/ schema, carrying BOTH rank definitions. KG-ICL's utils.cal_ranks breaks ties with rankdata(method='ordinal'), which resolves a tie by entity id -- neither the pessimistic rule ULTRA uses nor the optimistic one, so it is not comparable with either. `rank` is recomputed from the same scores under the shared definition and is what cross-model tables read; `rank_native` is what cal_ranks returned, so criterion A can still compare this project's metric code against KG-ICL's own numbers. The ranking KG-ICL reports is unchanged: cal_ranks now gets a copy of the scores because it mutates its argument in place (filter_scores = scores, then filter_scores[...] = -1e7), which would otherwise corrupt the shared rank computed after it. Head questions are stored in base orientation so (h, r, t) means the same thing here as in every other model's dump.
 
 diff --git a/src/experiment.py b/src/experiment.py
-index e398ce1..a0b311e 100644
+index 0ef1f26..e70a772 100644
 --- a/src/experiment.py
 +++ b/src/experiment.py
 @@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import ExponentialLR

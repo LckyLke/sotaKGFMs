@@ -43,7 +43,9 @@ trap 'rm -f "$RUNNER"' EXIT
 
 # Pass through this model's own knobs, upper-cased: SEMMA_DATASETS, TRIX_REDO
 # and so on. Each runner documents the ones it reads.
-UP="$(echo "$MODEL" | tr '[:lower:]-' '[:upper:]_')"
+# kg-icl -> KGICL, not KG_ICL: the runner reads KGICL_DATASETS and a name
+# that does not match is silently unset inside the container, not an error.
+UP="$(echo "$MODEL" | tr -d '-' | tr '[:lower:]' '[:upper:]')"
 ENVARGS=()
 # Any new per-model knob must be added here. A variable that is not in this
 # list is not an error: it is silently absent inside the container, and the

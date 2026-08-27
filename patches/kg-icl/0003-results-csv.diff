@@ -1,7 +1,7 @@
 Reason: record the metric values KG-ICL computes. Upstream logs them and discards them, so there is nothing for criterion A to compare this project's metric code against. The values come from cal_performance over cal_ranks' output, so they correspond to the rank_native column of the dump, not to the shared rank -- the two are different definitions and comparing our metrics over `rank` against these would fail by construction and mean nothing. Applies on top of 0002.
 
 diff --git a/src/experiment.py b/src/experiment.py
-index a0b311e..a948cf7 100644
+index e70a772..fde5f28 100644
 --- a/src/experiment.py
 +++ b/src/experiment.py
 @@ -231,6 +231,24 @@ class Experiment(object):

@@ -12,24 +12,12 @@ def run(*a, cwd=None):
 
 
 def edit(path, pairs):
-    """Edit in place, preserving line endings.
-
-    KG-ICL's sources are CRLF. Reading them with universal newlines and writing
-    back LF rewrites every line, which turns a four-line change into a 365-line
-    diff and hides what the patch actually does.
-    """
     full = os.path.join(SCRATCH, path)
-    with open(full, newline="") as handle:
-        raw = handle.read()
-    crlf = "\r\n" in raw
-    text = raw.replace("\r\n", "\n")
+    text = open(full).read()
     for old, new in pairs:
         assert text.count(old) == 1, "anchor {!r} x{} in {}".format(old[:70], text.count(old), path)
         text = text.replace(old, new)
-    if crlf:
-        text = text.replace("\n", "\r\n")
-    with open(full, "w", newline="") as handle:
-        handle.write(text)
+    open(full, "w").write(text)
 
 
 def commit(msg):
@@ -50,6 +38,24 @@ if os.path.isdir(SCRATCH):
 shutil.copytree(os.path.join(ROOT, "repos/kg-icl"), SCRATCH,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "datasets.zip",
                                               "*.pdf", "*.jpg", "*.png"))
+# KG-ICL's sources are CRLF, and `git diff` emits LF context regardless, so a
+# patch generated from them can never apply: `patch` refuses with "different
+# line endings". Both sides are normalised to LF instead -- here before the
+# baseline commit, and in containers/kg-icl/Dockerfile before the patches are
+# applied. Line endings are the only thing this changes, and Python does not
+# care about them; it keeps every patch a readable diff of the lines it means
+# to change rather than a whole-file rewrite.
+for _root, _dirs, _files in os.walk(SCRATCH):
+    for _name in _files:
+        if not _name.endswith(".py"):
+            continue
+        _path = os.path.join(_root, _name)
+        with open(_path, "rb") as _h:
+            _raw = _h.read()
+        if b"\r\n" in _raw:
+            with open(_path, "wb") as _h:
+                _h.write(_raw.replace(b"\r\n", b"\n"))
+
 run("git", "init", "-q", cwd=SCRATCH)
 run("git", "add", "-A", cwd=SCRATCH)
 run("git", "-c", "user.email=x@y", "-c", "user.name=x", "commit", "-qm", "upstream", cwd=SCRATCH)
@@ -239,5 +245,33 @@ diff_out("0003-results-csv.diff",
          "comparing our metrics over `rank` against these would fail by construction and mean "
          "nothing. Applies on top of 0002.",
          ["src/experiment.py"])
+
+commit("0003")
+
+# ------------------------------------------------------------------ 0004
+edit("src/data_loader.py", [
+    ("            query, answer = np.array(self.kg.query), np.array(self.kg.answer, dtype=object)",
+     "            # np.array(list_of_lists, dtype=object) only produces the ragged\n"
+     "            # 1-D array this code expects when the lists have *different*\n"
+     "            # lengths. When every query has exactly one answer numpy builds a\n"
+     "            # 2-D (n, 1) object array instead, answer[i] is then an ndarray\n"
+     "            # rather than a list, and the line below fails with\n"
+     "            #   IndexError: arrays used as indices must be of integer type\n"
+     "            # Of the 41 graphs in this suite exactly one, Metafam, has a\n"
+     "            # single answer for every query, which is why the shipped\n"
+     "            # datasets never trip it.\n"
+     "            query = np.array(self.kg.query)\n"
+     "            answer = np.empty(len(self.kg.answer), dtype=object)\n"
+     "            answer[:] = self.kg.answer"),
+])
+diff_out("0004-ragged-answers.diff",
+         "build the answer array as a genuine ragged 1-D object array. get_batch relies on "
+         "np.array(self.kg.answer, dtype=object) giving one entry per query, each a list of true "
+         "answers, but numpy only does that when the lists differ in length. Where every query has "
+         "exactly one answer it builds a 2-D (n, 1) array, answer[i] becomes an ndarray, and using "
+         "it as an index raises IndexError. Metafam is the one graph in this suite with a single "
+         "answer per query, and it fails outright without this. Nothing changes for any dataset "
+         "that was already working: the object array holds the same lists. Applies on top of 0003.",
+         ["src/data_loader.py"])
 
 print("\ndone")
