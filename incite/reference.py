@@ -21,7 +21,7 @@ from typing import Dict, Tuple
 
 import torch
 
-from .graphs import IncidencePairs, incidence_pairs
+from .graphs import incidence_pairs
 from .layers import FactorizedRelationStep
 
 __all__ = ["build_role_pairs", "materialized_relation_step"]

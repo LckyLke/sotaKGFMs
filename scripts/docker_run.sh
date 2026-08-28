@@ -68,6 +68,18 @@ for name in PYTORCH_CUDA_ALLOC_CONF OMP_NUM_THREADS; do
   [ -n "${!name:-}" ] && ENVARGS+=(-e "${name}=${!name}")
 done
 
+# Worktrees share bulk artifacts via absolute symlinks (data/roots and
+# output point into the main worktree). An absolute symlink dangles inside
+# the container, so mount each resolved target at its own absolute path
+# too; the symlink under /kgfm-src then resolves identically inside and
+# outside. No-op when the entries are real directories.
+for link in "$ROOT/data/roots" "$ROOT/output"; do
+  if [ -L "$link" ]; then
+    target="$(readlink -f "$link")"
+    ENVARGS+=(-v "$target:$target")
+  fi
+done
+
 exec docker run --rm \
   --gpus '"device=0"' \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \

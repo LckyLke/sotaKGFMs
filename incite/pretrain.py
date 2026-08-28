@@ -57,11 +57,11 @@ import suite  # noqa: E402  (shared/suite.py on PYTHONPATH)
 try:
     from . import support as incite_support
     from . import train as incite_train
-    from .run import build_model, sha256_file, support_build_kwargs
+    from .run import build_model, support_build_kwargs
 except ImportError:  # pragma: no cover - flat invocation
     import support as incite_support  # type: ignore
     import train as incite_train  # type: ignore
-    from run import build_model, sha256_file, support_build_kwargs  # type: ignore
+    from run import build_model, support_build_kwargs  # type: ignore
 
 #: Raw layout, byte-for-byte what the TRIX loaders expect (crest precedent).
 PRETRAIN_RAW_DIRS = {
