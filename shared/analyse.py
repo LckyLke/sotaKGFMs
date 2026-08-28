@@ -69,6 +69,7 @@ CSV_PATTERNS = {
     "trix": "TRIX_results_*.csv",
     # KG-ICL appends every dataset to one file rather than writing one per run.
     "kg-icl": "KGICL_results.csv",
+    "incite": "INCITE_results_*.csv",
 }
 
 TOLERANCE_DEFAULT = 0.002

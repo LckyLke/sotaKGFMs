@@ -64,6 +64,15 @@
       "commit_date": "2026-08-24T22:07:24+08:00",
       "commit_subject": "Support model configs and tail-only evaluation",
       "note": "NOT an ULTRA fork. Prior-fitted-network; vendors ULTRA only as a baseline."
+    },
+    "incite": {
+      "url": null,
+      "slug": null,
+      "default_branch": null,
+      "commit": "incite01baseline",
+      "commit_date": "2026-08-28",
+      "commit_subject": "INCITE image v1: TRIX stack + patched trix tree + incite package",
+      "note": "Our own model, wraps no upstream repo. 'commit' is a manually bumped version string; the image tag is its first 8 chars (kgfm/incite:incite01). Bump rule in containers/incite/Dockerfile header. Never alias another model's pin."
     }
   }
 }

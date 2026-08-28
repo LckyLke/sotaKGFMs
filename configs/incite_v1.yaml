@@ -1,0 +1,46 @@
+# INCITE v1 -- the full model: incidence core + walks + support + joint heads.
+# Values come from docs/INCITE_DESIGN.md / docs/INCITE_PLAN.md where they are
+# specified; every value the documents do NOT pin is listed in
+# results/incite/config_diff.md with its rationale.
+model:
+  dim: 32                 # TRIX recipe (input_dim 32 everywhere)
+  rounds: 6               # design section A / 4: 6 rounds
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes      # design A: keep both channels
+  num_mlp_layer: 2
+
+walks:                    # design section C
+  enabled: yes
+  num_walks: 32
+  walk_length: 8
+  seed: 1024              # PLAN amendment: one seeded pass, seed 1024
+
+support:                  # design section B
+  enabled: yes
+  num_positive: 16        # K retrieved per query
+  per_relation_cap: 64    # design section 4: capped at 64 per relation
+  neg_per_pos: 4          # 16 * (1 + 4) = 80 rows, the design's budget
+  prototype_k: 16         # design D: mean pair state of K support pairs
+  hops: 3                 # design B: 3-hop ball of each support head
+  ball_cap: 1024          # not in the design -- see config_diff.md
+  class_prior: 0.1        # PU down-weight; value not in the design -- config_diff.md
+  build_batch_size: 16    # memory/time parameter, not a model parameter
+
+relation:                 # design section D
+  lambda: 1.0             # L = L_entity + lambda * L_relation -- config_diff.md
+
+train:                    # TRIX recipe (pretrain_entity.yaml + PLAN)
+  batch_size: 32          # 16 GiB GPU: batch-32 TRIX-style backprop ~13.8 GiB
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  lr: 5.0e-4
+  steps: 20000
+  val_interval: 1000
+  refresh_interval: 500   # support refresh (PLAN lesson 3)
+  cost_gate: 0.20         # refresh time budget, BankRefresher pattern
+  val_samples: 500        # per DEV10 graph per validation -- config_diff.md
+  graphs: [FB15k237, WN18RR, CoDExMedium]
+
+seed: 1024

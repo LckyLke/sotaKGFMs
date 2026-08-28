@@ -53,7 +53,10 @@ ENVARGS=()
 # wasted test run of FLOCK_BATCH_DIVISOR.
 for suffix in DATASETS SHARD REDO EXTRA_ARGS WORKDIR RANK_DUMP_DIR \
               BATCH_DIVISOR UNSEEDED_WALKS FETCH_ENTITY_LABELS \
-              DATA RANKS RESULTS; do
+              DATA RANKS RESULTS \
+              CKPT CONFIG TASK SUPPORT RESUME DEV_GRAPHS \
+              TRAIN_GRAPHS TRAIN_STEPS TRAIN_EXTRA_ARGS \
+              VAL_INTERVAL VAL_SAMPLES; do
   name="${UP}_${suffix}"
   # Only forward what is set. `-e VAR=` sets the variable to the empty string
   # rather than leaving it unset, and some consumers reject that outright:
