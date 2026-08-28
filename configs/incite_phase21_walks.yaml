@@ -1,0 +1,50 @@
+# INCITE phase 2.1 -- the walks lever (docs/INCITE_PLAN.md phase 2.1):
+# walks ON, support OFF, relation loss OFF. Warm start from the phase-1
+# best checkpoint (INCITE_INIT_FROM); the trunk is inherited, the walk
+# module trains from init. Kill switch: PETALS accuracy, with DEV10 within
+# noise of the phase-1 floor (PHASE1_RESULT.md).
+# Identical to incite_phase1.yaml except walks.enabled.
+model:
+  dim: 32
+  rounds: 6
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes
+  num_mlp_layer: 2
+
+walks:
+  enabled: yes            # THE phase 2.1 lever
+  num_walks: 32
+  walk_length: 8
+  seed: 1024
+
+support:
+  enabled: no             # phase 2.2 lever
+  num_positive: 16
+  per_relation_cap: 64
+  neg_per_pos: 4
+  prototype_k: 16
+  hops: 3
+  ball_cap: 1024
+  class_prior: 0.1
+  build_batch_size: 16
+
+relation:
+  lambda: 0.0             # phase 2.3 lever
+
+train:
+  batch_size: 32
+  accum_steps: 1
+  checkpoint_activations: yes
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  lr: 5.0e-4
+  steps: 20000
+  val_interval: 1000
+  refresh_interval: 500
+  cost_gate: 0.20
+  val_samples: 500
+  graphs: [FB15k237, WN18RR, CoDExMedium]
+
+seed: 1024

@@ -164,6 +164,11 @@ def main(argv=None):
                              "config's train.graphs")
     parser.add_argument("--gpus", default="[0]")
     parser.add_argument("--resume", default=None, help="checkpoint to resume from")
+    parser.add_argument("--init_from", default=None,
+                        help="weights-only warm start (phase-2 levers): load "
+                             "matching tensors from this checkpoint, leave new "
+                             "modules at init, start at step 1 with a fresh "
+                             "optimizer. Mutually exclusive with --resume.")
     parser.add_argument("--data_root", required=True)
     parser.add_argument("--raw_root", default="/kgfm-src/data/raw/ultra-pretrain")
     parser.add_argument("--dev_root", default="/kgfm-src/data/roots/trix",
@@ -236,10 +241,23 @@ def main(argv=None):
         # recipe ran without it and stays reproducible as launched.
         model.checkpoint_activations = True
         print("activation checkpointing: on")
+    if args.resume and args.init_from:
+        raise SystemExit("--resume and --init_from are mutually exclusive")
     if args.resume:
         state = torch.load(args.resume, map_location="cpu")
         model.load_state_dict(state["model"])
         print("resumed from %s (step %s)" % (args.resume, state.get("step")))
+    if args.init_from:
+        state = torch.load(args.init_from, map_location="cpu")
+        missing, unexpected = model.load_state_dict(state["model"], strict=False)
+        # A lever run must inherit the whole trunk: tensors missing from the
+        # checkpoint may only belong to newly enabled modules, and every
+        # checkpoint tensor must land somewhere.
+        assert not unexpected, "checkpoint tensors with no home: %s" % unexpected
+        print("warm start from %s (step %s): %d new-module tensors at init"
+              % (args.init_from, state.get("step"), len(missing)))
+        for name in missing:
+            print("  fresh:", name)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(tcfg.lr))
 
     # ---- support stores (training graphs), refreshed on an interval -------

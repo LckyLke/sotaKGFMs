@@ -20,6 +20,7 @@
 #   INCITE_VAL_SAMPLES      override train.val_samples
 #   INCITE_DEV_GRAPHS       override the DEV10 list (suite ids)
 #   INCITE_RESUME           checkpoint to resume from
+#   INCITE_INIT_FROM        weights-only warm start (phase-2 levers)
 #   INCITE_TRAIN_EXTRA_ARGS appended verbatim to incite/pretrain.py
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -72,6 +73,7 @@ echo "config    : $CONFIG"
 echo "graphs    : ${INCITE_TRAIN_GRAPHS:-<config mix>}"
 echo "dev       : ${INCITE_DEV_GRAPHS:-<DEV10>}"
 echo "resume    : ${INCITE_RESUME:-<fresh>}"
+echo "init_from : ${INCITE_INIT_FROM:-<none>}"
 echo "output    : $OUT"
 
 # The same record run_incite.sh keeps: which device, seed and config produced
@@ -111,6 +113,7 @@ $PY -m incite.pretrain \
     ${INCITE_VAL_SAMPLES:+--val_samples "$INCITE_VAL_SAMPLES"} \
     ${INCITE_DEV_GRAPHS:+--dev_graphs "$INCITE_DEV_GRAPHS"} \
     ${INCITE_RESUME:+--resume "$INCITE_RESUME"} \
+    ${INCITE_INIT_FROM:+--init_from "$INCITE_INIT_FROM"} \
     --data_root "$DATA_ROOT" \
     --raw_root "$RAW_ROOT" \
     --dev_root "$DEV_ROOT" \
