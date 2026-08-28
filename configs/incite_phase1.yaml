@@ -31,7 +31,8 @@ relation:
   lambda: 0.0             # phase 2.3 lever
 
 train:
-  batch_size: 32
+  batch_size: 16          # micro-batch; measured OOM at 32 (15.0 GiB alloc)
+  accum_steps: 2          # effective batch 16*2 = the recipe's 32
   num_negative: 512
   strict_negative: yes
   adversarial_temperature: 1

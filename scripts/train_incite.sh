@@ -26,7 +26,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GPUS="${1:-[0]}"
 PY="${2:-python}"
 
-WORKDIR="${INCITE_WORKDIR:-/kgfm}"
+# Default to a freshly prepared work tree, never the baked image copy: the
+# bake matches the branch only at build time, and a stale bake ran once
+# unnoticed (the old /kgfm default). Preparation costs seconds against
+# hours of training.
+WORKDIR="${INCITE_WORKDIR:-$ROOT/output/incite-run}"
+if [ "$WORKDIR" = "$ROOT/output/incite-run" ]; then
+  "$ROOT/scripts/prepare_incite_workdir.sh" "$WORKDIR"
+fi
 if [ -d "$WORKDIR/repos/trix" ]; then
   TRIXDIR="$WORKDIR/repos/trix"
 else

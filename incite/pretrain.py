@@ -188,6 +188,10 @@ def main(argv=None):
     val_samples = (args.val_samples if args.val_samples is not None
                    else int(tcfg.val_samples))
     batch_size = int(tcfg.batch_size)
+    # The 16 GiB GPU cannot backprop the full recipe batch in one piece; the
+    # recipe's effective batch is batch_size * accum_steps micro-batches from
+    # the same drawn graph, averaged before the optimizer step.
+    accum = int(getattr(tcfg, "accum_steps", 1) or 1)
     num_negative = int(tcfg.num_negative)
     adv_temperature = float(tcfg.adversarial_temperature)
     strict = bool(tcfg.strict_negative)
@@ -298,18 +302,26 @@ def main(argv=None):
         graph, store = train_graphs[gid], stores[gid]
         t0 = time.perf_counter()
         optimizer.zero_grad()
-        triples = incite_train.sample_positive_triples(graph, batch_size, pos_gen)
-        loss = incite_train.entity_loss_from_triples(
-            model, graph, triples, num_negative,
-            adversarial_temperature=adv_temperature, strict=strict,
-            support=store, walk_offset=step,
-            sampler=tasks.negative_sampling)
-        loss_rel = None
-        if lam > 0:
-            loss_rel = incite_train.relation_loss_from_triples(
-                model, graph, triples, support=store, walk_offset=step)
-            loss = loss + lam * loss_rel
-        loss.backward()
+        micro_triples, loss, loss_rel = [], 0.0, None
+        for micro in range(accum):
+            triples = incite_train.sample_positive_triples(
+                graph, batch_size, pos_gen)
+            micro_triples.append(triples)
+            micro_loss = incite_train.entity_loss_from_triples(
+                model, graph, triples, num_negative,
+                adversarial_temperature=adv_temperature, strict=strict,
+                support=store, walk_offset=step * accum + micro,
+                sampler=tasks.negative_sampling)
+            if lam > 0:
+                micro_rel = incite_train.relation_loss_from_triples(
+                    model, graph, triples, support=store,
+                    walk_offset=step * accum + micro)
+                micro_loss = micro_loss + lam * micro_rel
+                loss_rel = (0.0 if loss_rel is None else loss_rel) \
+                    + float(micro_rel) / accum
+            (micro_loss / accum).backward()
+            loss += float(micro_loss) / accum
+        triples = torch.cat(micro_triples)
         optimizer.step()
         dt = time.perf_counter() - t0
         train_seconds += dt

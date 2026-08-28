@@ -31,7 +31,8 @@ relation:                 # design section D
   lambda: 1.0             # L = L_entity + lambda * L_relation -- config_diff.md
 
 train:                    # TRIX recipe (pretrain_entity.yaml + PLAN)
-  batch_size: 32          # 16 GiB GPU: batch-32 TRIX-style backprop ~13.8 GiB
+  batch_size: 16          # micro-batch; measured OOM at 32 (15.0 GiB alloc)
+  accum_steps: 2          # effective batch 16*2 = the recipe's 32
   num_negative: 512
   strict_negative: yes
   adversarial_temperature: 1

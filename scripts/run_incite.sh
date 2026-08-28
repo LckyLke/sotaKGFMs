@@ -30,9 +30,13 @@ GROUP="${1:?usage: run_incite.sh <ind_e|ind_er|transductive> [gpus] [python]}"
 GPUS="${2:-[0]}"
 PY="${3:-python}"
 
-# Container layout: incite/ and repos/trix live under /kgfm (Dockerfile).
-# Host layout: prepare_incite_workdir.sh materialises <workdir>/{incite,trix}.
-WORKDIR="${INCITE_WORKDIR:-/kgfm}"
+# Default to a freshly prepared work tree, never the baked image copy: the
+# bake matches the branch only at build time, and a stale bake ran once
+# unnoticed (the old /kgfm default). Preparation costs seconds.
+WORKDIR="${INCITE_WORKDIR:-$ROOT/output/incite-run}"
+if [ "$WORKDIR" = "$ROOT/output/incite-run" ]; then
+  "$ROOT/scripts/prepare_incite_workdir.sh" "$WORKDIR"
+fi
 if [ -d "$WORKDIR/repos/trix" ]; then
   TRIXDIR="$WORKDIR/repos/trix"
 else
