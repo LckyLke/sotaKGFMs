@@ -18,9 +18,12 @@ Context that must accompany these numbers:
 * Budget: INCITE trained 20,000 steps; TRIX's released checkpoint trained
   ~100,000 (paper: 10 x 10,000, batch 32, same GPU class). Parity at 20%
   of the budget. The 100k extension is untested headroom, not a claim.
-* ind_er 0.3740 is the best measured ind_er in this harness so far
-  (ULTRA 0.3421, MOTIF 0.3491, SEMMA 0.3520, TRIX 0.3679; FLOCK and
-  KGPFN not yet measured).
+* ind_er 0.3740 is nominally the best measured ind_er in this harness
+  (ULTRA 0.3421, MOTIF 0.3491, SEMMA 0.3520, TRIX 0.3679, KG-ICL
+  0.3722 under the matched convention; FLOCK and KGPFN not yet
+  measured). The margins over TRIX (+0.006) and KG-ICL (+0.002) are
+  single-seed numbers within plausible seed noise: "best" needs seed
+  repeats before it appears in any report.
 * The DEV10-valid "flatline" at ~0.33-0.35 during training was a
   valid-split artifact: the same checkpoint scores 0.3843 on the DEV10
   ind_er TEST splits (TRIX: 0.3765).
