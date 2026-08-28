@@ -180,3 +180,15 @@ construction with PU down-weighting, C's walk protocol and GRU encoder, D's
 task flag, prototype head, and joint loss, and E's self-adversarial
 negatives and 3-then-8 graph staging. The reasoning in those sections is
 good and is not repeated here.
+
+## Decision log
+
+* 2026-08-28 (user): implement and pretrain INCITE FIRST. KGPFN runs only
+  after the INCITE pretrain and eval. This inverts Phase 0: the KGPFN
+  evidence gate becomes a post-hoc check, and the support-set component is
+  built on the paper's number alone. The usage probe (Phase 2.2) therefore
+  carries more weight: it is now the only in-harness check on the support
+  mechanism until KGPFN lands.
+* 2026-08-28: FLOCK stands at 17/41 on the baseline branch, deprioritized
+  behind INCITE (user decision). HM:indigo is a suspected host-RAM killer;
+  see ranks/flock/RESUME.md on the baseline branch.
