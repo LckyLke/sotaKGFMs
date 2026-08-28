@@ -192,12 +192,40 @@ class FactorizedRelationStep(nn.Module):
     count twins), each with TRIX's boundary self-loop and update, summed --
     exactly RelNet's ``hidden_hh + hidden_ht + hidden_th + hidden_tt`` with
     the O(|V| alpha^2) pair materialization replaced by the exact O(|E|)
-    factorization. The caller owns the shortcut."""
+    factorization. The caller owns the shortcut.
+
+    --------------------------------------------------------------------------
+    Fused execution (``fused=True``, the default) -- fewer launches, same math
+    --------------------------------------------------------------------------
+    The unfused round issues ~12 pair_sum launches (2 for s_h/s_t, up to 10
+    for the role and count messages); at (batch, V, 32) sizes training is
+    launch-bound, not FLOP-bound. The fused path forms the SAME sums in 2:
+
+    * s_h and s_t in one call over the concatenated head+tail incidence
+      lists, tail entity ids offset by V (disjoint output slots);
+    * all role and count messages in one call: the head-aggregated features
+      ``[f_hh*s_h, f_hh, f_ht*s_t (, s_h, s_t)]`` and the tail-aggregated
+      features ``[f_th*s_h, f_tt*s_t, f_tt (, s_h, s_t)]`` stacked on the
+      feature axis (the count channel rides its role channel as extra width),
+      with head/tail lists concatenated -- node ids offset by V, relation ids
+      offset by R.
+
+    Per output slot the contributing pair list, its order, the products, the
+    diagonal corrections and the final update summation order are identical
+    to the unfused path, so on the CPU fallback the two agree bitwise and the
+    1e-5 layer gate is untouched. Parameters are UNCHANGED: fusion is a
+    forward-path rewrite over the same submodules, so state_dicts written by
+    the unfused module (the live phase-1 checkpoints included) load strictly,
+    with no key mapping. ``_forward_unfused`` keeps the original path as the
+    in-tree reference (and the escape hatch, ``step.fused = False``).
+    """
 
     ROLES = ("hh", "ht", "th", "tt")
 
-    def __init__(self, dim: int, layer_norm: bool = True, count_channel: bool = True):
+    def __init__(self, dim: int, layer_norm: bool = True, count_channel: bool = True,
+                 fused: bool = True):
         super().__init__()
+        self.fused = bool(fused)
         self.channels = nn.ModuleDict(
             {r: _Channel(dim, layer_norm, count=False) for r in self.ROLES})
         self.count_channels = nn.ModuleDict(
@@ -207,6 +235,62 @@ class FactorizedRelationStep(nn.Module):
     def forward(self, z, node_repr, pairs, boundary):
         """``z [b, R, d]``, ``node_repr [b, V, d]`` (already node_mlp'd),
         ``pairs``: an ``IncidencePairs``, ``boundary [b, R, d]``."""
+        if self.fused:
+            return self._forward_fused(z, node_repr, pairs, boundary)
+        return self._forward_unfused(z, node_repr, pairs, boundary)
+
+    def _forward_fused(self, z, node_repr, pairs, boundary):
+        num_nodes, num_relations = pairs.num_nodes, pairs.num_relations
+        d = z.shape[-1]
+        # s_h and s_t in one launch: tail slots live at entity id + V
+        src_r = torch.cat([pairs.head_r, pairs.tail_r])
+        dst_v = torch.cat([pairs.head_v, pairs.tail_v + num_nodes])
+        s = pair_sum(z, src_r, dst_v, 2 * num_nodes)
+        s_h, s_t = s[:, :num_nodes], s[:, num_nodes:]
+
+        f_hh = self.channels["hh"].rel_proj(node_repr)
+        f_ht = self.channels["ht"].rel_proj(node_repr)
+        f_th = self.channels["th"].rel_proj(node_repr)
+        f_tt = self.channels["tt"].rel_proj(node_repr)
+        # feature slots, in the layout the split below unpacks
+        head_feat = [f_hh * s_h, f_hh, f_ht * s_t]
+        tail_feat = [f_th * s_h, f_tt * s_t, f_tt]
+        if self.count_channels is not None:
+            head_feat += [s_h, s_t]   # count-hh t1, count-ht t1
+            tail_feat += [s_h, s_t]   # count-th t1, count-tt t1
+        feat = torch.cat([torch.cat(head_feat, dim=-1),
+                          torch.cat(tail_feat, dim=-1)], dim=1)  # [b, 2V, kd]
+        agg_v = torch.cat([pairs.head_v, pairs.tail_v + num_nodes])
+        agg_r = torch.cat([pairs.head_r, pairs.tail_r + num_relations])
+        m = pair_sum(feat, agg_v, agg_r, 2 * num_relations)     # [b, 2R, kd]
+        mh, mt = m[:, :num_relations], m[:, num_relations:]
+
+        msgs = {
+            "hh": mh[..., 0 * d:1 * d] - mh[..., 1 * d:2 * d] * z,
+            "ht": mh[..., 2 * d:3 * d],
+            "th": mt[..., 0 * d:1 * d],
+            "tt": mt[..., 1 * d:2 * d] - mt[..., 2 * d:3 * d] * z,
+        }
+        cmsgs = None
+        if self.count_channels is not None:
+            deg_h = torch.bincount(pairs.head_r, minlength=num_relations).to(z.dtype)
+            deg_t = torch.bincount(pairs.tail_r, minlength=num_relations).to(z.dtype)
+            cmsgs = {
+                "hh": mh[..., 3 * d:4 * d] - deg_h.view(1, -1, 1) * z,
+                "ht": mh[..., 4 * d:5 * d],
+                "th": mt[..., 3 * d:4 * d],
+                "tt": mt[..., 4 * d:5 * d] - deg_t.view(1, -1, 1) * z,
+            }
+        hidden = None
+        for role in self.ROLES:  # the unfused accumulation order, exactly
+            h = self.channels[role].update(z, msgs[role] + boundary)
+            hidden = h if hidden is None else hidden + h
+            if cmsgs is not None:
+                hidden = hidden + self.count_channels[role].update(
+                    z, cmsgs[role] + boundary)
+        return hidden
+
+    def _forward_unfused(self, z, node_repr, pairs, boundary):
         num_nodes, num_relations = pairs.num_nodes, pairs.num_relations
         s_h = pair_sum(z, pairs.head_r, pairs.head_v, num_nodes)
         s_t = pair_sum(z, pairs.tail_r, pairs.tail_v, num_nodes)

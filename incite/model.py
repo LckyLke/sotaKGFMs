@@ -37,6 +37,7 @@ from typing import Optional
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint
 
 from .graphs import IncidencePairs, incidence_pairs
 from .layers import EntityStep, FactorizedRelationStep
@@ -152,6 +153,11 @@ class INCITE(nn.Module):
         self.rounds = int(rounds)
         self.short_cut = bool(short_cut)
         self.support_k = int(support_k)
+        # per-round activation checkpointing (train.checkpoint_activations):
+        # default OFF so behavior is unchanged; the pretrain driver flips it.
+        # Applied only where gradients are live -- no_grad passes (eval,
+        # support building) take the plain path.
+        self.checkpoint_activations = False
         self.entity_steps = nn.ModuleList(
             [EntityStep(dim, layer_norm) for _ in range(self.rounds)])
         self.relation_steps = nn.ModuleList(
@@ -223,26 +229,50 @@ class INCITE(nn.Module):
             x = x + w_ent
             z = z + w_rel
 
+        # checkpointing trades the retained (b, V, d)/(b, R, d) activations
+        # of each round for one recompute during backward. The recompute is
+        # deterministic: the trunk holds no dropout (a test asserts it) and
+        # the walk features -- sampled once, above, from a fresh seeded
+        # Generator -- are inputs to round 1, not part of any round.
+        use_ckpt = self.checkpoint_activations and torch.is_grad_enabled()
         for k in range(self.rounds):
-            if task == TASK_ENTITY:
-                q_k = z.gather(1, r_query.view(b, 1, 1).expand(b, 1, d)).squeeze(1)
-                boundary_x = torch.zeros(b, num_nodes, d, device=device)
-                boundary_x.scatter_add_(
-                    1, h_index.view(b, 1, 1).expand(b, 1, d), q_k.unsqueeze(1))
+            if use_ckpt:
+                x, z = checkpoint(self._round, k, task, x, z, z_boundary,
+                                  msg_graph.edge_index, msg_graph.edge_type,
+                                  pairs, h_index, t_index, r_query, q,
+                                  use_reentrant=False)
             else:
-                q_k = q
-                boundary_x = torch.zeros(b, num_nodes, d, device=device)
-                boundary_x.scatter_add_(
-                    1, h_index.view(b, 1, 1).expand(b, 1, d), q_k.unsqueeze(1))
-                boundary_x.scatter_add_(
-                    1, t_index.view(b, 1, 1).expand(b, 1, d), (-q_k).unsqueeze(1))
-            hidden = self.entity_steps[k](x, z, boundary_x,
-                                          msg_graph.edge_index, msg_graph.edge_type)
-            x = hidden + x if self.short_cut else hidden
-            node_repr = self.node_mlps[k](
-                torch.cat([x, q_k.unsqueeze(1).expand_as(x)], dim=-1))
-            z_hidden = self.relation_steps[k](z, node_repr, pairs, z_boundary)
-            z = z_hidden + z if self.short_cut else z_hidden
+                x, z = self._round(k, task, x, z, z_boundary,
+                                   msg_graph.edge_index, msg_graph.edge_type,
+                                   pairs, h_index, t_index, r_query, q)
+        return x, z
+
+    def _round(self, k: int, task: int, x, z, z_boundary, edge_index,
+               edge_type, pairs: IncidencePairs, h_index, t_index, r_query, q):
+        """Round k: boundary from the CURRENT z, entity step, node MLP,
+        relation step. Under activation checkpointing this whole function is
+        recomputed in backward, so it must stay RNG-free (no dropout in the
+        trunk -- asserted by a test) and free of hidden mutable state."""
+        b, d = x.shape[0], self.dim
+        num_nodes = pairs.num_nodes
+        device = x.device
+        boundary_x = torch.zeros(b, num_nodes, d, device=device)
+        if task == TASK_ENTITY:
+            q_k = z.gather(1, r_query.view(b, 1, 1).expand(b, 1, d)).squeeze(1)
+            boundary_x.scatter_add_(
+                1, h_index.view(b, 1, 1).expand(b, 1, d), q_k.unsqueeze(1))
+        else:
+            q_k = q
+            boundary_x.scatter_add_(
+                1, h_index.view(b, 1, 1).expand(b, 1, d), q_k.unsqueeze(1))
+            boundary_x.scatter_add_(
+                1, t_index.view(b, 1, 1).expand(b, 1, d), (-q_k).unsqueeze(1))
+        hidden = self.entity_steps[k](x, z, boundary_x, edge_index, edge_type)
+        x = hidden + x if self.short_cut else hidden
+        node_repr = self.node_mlps[k](
+            torch.cat([x, q_k.unsqueeze(1).expand_as(x)], dim=-1))
+        z_hidden = self.relation_steps[k](z, node_repr, pairs, z_boundary)
+        z = z_hidden + z if self.short_cut else z_hidden
         return x, z
 
     # -- entity task --------------------------------------------------------

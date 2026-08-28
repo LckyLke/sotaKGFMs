@@ -229,6 +229,13 @@ def main(argv=None):
 
     # ---- model ------------------------------------------------------------
     model = build_model(cfg).to(device)
+    if bool(tcfg.get("checkpoint_activations", False)):
+        # per-round activation checkpointing (results/incite/config_diff.md):
+        # trades one trunk recompute in backward for the retained (b, V, d)
+        # activations that OOM batch 16+. Default off; the launched phase-1
+        # recipe ran without it and stays reproducible as launched.
+        model.checkpoint_activations = True
+        print("activation checkpointing: on")
     if args.resume:
         state = torch.load(args.resume, map_location="cpu")
         model.load_state_dict(state["model"])
