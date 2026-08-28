@@ -117,3 +117,28 @@ Reason-headed diff in `patches/<repo>/`; `repos/` stays pristine at
 `repos/PINS.json` SHAs. Published targets are data (`shared/published.json`),
 never constants. Seed 1024 everywhere. All 21+ commits today are local:
 **nothing is pushed**.
+
+## Day three (2026-08-28/29) — INCITE
+
+Full detail lives on the `incite` branch (worktree
+`~/Dokumente/GitHub/sotaKGFMs-incite`): docs/INCITE_DESIGN.md (the model),
+docs/INCITE_PLAN.md (phases), results/incite/PHASE1_RESULT.md (the verdict),
+results/incite/config_diff.md (every deviation, including two the user
+caught by asking questions).
+
+* **INCITE phase 1 PASSED**: the factorized incidence backbone (part A
+  alone) matches TRIX on ind_e (0.4553 vs 0.4562) and nominally leads
+  ind_er (0.3740, best measured, within noise of TRIX/KG-ICL) — at 20% of
+  TRIX's 100k-step budget, 2.08x ULTRA eval cost. Ranks in
+  ranks/incite/ on that branch, row counts identical to ranks/trix/.
+* **Phase 2.1 (walks lever) is training overnight**, warm-started from the
+  phase-1 trunk (walk module fresh). ~half the phase-1 throughput; done
+  early afternoon. Kill switches: DEV10 vs floor + PETALS. Known confound
+  to control before believing any gain: +20k trunk steps (run the
+  no-walks +20k resume as the budget control).
+* **The host crashes were hardware**: kernel Xid 79, GPU fell off the bus
+  under sustained load, three times. User is fixing the connection.
+  Crash-resume notes live next to each run's outputs.
+* FLOCK still 17/41, parked behind INCITE by user order; HM:indigo
+  prescription in ranks/flock/RESUME.md. KGPFN queued after INCITE eval
+  (user order). TRIX@20k matched-budget A/B deferred but wanted.
