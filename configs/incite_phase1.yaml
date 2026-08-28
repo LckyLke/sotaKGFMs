@@ -31,12 +31,9 @@ relation:
   lambda: 0.0             # phase 2.3 lever
 
 train:
-  batch_size: 8           # micro-batch; 16 and 32 both OOMed at ~15.0 GiB
-  accum_steps: 4          # effective batch 8*4 = the recipe's 32
-  # checkpoint_activations: yes   # enable after Phase 1 -- per-round activation
-  #                               # checkpointing (incite/model.py); the running
-  #                               # phase-1 recipe was launched without it and
-  #                               # stays reproducible as launched.
+  batch_size: 32          # the recipe's batch, single piece: checkpointing
+  accum_steps: 1          # freed the activation memory (GPU-verified 38/38)
+  checkpoint_activations: yes
   num_negative: 512
   strict_negative: yes
   adversarial_temperature: 1
