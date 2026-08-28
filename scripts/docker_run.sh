@@ -20,10 +20,7 @@ import json, sys
 root, model = sys.argv[1], sys.argv[2]
 pins = json.load(open(root + "/repos/PINS.json"))
 pins = pins.get("repos", pins)
-# CREST is our own code wrapping TRIX, not a pinned clone, so it has no entry
-# in PINS.json; its image identity is the TRIX pin it wraps, and a TRIX repin
-# therefore invalidates the CREST image too -- which is exactly right.
-info = pins["trix" if model == "crest" else model]
+info = pins[model]
 sha = info if isinstance(info, str) else (info.get("commit") or info.get("sha"))
 print(sha[:8])
 PY
@@ -56,8 +53,7 @@ ENVARGS=()
 # wasted test run of FLOCK_BATCH_DIVISOR.
 for suffix in DATASETS SHARD REDO EXTRA_ARGS WORKDIR RANK_DUMP_DIR \
               BATCH_DIVISOR UNSEEDED_WALKS FETCH_ENTITY_LABELS \
-              DATA RANKS RESULTS READOUT_CKPT \
-              TRAIN_GRAPHS TRAIN_STEPS VAL_INTERVAL VAL_SAMPLES TRAIN_EXTRA_ARGS; do
+              DATA RANKS RESULTS; do
   name="${UP}_${suffix}"
   # Only forward what is set. `-e VAR=` sets the variable to the empty string
   # rather than leaving it unset, and some consumers reject that outright:

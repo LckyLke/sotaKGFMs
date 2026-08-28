@@ -69,10 +69,6 @@ CSV_PATTERNS = {
     "trix": "TRIX_results_*.csv",
     # KG-ICL appends every dataset to one file rather than writing one per run.
     "kg-icl": "KGICL_results.csv",
-    # CREST is our code but follows the TRIX convention: one timestamped CSV
-    # per runner invocation, so a stale re-run is caught by read_model_csvs's
-    # duplicate check instead of silently appended over.
-    "crest": "CREST_results_*.csv",
 }
 
 TOLERANCE_DEFAULT = 0.002

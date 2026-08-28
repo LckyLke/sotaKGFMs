@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate patches/trix/0004-relation-rank-dump.diff (stacks on 0001-0003).
 
-Relation prediction is CREST's second task, and this harness has never measured
-it: phase 1 of docs/CREST_PLAN.md builds the baseline by running TRIX's own
-run_relation.py with relation_prediction.pth. This patch gives that script the
+This harness never measured relation prediction before: this baseline runs
+TRIX's own run_relation.py with relation_prediction.pth. (The baseline was
+first built for the CREST project, which lives on the `crest` branch.)
+This patch gives that script the
 same two outputs every other run here has -- a per-query rank dump and a CSV of
 the model's own metric values for criterion A. The ranking itself is untouched;
 in particular compute_ranking_relation's unfiltered branch is left exactly as

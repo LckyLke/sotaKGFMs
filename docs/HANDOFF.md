@@ -14,7 +14,7 @@ committed on `claude/gpu-multi-model-baseline` (not pushed).
 | KG-ICL | 41/41 (+13 native-convention) | — | exact on own CSV | reproduces its paper under its own convention |
 | FLOCK | **16/41, running overnight** | — | pending | pending |
 | KGPFN | not started | — | — | — |
-| CREST | evaluated at 3 checkpoints | — | inherits TRIX | **phase 2 STOPPED** — see below |
+| CREST | moved to the `crest` branch | — | inherits TRIX | **phase 2 STOPPED** — see below |
 
 Headline numbers live in `baseline_report.md` (regenerate:
 `python3 scripts/make_summary.py`). Key findings of record:
@@ -25,20 +25,25 @@ Headline numbers live in `baseline_report.md` (regenerate:
 1. **KG-ICL completed**, including the convention A/B that showed its published
    Fully-Inductive advantage is mostly preprocessing (+0.079 MRR from validation
    edges in the test message graph; collapses to +0.020 under matched data).
-2. **CREST was built end to end** by two Fable-5 subagents against
+2. **CREST was built end to end** — NOTE: all CREST code, plans, ranks, and
+   results now live on the `crest` branch, not here. This branch keeps only
+   the shared-harness improvements and the TRIX relation baseline.
+   Built by two Fable-5 subagents against
    `docs/CREST_PLAN.md` (revision 3: CREST owns its encoder — the TRIX port +
    bitwise-then-modernise verification plan is written but NOT yet executed).
    - Phase 0 PASSED: zero-residual CREST is bit-for-bit TRIX, 185,870 ranks.
    - Phase 1 PASSED: TRIX relation baseline now exists (`ranks-relation/trix/`,
      ind_e 0.7564 / ind_er 0.8415 MRR, unfiltered protocol — state it on any
      table). Recorded in `shared/published.json` under `trix.relation`.
-   - Phase 2 **STOPPED** per plan rule 5: `results/STOP.md`. Three checkpoints
+   - Phase 2 **STOPPED** per plan rule 5: `results/STOP.md` (crest branch).
+     Three checkpoints
      (stage A frozen; stage B half-lr; stage B full-rate 5k steps) all transfer
      zero. The decisive one: end-to-end training drove the readout to silence
      (0.2% of ranks differ from TRIX). The optimiser discarded the mechanism.
    - Also learned: pretraining-mix validation does NOT predict transfer
      (rose +0.017..0.021 every time, transferred nothing). Checkpoint selection
-     must use zero-shot DEV10 (now a named tuple in `shared/suite.py`).
+     must use zero-shot DEV10 (defined in `shared/suite.py` on the crest
+     branch; removed here with the rest of CREST).
 3. **FLOCK crashed with the host mid-day** (16/41 survived, nothing corrupted),
    resumed this evening. `ranks/flock/RESUME.md` has the resume command.
 
@@ -77,9 +82,10 @@ grep -c '!!! FAILED' /tmp/claude-1000/-home-lukef-Dokumente-GitHub-sotaKGFMs/*/t
    gap, still the one open reproduction question (four published sources give
    four different ULTRA ind_e numbers; ours is a fifth).
 5. **MOTIF timing re-run** (its first suite predates TIMINGS.jsonl).
-6. **CREST tracks A/B if desired** — untested, independent of the readout,
-   start from TRIX directly. The TRIX-port plan (CREST_PLAN revision 3 §P)
-   is also unexecuted if self-containment still matters.
+6. **CREST tracks A/B if desired** — on the `crest` branch. Untested,
+   independent of the readout, start from TRIX directly. The TRIX-port plan
+   (CREST_PLAN revision 3 §P, crest branch) is also unexecuted if
+   self-containment still matters.
 
 ## Traps that bit us (do not re-learn these)
 
@@ -95,8 +101,8 @@ grep -c '!!! FAILED' /tmp/claude-1000/-home-lukef-Dokumente-GitHub-sotaKGFMs/*/t
 * Wikidata labels drift (SEMMA patches 0004-0006); entity labels were 225k
   fetched-and-discarded lookups.
 * Plan-vs-config: diff hyperparameters line by line
-  (`results/crest/config_diff.md` is the standing table). The stage-B encoder
-  lr ran at half spec until the user caught it by asking.
+  (`results/crest/config_diff.md` on the crest branch is the standing table).
+  The stage-B encoder lr ran at half spec until the user caught it by asking.
 * `compute_ranking_relation`'s missing `+1` is CORRECT (unfiltered counts the
   target itself). Do not "fix" it — see report_notes "The unfiltered rank
   offset is correct, and looks like a bug".

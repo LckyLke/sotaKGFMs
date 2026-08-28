@@ -25,7 +25,7 @@ import analyse  # noqa: E402
 import metrics  # noqa: E402
 import suite  # noqa: E402
 
-MODELS = ["ultra", "motif", "trix", "semma", "flock", "kg-icl", "kgpfn", "crest"]
+MODELS = ["ultra", "motif", "trix", "semma", "flock", "kg-icl", "kgpfn"]
 GROUPS = ["ind_e", "ind_er"]
 SHOWN = ["mrr", "hits@1", "hits@3", "hits@10"]
 

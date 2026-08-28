@@ -82,8 +82,6 @@ __all__ = [
     "of_family",
     "tail_only_ids",
     "run_arg",
-    "DEV10",
-    "dev10_by_group",
 ]
 
 GROUPS: Tuple[str, ...] = ("ind_e", "ind_er", "transductive")
@@ -296,49 +294,6 @@ def is_tail_only(graph_id: str) -> bool:
 def run_arg(group: str) -> str:
     """The comma-joined string for ``run_many.py -d`` for a whole group."""
     return ",".join(g.run_id for g in of_group(group))
-
-
-# ---------------------------------------------------------------------------
-# DEV10 -- the CREST development subset (docs/CREST_PLAN.md, phase 0 item 5)
-# ---------------------------------------------------------------------------
-#: Ten graphs used to iterate on CREST cheaply before a 41-graph sweep. Not a
-#: fourth entry in GROUPS: GROUPS partitions the suite by evaluation regime and
-#: DEV10 deliberately cuts across it (6 ind_er, 3 ind_e, 1 transductive), which
-#: is also why it must be reported as three group means and never as one --
-#: an unweighted mean over three regimes is not a quantity.
-DEV10: Tuple[str, ...] = (
-    "FBIngram:25",
-    "WKIngram:25",
-    "NLIngram:0",
-    "WikiTopicsMT1:tax",
-    "Metafam",
-    "FBNELL",
-    "FB15k237Inductive:v1",
-    "WN18RRInductive:v1",
-    "NELLInductive:v1",
-    "CoDExSmall",
-)
-
-
-def dev10_by_group() -> Dict[str, Tuple[str, ...]]:
-    """DEV10 split by suite group, in suite order.
-
-    This is the only sanctioned way to aggregate DEV10: one mean per group.
-    """
-    return {
-        group: tuple(gid for gid in ids(group) if gid in set(DEV10))
-        for group in GROUPS
-        if any(by_id(gid).group == group for gid in DEV10)
-    }
-
-
-# DEV10 invariants, checked at import like everything else in this module.
-# Kept out of _check() so this addition cannot alter the pre-existing checks.
-assert len(DEV10) == 10 and len(set(DEV10)) == 10, DEV10
-assert all(gid in _BY_ID for gid in DEV10), [g for g in DEV10 if g not in _BY_ID]
-assert {g: len(v) for g, v in dev10_by_group().items()} == {
-    "ind_e": 3, "ind_er": 6, "transductive": 1
-}, dev10_by_group()
 
 
 # ---------------------------------------------------------------------------

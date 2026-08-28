@@ -86,7 +86,7 @@
     "relation": {
       "source": "measured in this repository, 2026-08-27: relation_prediction.pth over all 41 inductive graphs, GPU, seed 1024, ranks in ranks-relation/trix/",
       "protocol": "UNFILTERED, per TRIX's own run_relation.py: other true relations between the same pair stay in the candidate set. Candidates are the direct relations only. State this on every relation table.",
-      "cross_check": "FLOCK paper Table 11 quotes TRIX per graph; all nine inductive DEV10 rows match to the printed third decimal (max |delta| 0.001).",
+      "cross_check": "FLOCK paper Table 11 quotes TRIX per graph; nine spot-checked inductive graphs (FB/WN/NELL v1, FBIngram:25, WKIngram:25, NLIngram:0, WikiTopicsMT1:tax, Metafam, FBNELL) match to the printed third decimal (max |delta| 0.001).",
       "ind_e": {
         "mrr": 0.7564,
         "hits@1": 0.6119
@@ -112,36 +112,6 @@
         "ind_er": {
           "mrr": 0.35,
           "hits@10": 0.514
-        }
-      }
-    }
-  },
-  "crest": {
-    "checkpoint": "entity_prediction.pth (phase 0; later phases record their own)",
-    "primary": "plan",
-    "targets": {
-      "plan": {
-        "source": "docs/CREST_PLAN.md section 8, targets restated against measurements from this repository",
-        "note": "CREST has no paper. These targets are the TRIX group means measured here from ranks/trix/ plus 0.015 MRR (the phase 2 pass rule), with Hits@10 required not to regress. They are goals, not published figures; a criterion B failure against them is a stop-rule verdict, not a reproduction failure.",
-        "ind_e": {
-          "mrr": 0.4712,
-          "hits@10": 0.5931
-        },
-        "ind_er": {
-          "mrr": 0.3829,
-          "hits@10": 0.5409
-        }
-      },
-      "trix_measured_here": {
-        "source": "ranks/trix/ in this repository, GPU, seed 1024, zero-shot entity prediction",
-        "note": "the baseline the plan's +0.015 is measured from. Phase 0's identity gate requires equality with ranks/trix/ row by row, not with these means.",
-        "ind_e": {
-          "mrr": 0.4562,
-          "hits@10": 0.5931
-        },
-        "ind_er": {
-          "mrr": 0.3679,
-          "hits@10": 0.5409
         }
       }
     }
