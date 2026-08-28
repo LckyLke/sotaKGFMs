@@ -1,21 +1,38 @@
-# FLOCK: interrupted by a host crash, resumable
+# FLOCK: interrupted twice by host crashes, resumable
 
-State at the crash, 2026-08-27 ~13:40 local:
+State after the second crash, 2026-08-28 morning:
 
-* **16 of 41 graphs complete**, parquets verified readable. All of GraIL
-  (FB15k237/WN18RR/NELL v1-v4), HM 1k/3k/5k, ILPC2022:small.
-* In flight, no output: **FBIngram:25**. The ind_er group after it is untouched.
-* Stale claims cleared. TIMINGS.jsonl carries one duplicate FB15k237Inductive_v1
-  row from the aborted first attempt (index 1, the JIT-cold one); keep the later
-  row when analysing.
+* **17 of 41 graphs complete**, parquets verified readable. The 16 from the
+  first crash plus **ILPC2022:large** (14,457 s = 4.0 h, 20,368 ranks,
+  MRR 0.318, status ok in TIMINGS).
+* **HM:indigo FAILED after 6.1 h** (started 01:00:47, failed 07:06,
+  n128_ensemble16, test_batch_size 1, divisor 4). The error text is lost:
+  the log lived in /tmp and the reboot cleared it. After this failure every
+  remaining graph failed in ~1.9 s (wedged CUDA context cascade) and the
+  loop still exited 0 -- the known exit-code trap. Only TIMINGS tells the
+  truth.
+* Working hypothesis: HM:indigo at n128 walks exhausts host RAM. FLOCK is
+  CPU/RAM-bound, and both host crashes happened while a big FLOCK graph was
+  in flight. Treat HM:indigo as the prime suspect for the crashes.
+* One stale claim (ILPC2022_large) left; clear the whole claims dir before
+  the next launch.
 
-To resume (settings that produced the 16 -- do not change mid-run):
+To resume the 23 normal graphs (settings that produced the 17 -- do not
+change mid-run):
 
+    rm -rf ranks/.claims-flock
     PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True FLOCK_BATCH_DIVISOR=4 \
       FLOCK_WORKDIR=/kgfm-src/output/flock-run \
       scripts/docker_run.sh flock bash -c \
       '/kgfm-src/scripts/run_flock.sh ind_e "[0]"; /kgfm-src/scripts/run_flock.sh ind_er "[0]"'
 
+For HM:indigo, do NOT rerun with the same settings a third time. Run it
+alone, last, with FLOCK_DATASETS=HM:indigo, FLOCK_BATCH_DIVISOR=8, a RAM
+watch (`free -m` loop), and nothing else on the machine.
+
 Completed graphs are skipped via their parquets; no REDO flag.
-Remaining: ~25 graphs. The two big ones (ILPC2022:large ~5h, HM:indigo ~5h)
-dominate; the other 23 sum to roughly 11h at the measured x165 ULTRA ratio.
+TIMINGS.jsonl carries duplicate rows from aborted attempts (status failed);
+keep only status-ok rows when analysing.
+
+Deprioritized 2026-08-28: INCITE implementation and pretraining run first
+(user decision). Resume FLOCK when the GPU frees.
