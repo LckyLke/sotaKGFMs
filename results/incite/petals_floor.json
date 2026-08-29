@@ -1,0 +1,10 @@
+{
+ "ckpt": "incite_best.pth",
+ "config": "incite_phase1.yaml",
+ "instances": 220,
+ "accuracy_1pass": 0.4545,
+ "accuracy_8pass_avg": 0.4545,
+ "ties_1pass": 130,
+ "mean_abs_margin_1pass": 0.0,
+ "step": 17000
+}

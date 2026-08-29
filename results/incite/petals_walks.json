@@ -1,0 +1,10 @@
+{
+ "ckpt": "incite_best_step8k_prefix.pth",
+ "config": "incite_phase21_walks.yaml",
+ "instances": 220,
+ "accuracy_1pass": 0.4727,
+ "accuracy_8pass_avg": 0.4136,
+ "ties_1pass": 0,
+ "mean_abs_margin_1pass": 0.255526,
+ "step": 8000
+}
