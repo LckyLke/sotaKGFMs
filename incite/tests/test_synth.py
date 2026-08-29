@@ -282,12 +282,19 @@ def test_synth_config_is_off_unless_a_config_turns_it_on():
 
 
 def test_shipped_configs_keep_synth_off_except_phase21b():
+    """Every config but phase 2.1b must be untouched by this feature -- the
+    live run reads some of them. Globbed, not listed, so a config added later
+    cannot quietly turn synthetic supervision on."""
+    import glob
+
     yaml = __import__("yaml")
-    for name in ("incite_phase1.yaml", "incite_phase21_walks.yaml",
-                 "incite_phase22_support.yaml", "incite_v1.yaml"):
-        path = os.path.join(REPO, "configs", name)
+    others = [p for p in sorted(glob.glob(os.path.join(REPO, "configs",
+                                                       "incite_*.yaml")))
+              if "phase21b" not in os.path.basename(p)]
+    assert len(others) >= 4, others
+    for path in others:
         cfg = yaml.safe_load(open(path))
-        assert synth.synth_config(cfg) is None, name
+        assert synth.synth_config(cfg) is None, os.path.basename(path)
     cfg = yaml.safe_load(
         open(os.path.join(REPO, "configs", "incite_phase21b_walksynth.yaml")))
     scfg = synth.synth_config(cfg)
