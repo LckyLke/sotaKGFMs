@@ -55,6 +55,12 @@ else
   RANKS="$ROOT/ranks/incite"
   CLAIMS="$ROOT/ranks/.claims-incite"
 fi
+# Lever evals (phase 2) dump beside the phase-1 ranks, never over them:
+# one directory per model variant, like one directory per model.
+if [ -n "${INCITE_RANKS:-}" ]; then
+  RANKS="$INCITE_RANKS"
+  CLAIMS="$(dirname "$RANKS")/.claims-$(basename "$RANKS")"
+fi
 OUT="$ROOT/output/incite/${INCITE_SHARD:-all}"
 
 case "$GROUP" in
