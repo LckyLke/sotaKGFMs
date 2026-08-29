@@ -9,6 +9,17 @@ BCE at temperature 1, AdamW 5e-4, batch 32. The relation loss (design D)
 is added as ``L_entity + lambda * L_relation`` when ``relation.lambda`` > 0.
 
 ------------------------------------------------------------------------------
+Synthetic supervision (phase 2.1b, ``synth.enabled``)
+------------------------------------------------------------------------------
+With a ``synth:`` block enabled, a ``synth.fraction`` share of steps are
+SYNTHETIC steps instead of real-graph steps: one union batch of
+``synth.instances_per_step`` labeled PETALS-family instances through
+``incite/synth.py``, logged with ``"graph": "synthetic"``. The block absent
+or disabled (every phase-1/2.1/2.2 config) means the loop below is exactly
+what it always was. See incite/synth.py for why: the walks lever got the
+capability to break automorphic ties but no gradient telling it which way.
+
+------------------------------------------------------------------------------
 Checkpoint selection (docs/INCITE_PLAN.md lesson 2 -- BINDING)
 ------------------------------------------------------------------------------
 Pretraining-mix validation rose +0.017..+0.021 in three CREST regimes and
@@ -56,10 +67,12 @@ import suite  # noqa: E402  (shared/suite.py on PYTHONPATH)
 
 try:
     from . import support as incite_support
+    from . import synth as incite_synth
     from . import train as incite_train
     from .run import build_model, support_build_kwargs
 except ImportError:  # pragma: no cover - flat invocation
     import support as incite_support  # type: ignore
+    import synth as incite_synth  # type: ignore
     import train as incite_train  # type: ignore
     from run import build_model, support_build_kwargs  # type: ignore
 
@@ -201,6 +214,10 @@ def main(argv=None):
     adv_temperature = float(tcfg.adversarial_temperature)
     strict = bool(tcfg.strict_negative)
     lam = float(cfg.relation.get("lambda", 0.0))
+    # phase 2.1b: synthetic automorphic-instance supervision. None unless a
+    # config carries `synth: {enabled: yes, ...}` -- absent or off means not a
+    # line of incite/synth.py runs and the loop is byte-for-byte the old one.
+    scfg = incite_synth.synth_config(cfg)
     mix_names = args.graphs.split(",") if args.graphs else list(tcfg.graphs)
     dev_ids = (args.dev_graphs.split(",") if args.dev_graphs
                else list(suite.DEV10))
@@ -330,52 +347,84 @@ def main(argv=None):
     pick_gen = torch.Generator().manual_seed(args.seed + 1)
     pos_gen = torch.Generator().manual_seed(args.seed)
 
+    if scfg is not None:
+        print("synthetic supervision ON (phase 2.1b): fraction %.3f, "
+              "%d instances/step, seed %d"
+              % (scfg["fraction"], scfg["instances_per_step"], scfg["seed"]))
+
     model.train()
     best_sel, best_path = float("-inf"), None
     last_path = os.path.join(args.output_dir, "incite_last.pth")
     train_seconds = 0.0
     for step in range(start_step, steps + 1):
-        gid = int(torch.multinomial(probs, 1, generator=pick_gen))
-        graph, store = train_graphs[gid], stores[gid]
-        t0 = time.perf_counter()
-        optimizer.zero_grad()
-        micro_triples, loss, loss_rel = [], 0.0, None
-        for micro in range(accum):
-            triples = incite_train.sample_positive_triples(
-                graph, batch_size, pos_gen)
-            micro_triples.append(triples)
-            micro_loss = incite_train.entity_loss_from_triples(
-                model, graph, triples, num_negative,
-                adversarial_temperature=adv_temperature, strict=strict,
-                support=store, walk_offset=step * accum + micro,
-                sampler=tasks.negative_sampling)
-            if lam > 0:
-                micro_rel = incite_train.relation_loss_from_triples(
-                    model, graph, triples, support=store,
-                    walk_offset=step * accum + micro)
-                micro_loss = micro_loss + lam * micro_rel
-                loss_rel = (0.0 if loss_rel is None else loss_rel) \
-                    + float(micro_rel) / accum
-            (micro_loss / accum).backward()
-            loss += float(micro_loss) / accum
-        triples = torch.cat(micro_triples)
-        optimizer.step()
-        dt = time.perf_counter() - t0
-        train_seconds += dt
-        if refreshers:
-            # touch only what the step drew: positives and their inverses;
-            # the refresh itself runs under eval so refreshed rows match the
-            # eval-mode forward that scores against them
-            num_direct = int(graph.num_relations) // 2
-            rids = triples[:, 2].unique().tolist()
-            refreshers[gid].touch(
-                rids + [r + num_direct if r < num_direct else r - num_direct
-                        for r in rids])
-            model.eval()
-            refreshers[gid].after_step(dt)
-            model.train()
+        # ---- phase 2.1b: is this a synthetic step? ------------------------
+        # The coin is a pure function of (synth.seed, step) drawn from its own
+        # fresh generator, so it never consumes pick_gen/pos_gen and a resume
+        # classifies each step number identically. A synthetic step does not
+        # draw a real graph, so pick_gen advances once less than it would in a
+        # synth-off run -- the draw sequences of the two runs differ by
+        # construction, which is expected and recorded.
+        synthetic = scfg is not None and incite_synth.is_synth_step(step, scfg)
+        loss_rel = None
+        if synthetic:
+            graph_label = "synthetic"
+            t0 = time.perf_counter()
+            optimizer.zero_grad()
+            # Synthetic steps IGNORE accum: one union batch of
+            # instances_per_step instances is one optimizer step (the union
+            # already batches them into a single forward). No support store is
+            # involved and no refresher is touched -- no real graph was drawn.
+            synth_batch_loss, _k = incite_synth.synth_step_loss(
+                model, scfg, step, device=device, walk_offset=step * accum,
+                adversarial_temperature=adv_temperature)
+            synth_batch_loss.backward()
+            optimizer.step()
+            loss = float(synth_batch_loss)
+            dt = time.perf_counter() - t0
+            train_seconds += dt
+        else:
+            gid = int(torch.multinomial(probs, 1, generator=pick_gen))
+            graph, store = train_graphs[gid], stores[gid]
+            graph_label = mix_names[gid]
+            t0 = time.perf_counter()
+            optimizer.zero_grad()
+            micro_triples, loss = [], 0.0
+            for micro in range(accum):
+                triples = incite_train.sample_positive_triples(
+                    graph, batch_size, pos_gen)
+                micro_triples.append(triples)
+                micro_loss = incite_train.entity_loss_from_triples(
+                    model, graph, triples, num_negative,
+                    adversarial_temperature=adv_temperature, strict=strict,
+                    support=store, walk_offset=step * accum + micro,
+                    sampler=tasks.negative_sampling)
+                if lam > 0:
+                    micro_rel = incite_train.relation_loss_from_triples(
+                        model, graph, triples, support=store,
+                        walk_offset=step * accum + micro)
+                    micro_loss = micro_loss + lam * micro_rel
+                    loss_rel = (0.0 if loss_rel is None else loss_rel) \
+                        + float(micro_rel) / accum
+                (micro_loss / accum).backward()
+                loss += float(micro_loss) / accum
+            triples = torch.cat(micro_triples)
+            optimizer.step()
+            dt = time.perf_counter() - t0
+            train_seconds += dt
+            if refreshers:
+                # touch only what the step drew: positives and their inverses;
+                # the refresh itself runs under eval so refreshed rows match
+                # the eval-mode forward that scores against them
+                num_direct = int(graph.num_relations) // 2
+                rids = triples[:, 2].unique().tolist()
+                refreshers[gid].touch(
+                    rids + [r + num_direct if r < num_direct else r - num_direct
+                            for r in rids])
+                model.eval()
+                refreshers[gid].after_step(dt)
+                model.train()
         if args.log_every and step % args.log_every == 0:
-            entry = {"step": step, "graph": mix_names[gid],
+            entry = {"step": step, "graph": graph_label,
                      "loss": round(float(loss), 4),
                      "loss_rel": (None if loss_rel is None
                                   else round(float(loss_rel), 4)),
