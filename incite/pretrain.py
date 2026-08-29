@@ -243,10 +243,22 @@ def main(argv=None):
         print("activation checkpointing: on")
     if args.resume and args.init_from:
         raise SystemExit("--resume and --init_from are mutually exclusive")
+    start_step = 1
     if args.resume:
         state = torch.load(args.resume, map_location="cpu")
         model.load_state_dict(state["model"])
-        print("resumed from %s (step %s)" % (args.resume, state.get("step")))
+        # Continue the counter: a resume that restarts at step 1 trains
+        # steps-many EXTRA steps and relabels its validations (bit us on the
+        # first real crash-resume, 2026-08-29). Optimizer state and RNG
+        # positions are not stored, so those restart fresh -- the ledger
+        # records that a resumed run's draw sequence differs from an
+        # uninterrupted one.
+        start_step = int(state.get("step", 0)) + 1
+        assert start_step <= steps, (
+            "checkpoint step %d >= total steps %d: nothing left to train"
+            % (start_step - 1, steps))
+        print("resumed from %s: continuing at step %d of %d"
+              % (args.resume, start_step, steps))
     if args.init_from:
         state = torch.load(args.init_from, map_location="cpu")
         missing, unexpected = model.load_state_dict(state["model"], strict=False)
@@ -322,7 +334,7 @@ def main(argv=None):
     best_sel, best_path = float("-inf"), None
     last_path = os.path.join(args.output_dir, "incite_last.pth")
     train_seconds = 0.0
-    for step in range(1, steps + 1):
+    for step in range(start_step, steps + 1):
         gid = int(torch.multinomial(probs, 1, generator=pick_gen))
         graph, store = train_graphs[gid], stores[gid]
         t0 = time.perf_counter()
@@ -367,7 +379,7 @@ def main(argv=None):
                      "loss": round(float(loss), 4),
                      "loss_rel": (None if loss_rel is None
                                   else round(float(loss_rel), 4)),
-                     "it_per_s": round(step / train_seconds, 2)}
+                     "it_per_s": round((step - start_step + 1) / train_seconds, 2)}
             print(json.dumps(entry))
             log.write(json.dumps(entry) + "\n")
             log.flush()
@@ -381,7 +393,8 @@ def main(argv=None):
                 print("new best: selection %.4f at step %d -> %s"
                       % (sel, step, best_path))
 
-    summary = {"steps": steps, "it_per_s": round(steps / train_seconds, 2),
+    summary = {"steps": steps,
+               "it_per_s": round((steps - start_step + 1) / train_seconds, 2),
                "best_selection": None if best_path is None else round(best_sel, 4),
                "best_checkpoint": best_path, "last_checkpoint": last_path}
     print(json.dumps(summary))
