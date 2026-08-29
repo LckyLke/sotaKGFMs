@@ -1,0 +1,28 @@
+{
+ "ckpt": "incite_best.pth",
+ "step": 6000,
+ "graphs": {
+  "FBIngram:25": {
+   "queries": 300,
+   "ranking_changed_frac": 0.8133,
+   "mean_abs_score_delta": 0.00348,
+   "mrr_real": 0.4108,
+   "mrr_permuted": 0.4108
+  },
+  "Metafam": {
+   "queries": 300,
+   "ranking_changed_frac": 0.7267,
+   "mean_abs_score_delta": 0.001936,
+   "mrr_real": 0.4811,
+   "mrr_permuted": 0.4811
+  },
+  "FB15k237Inductive:v1": {
+   "queries": 300,
+   "ranking_changed_frac": 0.6533,
+   "mean_abs_score_delta": 0.004747,
+   "mrr_real": 0.6007,
+   "mrr_permuted": 0.6007
+  }
+ },
+ "verdict": "ALIVE: the readout reacts to support labels"
+}
