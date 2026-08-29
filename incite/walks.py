@@ -82,7 +82,14 @@ def sample_walks(graph, starts: torch.Tensor, num_walks: int, walk_length: int,
         # a dead walk keeps drawing on a clamped degree so the generator
         # consumption stays shape-stable; its draws are masked out below
         draw = torch.rand(b, n, device=device, generator=generator)
-        pick = (draw * deg.clamp(min=1)).long() + offsets[cur]
+        # Dead lanes are masked below, but their gather still executes; for
+        # a zero-degree node whose CSR offset sits at the END of the edge
+        # array (trailing edgeless node), offsets[cur] == num_edges and
+        # dst[pick] reads out of bounds -- a device-side assert that took
+        # ~290k queries to hit. The clamp is value-neutral: alive lanes have
+        # deg > 0 and never reach it, dead lanes are overwritten by where.
+        pick = ((draw * deg.clamp(min=1)).long() + offsets[cur]).clamp(
+            max=max(dst.numel() - 1, 0))
         nxt = torch.where(alive, dst[pick], cur)
         rel = torch.where(alive, etype[pick], torch.zeros_like(etype[pick]))
         ents.append(nxt)
