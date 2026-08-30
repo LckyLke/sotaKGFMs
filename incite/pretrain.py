@@ -87,6 +87,11 @@ PRETRAIN_RAW_DIRS = {
 def prepare_pretrain_root(pretrain_root: str, raw_root: str, names) -> None:
     """Copy the raw files under ``pretrain_root``. Copies, not symlinks."""
     for name in names:
+        # Names outside the map (e.g. NELL995 in the 4-graph mix) have no
+        # pre-seeded raw copy; the TRIX loader downloads them itself into
+        # the root. This KeyError cost the first 4-graph attempt (S8).
+        if name not in PRETRAIN_RAW_DIRS:
+            continue
         top = PRETRAIN_RAW_DIRS[name]
         src, dst = os.path.join(raw_root, top), os.path.join(pretrain_root, top)
         if os.path.isdir(dst):
