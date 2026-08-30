@@ -1,0 +1,10 @@
+{
+ "ckpt": "incite_best.pth",
+ "config": "incite_phase21b_walksynth.yaml",
+ "instances": 220,
+ "accuracy_1pass": 0.8182,
+ "accuracy_8pass_avg": 0.9364,
+ "ties_1pass": 0,
+ "mean_abs_margin_1pass": 2.417936,
+ "step": 5000
+}
