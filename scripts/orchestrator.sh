@@ -186,8 +186,10 @@ if ! skip S7; then
 fi
 
 # ---- S8: 4-graph mix floor pretrain (design E, ultra_4g precedent) -------
+# NELL995 (74.5k nodes) OOMs the single-piece batch; the 4g config runs
+# micro-batch 16 x accum 2 (effective 32, ledgered).
 if ! skip S8; then
-  if run_pretrain S8 /kgfm-src/configs/incite_phase1.yaml "" \
+  if run_pretrain S8 /kgfm-src/configs/incite_phase1_4g.yaml "" \
        "INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995"; then
     mv "$ROOT/output/incite-pretrain" "$ROOT/output/incite-pretrain-4g"
     done_mark S8
