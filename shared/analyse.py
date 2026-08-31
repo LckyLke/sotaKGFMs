@@ -69,6 +69,18 @@ CSV_PATTERNS = {
     "trix": "TRIX_results_*.csv",
     # KG-ICL appends every dataset to one file rather than writing one per run.
     "kg-icl": "KGICL_results.csv",
+    # FLOCK's run_many.py writes one timestamped CSV per dataset; the collect
+    # script copies them out of the work tree unmodified.
+    "flock": "results_*.csv",
+    # Written by patches/kgpfn/0004; upstream's own metrics.csv is a stacked
+    # two-column sheet at 6 printed digits and cannot anchor criterion A.
+    # Criterion A for kgpfn must be scored against the dump's rank_native
+    # column (make_report.py --rank-column rank_native): the CSV was computed
+    # from KGPFN's own filter graph, which on ILPC/Ingram is not the shared
+    # one. Its hits@10_50 also consumed the NATIVE candidate count
+    # (n_candidates_native in the dump), so on those 15 graphs that one metric
+    # is not comparable against a recomputation over the shared n_candidates.
+    "kgpfn": "KGPFN_results_*.csv",
 }
 
 TOLERANCE_DEFAULT = 0.002
