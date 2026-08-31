@@ -20,7 +20,7 @@ GPUS="${2:-[0]}"
 PY="${3:-python}"
 
 WORKDIR="${TRIX_WORKDIR:-/kgfm/repos/trix}"
-CKPT="$WORKDIR/entity_prediction.pth"
+CKPT="${TRIX_CKPT:-$WORKDIR/entity_prediction.pth}"
 DATA_ROOT="$ROOT/data/roots/trix"
 RANKS="$ROOT/ranks/trix"
 OUT="$ROOT/output/trix/${TRIX_SHARD:-all}"
