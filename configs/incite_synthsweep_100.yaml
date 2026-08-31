@@ -1,0 +1,57 @@
+# Synthetic-prior fraction sweep, point 100% (user proposal 2026-08-31:
+# fit the model to a synthetic prior, TabPFN-style). Base: the walksynth
+# recipe. synth.prior selects the generator family: "rules" = the latent
+# rule-system prior (incite/synth.py v2); at fraction 1.0 the model never
+# trains on a real graph. DEV10 stays real: it measures transfer from the
+# prior, which is the experiment.
+model:
+  dim: 32
+  rounds: 6
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes
+  num_mlp_layer: 2
+
+walks:
+  enabled: yes            # THE phase 2.1 lever
+  num_walks: 32
+  walk_length: 8
+  seed: 1024
+
+support:
+  enabled: no             # phase 2.2 lever
+  num_positive: 16
+  per_relation_cap: 64
+  neg_per_pos: 4
+  prototype_k: 16
+  hops: 3
+  ball_cap: 1024
+  class_prior: 0.1
+  build_batch_size: 16
+
+relation:
+  lambda: 0.0             # phase 2.3 lever
+
+synth:
+  prior: rules
+  enabled: yes            # phase 2.1b: symmetry-breaking supervision
+  fraction: 1.0          # "a small fraction of steps" (PHASE21_RESULT.md)
+  instances_per_step: 16
+  seed: 2048              # NOT the eval instances' 1024
+
+train:
+  batch_size: 32
+  accum_steps: 1
+  checkpoint_activations: yes
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  lr: 5.0e-4
+  steps: 20000
+  val_interval: 1000
+  refresh_interval: 500
+  cost_gate: 0.20
+  val_samples: 500
+  graphs: [FB15k237, WN18RR, CoDExMedium]
+
+seed: 1024
