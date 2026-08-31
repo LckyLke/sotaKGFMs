@@ -281,16 +281,20 @@ def test_synth_config_is_off_unless_a_config_turns_it_on():
         raise AssertionError("unknown synth keys must not pass silently")
 
 
-def test_shipped_configs_keep_synth_off_except_phase21b():
-    """Every config but phase 2.1b must be untouched by this feature -- the
-    live run reads some of them. Globbed, not listed, so a config added later
-    cannot quietly turn synthetic supervision on."""
+def test_shipped_configs_keep_synth_off_except_the_deliberate_ones():
+    """Only the configs that deliberately carry synthetic supervision --
+    phase 2.1b, the v1 composite it graduated into, and the synthetic-prior
+    sweep -- may enable it; every other config must be untouched, because
+    the live run reads some of them. Globbed, not listed, so a config added
+    later cannot quietly turn synthetic supervision on. The sweep configs'
+    own assertions live in test_synth_rules.py."""
     import glob
 
     yaml = __import__("yaml")
+    synth_on = ("phase21b", "synthsweep", "v1_full")
     others = [p for p in sorted(glob.glob(os.path.join(REPO, "configs",
                                                        "incite_*.yaml")))
-              if "phase21b" not in os.path.basename(p)]
+              if not any(tag in os.path.basename(p) for tag in synth_on)]
     assert len(others) >= 4, others
     for path in others:
         cfg = yaml.safe_load(open(path))
@@ -301,8 +305,16 @@ def test_shipped_configs_keep_synth_off_except_phase21b():
     assert scfg is not None
     assert scfg["fraction"] == 0.05 and scfg["instances_per_step"] == 16
     assert scfg["seed"] == 2048
+    # the live phase-2.1b queue must keep dispatching to the petals family
+    assert scfg["prior"] == "petals"
     assert cfg["walks"]["enabled"] and not cfg["support"]["enabled"]
     assert float(cfg["relation"]["lambda"]) == 0.0
+    # ... and so must the queued v1 composite (its block carries no prior key)
+    v1 = yaml.safe_load(
+        open(os.path.join(REPO, "configs", "incite_v1_full.yaml")))
+    v1_scfg = synth.synth_config(v1)
+    assert v1_scfg is not None
+    assert v1_scfg["prior"] == "petals" and v1_scfg["fraction"] == 0.05
 
 
 def test_is_synth_step_is_deterministic_and_hits_the_fraction():

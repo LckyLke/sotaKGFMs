@@ -353,9 +353,10 @@ def main(argv=None):
     pos_gen = torch.Generator().manual_seed(args.seed)
 
     if scfg is not None:
-        print("synthetic supervision ON (phase 2.1b): fraction %.3f, "
-              "%d instances/step, seed %d"
-              % (scfg["fraction"], scfg["instances_per_step"], scfg["seed"]))
+        print("synthetic supervision ON (phase 2.1b): prior %s, fraction "
+              "%.3f, %d instances/step, seed %d"
+              % (scfg["prior"], scfg["fraction"], scfg["instances_per_step"],
+                 scfg["seed"]))
 
     model.train()
     best_sel, best_path = float("-inf"), None
