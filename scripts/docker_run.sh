@@ -56,7 +56,7 @@ for suffix in DATASETS SHARD REDO EXTRA_ARGS WORKDIR RANK_DUMP_DIR \
               DATA RANKS RESULTS \
               CKPT CONFIG TASK SUPPORT RESUME INIT_FROM DEV_GRAPHS \
               TRAIN_GRAPHS TRAIN_STEPS TRAIN_EXTRA_ARGS \
-              VAL_INTERVAL VAL_SAMPLES; do
+              VAL_INTERVAL VAL_SAMPLES SEED; do
   name="${UP}_${suffix}"
   # Only forward what is set. `-e VAR=` sets the variable to the empty string
   # rather than leaving it unset, and some consumers reject that outright:
