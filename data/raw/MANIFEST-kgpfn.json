@@ -1,0 +1,38 @@
+{
+  "_about": [
+    "KGPFN data dependencies, recorded with sha256 so a re-download can be",
+    "checked against the bytes the results were produced from.",
+    "Checkpoint sha256 is also stamped into ranks/kgpfn/PROVENANCE.json by",
+    "scripts/run_kgpfn.sh on every run."
+  ],
+  "files": [
+    {
+      "path": "kgpfn/cache/kgpfn_icl.pth",
+      "bytes": 319081956,
+      "sha256": "366c3e3795738da81a05691c626497372bda58109ad7bf178bfc7fe21136a87a",
+      "source": "https://huggingface.co/Eason-nuo/KGPFN/resolve/main/kgpfn_icl.pth",
+      "note": "the pretrained KGPFN model (TabICL feature transformer; the paper's Table-1 row). Downloaded via repos/kgpfn script/download.py --kgpfn."
+    },
+    {
+      "path": "kgpfn/cache/tabicl-regressor-v2-20260212.ckpt",
+      "bytes": 114324594,
+      "sha256": "0db9cb538f114e79026bf08f45f41ad8dd7ad2de2aaca9a5ca8cd3bd9748ae7a",
+      "source": "https://huggingface.co/jingang/TabICL/resolve/main/tabicl-regressor-v2-20260212.ckpt",
+      "note": "needed once: config/tabicl yaml is embedded in it (ckpt['config']); with init_model=false its weights are never read."
+    },
+    {
+      "path": "kgpfn/tabicl.yaml",
+      "bytes": 483,
+      "sha256": "00a315ee38d9be35e4a4248cd119df38fa718edc66d88bc51a1d143a9c7a6b3d",
+      "source": "extracted from tabicl-regressor-v2-20260212.ckpt ['config'], the same logic as script/download.py::download_tabicl",
+      "note": "TabICL architecture config; scripts/run_kgpfn.sh passes it as --tabicl_config."
+    },
+    {
+      "path": "kgpfn/flash_attn-2.8.0.post2+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl",
+      "bytes": 255899169,
+      "sha256": "8dc050795ab2e425d4609ad28265fc569b1fafcec99e04ee18fa5b195ddae533",
+      "source": "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.0.post2/flash_attn-2.8.0.post2+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl",
+      "note": "record copy of the prebuilt wheel containers/kgpfn/Dockerfile installs from this URL (data/ is dockerignored, so the build cannot COPY it)."
+    }
+  ]
+}
