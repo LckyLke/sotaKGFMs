@@ -1,0 +1,56 @@
+# INCITE v1 composite -- everything that survived phase 2, in one model:
+# 4-graph mix (SCALE4G_RESULT.md), joint relation loss (PHASE23_RESULT.md),
+# walks + synthetic automorphic supervision (PHASE21B_RESULT.md).
+# Support: dropped (PHASE22_RESULT.md). Trains FROM SCRATCH (the mix
+# changed; no INIT_FROM). Micro-batch 16 x accum 2 for NELL995's node
+# count. Evals: entity (41 graphs), relation (unfiltered), PETALS.
+model:
+  dim: 32
+  rounds: 6
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes
+  num_mlp_layer: 2
+
+walks:
+  enabled: yes            # THE phase 2.1 lever
+  num_walks: 32
+  walk_length: 8
+  seed: 1024
+
+support:
+  enabled: no             # phase 2.2 lever
+  num_positive: 16
+  per_relation_cap: 64
+  neg_per_pos: 4
+  prototype_k: 16
+  hops: 3
+  ball_cap: 1024
+  class_prior: 0.1
+  build_batch_size: 16
+
+relation:
+  lambda: 1.0             # joint head, PHASE23 verdict
+
+synth:
+  enabled: yes            # phase 2.1b: symmetry-breaking supervision
+  fraction: 0.05          # "a small fraction of steps" (PHASE21_RESULT.md)
+  instances_per_step: 16
+  seed: 2048              # NOT the eval instances' 1024
+
+train:
+  batch_size: 16          # NELL995 memory (config_diff.md)
+  accum_steps: 2
+  checkpoint_activations: yes
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  lr: 5.0e-4
+  steps: 20000
+  val_interval: 1000
+  refresh_interval: 500
+  cost_gate: 0.20
+  val_samples: 500
+  graphs: [FB15k237, WN18RR, CoDExMedium, NELL995]
+
+seed: 1024

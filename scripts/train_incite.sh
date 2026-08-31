@@ -21,6 +21,7 @@
 #   INCITE_DEV_GRAPHS       override the DEV10 list (suite ids)
 #   INCITE_RESUME           checkpoint to resume from
 #   INCITE_INIT_FROM        weights-only warm start (phase-2 levers)
+#   INCITE_SEED             training seed (default 1024; seed repeats)
 #   INCITE_TRAIN_EXTRA_ARGS appended verbatim to incite/pretrain.py
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
