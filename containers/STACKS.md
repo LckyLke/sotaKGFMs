@@ -179,7 +179,14 @@ rank definition has been read directly.
 **Not an ULTRA fork.** ULTRA appears only as a vendored baseline under
 `model/ultra/`; the model itself is `pfn/` + `model/kgpfnsem.py` and a
 tabular prior-fitted network (`tabicl` / `tabpfn` / `limix`) as feature
-transformer. Unverified, same caveat as KG-ICL.
+transformer. Verified 2026-08-31 while building the container:
+`pfn/tasks.py::compute_ranking` and `::strict_negative_mask` are
+byte-identical to ULTRA's (1-based, pessimistic ties, strict filter, target
+excluded), so the tie rule and offset carry over. Its filter GRAPH omits the
+validation targets ULTRA's protocol filters on ILPC/Ingram, and it asks the
+head question as the inverse-relation tail question -- both handled by the
+dual-column rank dump; see patches/kgpfn/0001. Its five tail-only names in
+`pfn/tasks.py::TAIL_ONLY_DATASETS` match `shared/suite.py`'s five.
 
 * **Python 3.12** (`conda create -n kgpfn python=3.12`), torch **2.5.1+cu121**
   (with matching torchvision/torchaudio), PyG **2.7.0**, torch-scatter
@@ -192,7 +199,11 @@ transformer. Unverified, same caveat as KG-ICL.
   **prebuilt wheel URL** matched to CUDA/torch/cxx11-ABI/cpython version. The
   README's example wheel (`cu12torch2.7...cp312`) does **not** match the pinned
   torch 2.5.1 — the correct `cu12torch2.5` wheel has to be selected at build
-  time. Flag for the KGPFN container task.
+  time. Resolved: the container installs
+  `flash_attn-2.8.0.post2+cu12torch2.5cxx11abiFALSE-cp312` (same release
+  family as the README's example, torch2.5 build, old-C++-ABI to match the
+  PyPI/download.pytorch.org torch 2.5.1 binaries); a copy plus sha256 sits in
+  `data/raw/kgpfn/` + `data/raw/MANIFEST-kgpfn.json`.
 * **Compiled extensions:** two copies of `rspmm` (`model/ultra/rspmm/`,
   `pfn/rspmm/`), both byte-identical to ULTRA's, both JIT — so `nvcc` and a devel
   base are needed despite the PFN framing.

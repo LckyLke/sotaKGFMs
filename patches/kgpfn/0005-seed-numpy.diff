@@ -1,0 +1,27 @@
+Reason: seed numpy's global generator alongside torch's. KGPFN's eval-time in-context retrieval shuffles candidate lists with np.random.shuffle (pfn/tasks.py::build_context_relation_aware), and upstream seeds only torch -- so two runs of one graph from one checkpoint sample different contexts and produce different numbers. The seed value is args.seed + rank, exactly the pattern upstream uses for torch; nothing else changes. Same defect and same fix as FLOCK (patches/flock/0004).
+
+diff --git a/script/test_kgpfn.py b/script/test_kgpfn.py
+index 3abb34f..6e24aa8 100644
+--- a/script/test_kgpfn.py
++++ b/script/test_kgpfn.py
+@@ -12,6 +12,7 @@ import contextlib
+ import yaml
+ from typing import Any
+ 
++import numpy as np
+ import torch
+ from torch import optim
+ from torch import nn
+@@ -1107,6 +1108,12 @@ if __name__ == "__main__":
+         _save_configs(cfg, args.config, working_dir)
+ 
+     torch.manual_seed(args.seed + util.get_rank())
++    # Eval-time context retrieval draws through numpy as well as torch:
++    # pfn/tasks.py::build_context_relation_aware shuffles the 2-hop
++    # candidate list with np.random.shuffle. Upstream seeds only torch,
++    # so two runs of one graph sample different contexts and score
++    # differently. Same defect and same fix as FLOCK (patches/flock/0004).
++    np.random.seed(args.seed + util.get_rank())
+ 
+     # 日志：输出到控制台 + .log 文件（默认 pretrain_pfn.log，写入 working_dir）
+     # 必须用 abspath，否则 chdir(working_dir) 后相对路径会重复解析

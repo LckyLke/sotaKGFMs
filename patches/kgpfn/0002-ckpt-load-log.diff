@@ -1,0 +1,26 @@
+Reason: report missing/unexpected keys when loading the KGPFN checkpoint. Upstream loads with strict=False and prints a bare success line; with init_model=false (the zero-shot eval path this project runs) any key the checkpoint fails to cover silently keeps constructor-random weights, and nothing in the log would distinguish that from a clean load. The load itself is unchanged.
+
+diff --git a/script/test_kgpfn.py b/script/test_kgpfn.py
+index 18b12a9..2e918d7 100644
+--- a/script/test_kgpfn.py
++++ b/script/test_kgpfn.py
+@@ -422,8 +422,17 @@ def create_model(cfg, init: bool = False, ckpt_path: str | None = None, map_loca
+     if ckpt_path:
+         state = torch.load(ckpt_path, map_location=map_location)
+         sd = state["model"] if isinstance(state, dict) and "model" in state else state
+-        model.load_state_dict(sd, strict=False)
+-        print("Loaded model from checkpoint")
++        _load_result = model.load_state_dict(sd, strict=False)
++        # strict=False is upstream's choice, kept -- but silently so: a
++        # checkpoint that matches nothing still "loads", and with
++        # init_model=false a missing key then runs on constructor-random
++        # weights. Print the evidence so the run log can prove the load.
++        print("Loaded model from checkpoint: %d tensors in file, %d missing keys, %d unexpected keys"
++              % (len(sd), len(_load_result.missing_keys), len(_load_result.unexpected_keys)))
++        if _load_result.missing_keys:
++            print("  missing (first 10):", _load_result.missing_keys[:10])
++        if _load_result.unexpected_keys:
++            print("  unexpected (first 10):", _load_result.unexpected_keys[:10])
+ 
+     _set_module_trainable(model.semantic_encoder, False)
+     _set_module_trainable(model.structure_encoder, False)
