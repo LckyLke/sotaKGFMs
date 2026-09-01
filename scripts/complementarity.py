@@ -35,6 +35,8 @@ def rank_dir(model):
 def load(model, gid):
     g = suite.by_id(gid).id.replace(":", "_")
     p = os.path.join(rank_dir(model), g + ".parquet")
+    if not os.path.exists(p):
+        return None  # a model may lack a graph (FLOCK 40/41, KGPFN partial)
     df = pd.read_parquet(p, columns=["query_id", "direction", "rank"])
     df = df.rename(columns={"rank": model})
     return df
@@ -42,7 +44,7 @@ def load(model, gid):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--models", default="trix,incite,incite-4g,kgpfn")
+    ap.add_argument("--models", default="trix,incite,incite-4g,flock")
     ap.add_argument("--out", default=os.path.join(HERE, "results", "complementarity.md"))
     args = ap.parse_args()
     models = args.models.split(",")
@@ -51,6 +53,8 @@ def main():
     for grp in ("ind_e", "ind_er"):
         for gid in suite.ids(grp):
             dfs = [load(m, gid) for m in models]
+            if any(d is None for d in dfs):
+                continue  # only graphs every model has enter the join
             j = dfs[0]
             for d in dfs[1:]:
                 j = j.merge(d, on=["query_id", "direction"], validate="1:1")
@@ -64,7 +68,8 @@ def main():
     big = pd.concat(rows, ignore_index=True)
 
     lines = ["# Mechanism complementarity (%s)" % ", ".join(models), ""]
-    lines.append("Queries joined 1:1 on (dataset, query id, direction): %d" % len(big))
+    lines.append("Queries joined 1:1 on (dataset, query id, direction): %d over %d graphs "
+                 "(graphs any model lacks are dropped)" % (len(big), big["_gid"].nunique()))
     lines.append("")
     lines.append("## Group MRR (per-graph unweighted mean)")
     pg = pd.DataFrame(per_graph)
