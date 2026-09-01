@@ -1,0 +1,164 @@
+{
+ "config": "incite_phase1.yaml",
+ "ckpt": "/kgfm-src/output/incite-pretrain-4g/incite_best.pth",
+ "hashes": [
+  "5764a29915b75124"
+ ],
+ "val_samples": 500,
+ "cells": [
+  {
+   "k": 0,
+   "weight": 1.0,
+   "dev10": {
+    "FBIngram:25": 0.3569,
+    "WKIngram:25": 0.2812,
+    "NLIngram:0": 0.3877,
+    "WikiTopicsMT1:tax": 0.3357,
+    "Metafam": 0.4054,
+    "FBNELL": 0.4384,
+    "FB15k237Inductive:v1": 0.4838,
+    "WN18RRInductive:v1": 0.5392,
+    "NELLInductive:v1": 0.5038,
+    "CoDExSmall": 0.3967
+   },
+   "dev10_groups": {
+    "ind_e": 0.5089,
+    "ind_er": 0.3675,
+    "transductive": 0.3967
+   },
+   "seconds": 51.1
+  },
+  {
+   "k": 4,
+   "weight": 0.5,
+   "dev10": {
+    "FBIngram:25": 0.354,
+    "WKIngram:25": 0.2854,
+    "NLIngram:0": 0.393,
+    "WikiTopicsMT1:tax": 0.3246,
+    "Metafam": 0.393,
+    "FBNELL": 0.4366,
+    "FB15k237Inductive:v1": 0.4879,
+    "WN18RRInductive:v1": 0.5442,
+    "NELLInductive:v1": 0.5094,
+    "CoDExSmall": 0.4041
+   },
+   "dev10_groups": {
+    "ind_e": 0.5138,
+    "ind_er": 0.3644,
+    "transductive": 0.4041
+   },
+   "seconds": 283.5
+  },
+  {
+   "k": 4,
+   "weight": 1.0,
+   "dev10": {
+    "FBIngram:25": 0.3521,
+    "WKIngram:25": 0.2865,
+    "NLIngram:0": 0.3919,
+    "WikiTopicsMT1:tax": 0.3212,
+    "Metafam": 0.39,
+    "FBNELL": 0.4355,
+    "FB15k237Inductive:v1": 0.4855,
+    "WN18RRInductive:v1": 0.5431,
+    "NELLInductive:v1": 0.5071,
+    "CoDExSmall": 0.4054
+   },
+   "dev10_groups": {
+    "ind_e": 0.5119,
+    "ind_er": 0.3629,
+    "transductive": 0.4054
+   },
+   "seconds": 170.1
+  },
+  {
+   "k": 8,
+   "weight": 0.5,
+   "dev10": {
+    "FBIngram:25": 0.354,
+    "WKIngram:25": 0.2836,
+    "NLIngram:0": 0.3946,
+    "WikiTopicsMT1:tax": 0.3228,
+    "Metafam": 0.3947,
+    "FBNELL": 0.4373,
+    "FB15k237Inductive:v1": 0.4909,
+    "WN18RRInductive:v1": 0.5449,
+    "NELLInductive:v1": 0.5111,
+    "CoDExSmall": 0.4052
+   },
+   "dev10_groups": {
+    "ind_e": 0.5156,
+    "ind_er": 0.3645,
+    "transductive": 0.4052
+   },
+   "seconds": 183.0
+  },
+  {
+   "k": 8,
+   "weight": 1.0,
+   "dev10": {
+    "FBIngram:25": 0.351,
+    "WKIngram:25": 0.2843,
+    "NLIngram:0": 0.3918,
+    "WikiTopicsMT1:tax": 0.3182,
+    "Metafam": 0.3905,
+    "FBNELL": 0.4348,
+    "FB15k237Inductive:v1": 0.4898,
+    "WN18RRInductive:v1": 0.5427,
+    "NELLInductive:v1": 0.5066,
+    "CoDExSmall": 0.4081
+   },
+   "dev10_groups": {
+    "ind_e": 0.513,
+    "ind_er": 0.3618,
+    "transductive": 0.4081
+   },
+   "seconds": 182.7
+  },
+  {
+   "k": 16,
+   "weight": 0.5,
+   "dev10": {
+    "FBIngram:25": 0.3544,
+    "WKIngram:25": 0.283,
+    "NLIngram:0": 0.3947,
+    "WikiTopicsMT1:tax": 0.3229,
+    "Metafam": 0.3961,
+    "FBNELL": 0.4376,
+    "FB15k237Inductive:v1": 0.491,
+    "WN18RRInductive:v1": 0.5447,
+    "NELLInductive:v1": 0.5113,
+    "CoDExSmall": 0.4051
+   },
+   "dev10_groups": {
+    "ind_e": 0.5157,
+    "ind_er": 0.3648,
+    "transductive": 0.4051
+   },
+   "seconds": 388.7
+  },
+  {
+   "k": 16,
+   "weight": 1.0,
+   "dev10": {
+    "FBIngram:25": 0.3508,
+    "WKIngram:25": 0.2831,
+    "NLIngram:0": 0.3889,
+    "WikiTopicsMT1:tax": 0.3177,
+    "Metafam": 0.3924,
+    "FBNELL": 0.4339,
+    "FB15k237Inductive:v1": 0.4888,
+    "WN18RRInductive:v1": 0.5405,
+    "NELLInductive:v1": 0.5059,
+    "CoDExSmall": 0.4077
+   },
+   "dev10_groups": {
+    "ind_e": 0.5117,
+    "ind_er": 0.3611,
+    "transductive": 0.4077
+   },
+   "seconds": 453.5
+  }
+ ]
+}
