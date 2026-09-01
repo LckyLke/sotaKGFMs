@@ -70,21 +70,27 @@ if [ ! -d "$DATA_ROOT/pretrain" ] && [ -d "$ROOT/data/roots/crest/pretrain" ]; t
 fi
 
 DEVICE=cpu; [ "$GPUS" != "null" ] && DEVICE=gpu
+# The training seed. Until 2026-09-01 this script hard-coded --seed 1024 and
+# INCITE_SEED was documented but never read: the first "seed 1337" repeat
+# trained at seed 1024 (results/incite/config_diff.md). Now the knob is real
+# and the provenance record carries the value actually used.
+SEED="${INCITE_SEED:-1024}"
 echo "config    : $CONFIG"
 echo "graphs    : ${INCITE_TRAIN_GRAPHS:-<config mix>}"
 echo "dev       : ${INCITE_DEV_GRAPHS:-<DEV10>}"
 echo "resume    : ${INCITE_RESUME:-<fresh>}"
 echo "init_from : ${INCITE_INIT_FROM:-<none>}"
+echo "seed      : $SEED"
 echo "output    : $OUT"
 
 # The same record run_incite.sh keeps: which device, seed and config produced
 # what is in this directory, so a checkpoint is never orphaned from its setup.
 $PY - "$OUT/PROVENANCE.json" "$DEVICE" "$CONFIG" "${INCITE_TRAIN_GRAPHS:-}" \
-    "${INCITE_RESUME:-}" <<'PROVPY'
+    "${INCITE_RESUME:-}" "$SEED" <<'PROVPY'
 import json, os, platform, subprocess, sys
-path, device, config, graphs, resume = sys.argv[1:6]
+path, device, config, graphs, resume, seed = sys.argv[1:7]
 prov = {"device": device, "host": platform.platform(), "cpu_count": os.cpu_count(),
-        "seed": 1024, "config": os.path.basename(config),
+        "seed": int(seed), "config": os.path.basename(config),
         "graphs": graphs or "config mix",
         "resume": os.path.basename(resume) if resume else None,
         "checkpoint_selection": "zero-shot DEV10, one mean per suite group"}
@@ -119,7 +125,7 @@ $PY -m incite.pretrain \
     --raw_root "$RAW_ROOT" \
     --dev_root "$DEV_ROOT" \
     --output_dir "$OUT" \
-    --seed 1024 \
+    --seed "$SEED" \
     ${INCITE_TRAIN_EXTRA_ARGS:-} 2>&1 | tee -a "$OUT/train.log"
 status=${PIPESTATUS[0]}
 t1=$(date +%s.%N)

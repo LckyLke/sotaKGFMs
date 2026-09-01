@@ -53,9 +53,42 @@ from torch.utils import data as torch_data  # noqa: E402
 try:
     from . import support as incite_support
     from .model import INCITE
+    from .rerank import ScoreEnsemble, rerank_predictions
 except ImportError:  # pragma: no cover - flat invocation
     import support as incite_support  # type: ignore
     from model import INCITE  # type: ignore
+    from rerank import ScoreEnsemble, rerank_predictions  # type: ignore
+
+#: state_dict prefixes of lever modules a config may leave unbuilt; a
+#: checkpoint carrying them still loads as an ensemble member (the trunk
+#: and the score head are what the entity forward uses)
+LEVER_PREFIXES = ("readout.", "walk_module.")
+
+
+def load_members(cfg: EasyDict, ckpt_paths):
+    """Build one model per checkpoint path from ``cfg``; strict on the trunk.
+
+    Returns (module, hashes). A single path returns the plain model; several
+    return a ``ScoreEnsemble`` over them (support-off by construction).
+    """
+    members, hashes = [], []
+    for path in ckpt_paths:
+        model = build_model(cfg)
+        state = torch.load(path, map_location="cpu")
+        missing, unexpected = model.load_state_dict(state["model"], strict=False)
+        bad_missing = [k for k in missing if not k.startswith(LEVER_PREFIXES)]
+        bad_unexpected = [k for k in unexpected if not k.startswith(LEVER_PREFIXES)]
+        assert not bad_missing, "%s: trunk tensors missing: %s" % (path, bad_missing[:5])
+        assert not bad_unexpected, "%s: tensors with no home: %s" % (path, bad_unexpected[:5])
+        if missing or unexpected:
+            print("%s: %d lever tensors at init, %d ignored" % (
+                os.path.basename(path), len(missing), len(unexpected)))
+        members.append(model)
+        hashes.append(sha256_file(path))
+    if len(members) == 1:
+        return members[0], hashes
+    print("score ensemble of %d checkpoints" % len(members))
+    return ScoreEnsemble(members), hashes
 
 
 def build_model(cfg: EasyDict) -> INCITE:
@@ -120,8 +153,13 @@ def build_filtered_data(cfg, dataset, train_data, valid_data, test_data):
 
 
 @torch.no_grad()
-def evaluate(cfg, model, test_data, filtered_data, store, dump_spec, metric_list):
-    """run_entity.py::test with INCITE's forward supplying the scores."""
+def evaluate(cfg, model, test_data, filtered_data, store, dump_spec, metric_list,
+             rerank_k: int = 0, rerank_weight: float = 1.0, rerank_chunk: int = 32):
+    """run_entity.py::test with INCITE's forward supplying the scores.
+
+    ``rerank_k > 0`` applies bidirectional re-ranking (incite/rerank.py) to
+    the top-k eligible candidates of each direction before ranking.
+    """
     test_triplets = torch.cat(
         [test_data.target_edge_index, test_data.target_edge_type.unsqueeze(0)]).t()
     sampler = torch_data.DistributedSampler(test_triplets, 1, 0)
@@ -139,6 +177,13 @@ def evaluate(cfg, model, test_data, filtered_data, store, dump_spec, metric_list
         h_pred = model(test_data, h_batch, support=store)
 
         t_mask, h_mask = tasks.strict_negative_mask(filtered_data, batch)
+        if rerank_k > 0:
+            t_pred = rerank_predictions(model, test_data, t_batch, t_pred,
+                                        pos_t_index, t_mask, rerank_k,
+                                        rerank_weight, rerank_chunk, support=store)
+            h_pred = rerank_predictions(model, test_data, h_batch, h_pred,
+                                        pos_h_index, h_mask, rerank_k,
+                                        rerank_weight, rerank_chunk, support=store)
         t_ranking = tasks.compute_ranking(t_pred, pos_t_index, t_mask)
         h_ranking = tasks.compute_ranking(h_pred, pos_h_index, h_mask)
         num_t_negative = t_mask.sum(dim=-1)
@@ -252,7 +297,15 @@ def main(argv=None):
     parser.add_argument("--ckpt", required=True,
                         help="INCITE checkpoint ({'model': state_dict}); the "
                              "literal string 'none' runs random weights "
-                             "(smoke-testing the dump path only)")
+                             "(smoke-testing the dump path only). A comma "
+                             "list builds a score ensemble (incite/rerank.py)")
+    parser.add_argument("--rerank_k", type=int, default=0,
+                        help="bidirectional re-ranking of the top-k eligible "
+                             "candidates per direction (0 = off)")
+    parser.add_argument("--rerank_weight", type=float, default=1.0,
+                        help="weight of the reverse-direction logit")
+    parser.add_argument("--rerank_chunk", type=int, default=32,
+                        help="reverse queries per trunk pass")
     parser.add_argument("--data_root", required=True)
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--task_name", choices=("InductiveInference", "TransductiveInference"),
@@ -287,22 +340,27 @@ def main(argv=None):
     test_data = test_data.to(device)
     test_data.num_relations = int(test_data.num_relations)
 
-    model = build_model(cfg)
     random_weights = args.ckpt.lower() == "none"
     if random_weights:
+        model = build_model(cfg)
         print("WARNING: --ckpt none, scoring with RANDOM weights. This run "
               "only proves the dump path; its ranks must not be kept.")
         ckpt_hash = "random-seed%d" % args.seed
     else:
-        state = torch.load(args.ckpt, map_location="cpu")
-        model.load_state_dict(state["model"])
-        ckpt_hash = sha256_file(args.ckpt)
+        paths = [p for p in args.ckpt.split(",") if p]
+        model, hashes = load_members(cfg, paths)
+        ckpt_hash = hashes[0] if len(hashes) == 1 else "ens%d-%s" % (
+            len(hashes), hashlib.sha256("".join(hashes).encode()).hexdigest()[:16])
     model = model.to(device).eval()
+    if args.rerank_k > 0:
+        print("bidirectional re-ranking: k=%d weight=%g chunk=%d" % (
+            args.rerank_k, args.rerank_weight, args.rerank_chunk))
 
     dataset_id = args.dataset + (":" + str(version) if version is not None else "")
 
     store = None
     if cfg.support.enabled and args.support == "build":
+        assert not isinstance(model, ScoreEnsemble), "ensembles run support-off"
         t0 = time.perf_counter()
         store = incite_support.SupportStore.load_or_build(
             args.support_root,
@@ -326,7 +384,9 @@ def main(argv=None):
             data_cfg, dataset, train_data, valid_data, test_data).to(device)
         metric_list = ["mr", "mrr", "hits@1", "hits@3", "hits@10", "hits@10_50"]
         metrics = evaluate(eval_cfg, model, test_data, filtered_data, store,
-                           dump_spec, metric_list)
+                           dump_spec, metric_list, rerank_k=args.rerank_k,
+                           rerank_weight=args.rerank_weight,
+                           rerank_chunk=args.rerank_chunk)
     else:
         metrics = evaluate_relation(eval_cfg, model, test_data, store, dump_spec)
     for k, v in metrics.items():
@@ -339,6 +399,11 @@ def main(argv=None):
     row.update({k: float(v) for k, v in metrics.items()})
     if random_weights:
         row["random_weights"] = 1
+    if args.rerank_k > 0:
+        row["rerank_k"] = args.rerank_k
+        row["rerank_weight"] = args.rerank_weight
+    if isinstance(model, ScoreEnsemble):
+        row["ensemble_members"] = len(model.members)
     path = os.path.join(out_dir, "INCITE_results_%s.csv" % time.strftime("%Y-%m-%d-%H-%M-%S"))
     with open(path, "a", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(row))

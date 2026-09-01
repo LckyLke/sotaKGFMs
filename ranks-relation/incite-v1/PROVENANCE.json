@@ -1,0 +1,13 @@
+{
+  "checkpoint": "incite_best.pth",
+  "config": "incite_v1_full.yaml",
+  "cpu_count": 16,
+  "device": "gpu",
+  "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER, 610.57.04",
+  "host": "Linux-7.1.9-arch1-2-x86_64-with-glibc2.35",
+  "protocol": "unfiltered",
+  "random_weights": false,
+  "seed": 1024,
+  "support": "build",
+  "task": "relation"
+}

@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import sys
@@ -165,13 +166,45 @@ def validate_graph(model, graph, filter_graph, store, batch_size,
     return float((1 / ranking).mean())
 
 
-def save_checkpoint(path, model, step, dev, seed):
+def save_checkpoint(path, model, step, dev, seed, optimizer=None, lr=None):
+    """Model weights plus, since 2026-09-01, the optimizer state and the
+    learning rate in force, so a resume continues the AdamW moments instead
+    of restarting them (results/incite/config_diff.md)."""
     state = {"model": model.state_dict(), "step": int(step),
              "dev10": dev, "seed": int(seed)}
+    if optimizer is not None:
+        state["optimizer"] = optimizer.state_dict()
+    if lr is not None:
+        state["lr"] = float(lr)
     tmp = path + ".tmp"
     torch.save(state, tmp)
     os.replace(tmp, path)
     return path
+
+
+def make_lr_schedule(base_lr: float, schedule: str, final_lr: float,
+                     warmup: int, first_step: int, last_step: int):
+    """lr(step) over [first_step, last_step]: an optional linear warmup of
+    ``warmup`` steps from 0, then ``constant`` / ``linear`` / ``cosine``
+    from ``base_lr`` to ``final_lr`` over the remaining span. A continuation
+    run passes its own first step, so the decay covers exactly the steps it
+    trains (the 4-graph and floor continuations of 2026-09-01)."""
+    span = max(int(last_step) - int(first_step) - int(warmup), 1)
+
+    def lr_at(step: int) -> float:
+        k = int(step) - int(first_step)
+        if warmup and k < warmup:
+            return base_lr * float(k + 1) / float(warmup)
+        p = min(max((k - int(warmup)) / float(span), 0.0), 1.0)
+        if schedule == "constant":
+            return base_lr
+        if schedule == "linear":
+            return base_lr + (final_lr - base_lr) * p
+        if schedule == "cosine":
+            return final_lr + 0.5 * (base_lr - final_lr) * (1.0 + math.cos(math.pi * p))
+        raise ValueError("unknown lr schedule %r" % schedule)
+
+    return lr_at
 
 
 def main(argv=None):
@@ -200,6 +233,23 @@ def main(argv=None):
     parser.add_argument("--val_samples", type=int, default=None)
     parser.add_argument("--log_every", type=int, default=50)
     parser.add_argument("--seed", type=int, default=1024)
+    # learning-rate schedule (2026-09-01; the recipe is constant 5e-4)
+    parser.add_argument("--lr_schedule", choices=("constant", "linear", "cosine"),
+                        default="constant",
+                        help="shape of lr over [first trained step, --steps]")
+    parser.add_argument("--lr_final", type=float, default=0.0,
+                        help="lr at the last step for linear/cosine")
+    parser.add_argument("--warmup_steps", type=int, default=0,
+                        help="linear warmup from 0 over this many steps first "
+                             "(a resumed run without optimizer state wants one)")
+    parser.add_argument("--keep_every", type=int, default=0,
+                        help="also keep incite_step<N>.pth at validations "
+                             "where N %% keep_every == 0 (checkpoint averaging)")
+    parser.add_argument("--schedule_start", type=int, default=None,
+                        help="anchor the lr schedule at this step instead of "
+                             "the resumed step, so a crash-resume continues "
+                             "the same decay (continuation runs pass their "
+                             "own first step)")
     args = parser.parse_args(argv)
 
     with open(args.config) as handle:
@@ -266,8 +316,10 @@ def main(argv=None):
     if args.resume and args.init_from:
         raise SystemExit("--resume and --init_from are mutually exclusive")
     start_step = 1
+    resume_state = None
     if args.resume:
         state = torch.load(args.resume, map_location="cpu")
+        resume_state = state
         model.load_state_dict(state["model"])
         # Continue the counter: a resume that restarts at step 1 trains
         # steps-many EXTRA steps and relabels its validations (bit us on the
@@ -293,6 +345,19 @@ def main(argv=None):
         for name in missing:
             print("  fresh:", name)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(tcfg.lr))
+    if resume_state is not None and "optimizer" in resume_state:
+        optimizer.load_state_dict(resume_state["optimizer"])
+        print("resumed optimizer state (AdamW moments continue)")
+    elif resume_state is not None:
+        print("checkpoint carries no optimizer state: AdamW restarts fresh")
+    sched_start = (int(args.schedule_start) if args.schedule_start is not None
+                   else start_step)
+    lr_at = make_lr_schedule(float(tcfg.lr), args.lr_schedule, args.lr_final,
+                             args.warmup_steps, sched_start, steps)
+    print("lr schedule: %s from %g to %g over steps %d..%d, warmup %d" % (
+        args.lr_schedule, float(tcfg.lr),
+        float(tcfg.lr) if args.lr_schedule == "constant" else args.lr_final,
+        sched_start, steps, args.warmup_steps))
 
     # ---- support stores (training graphs), refreshed on an interval -------
     stores, refreshers = [None] * len(train_graphs), []
@@ -372,6 +437,9 @@ def main(argv=None):
         # construction, which is expected and recorded.
         synthetic = scfg is not None and incite_synth.is_synth_step(step, scfg)
         loss_rel = None
+        lr_now = lr_at(step)
+        for group in optimizer.param_groups:
+            group["lr"] = lr_now
         if synthetic:
             graph_label = "synthetic"
             t0 = time.perf_counter()
@@ -434,17 +502,23 @@ def main(argv=None):
                      "loss": round(float(loss), 4),
                      "loss_rel": (None if loss_rel is None
                                   else round(float(loss_rel), 4)),
-                     "it_per_s": round((step - start_step + 1) / train_seconds, 2)}
+                     "it_per_s": round((step - start_step + 1) / train_seconds, 2),
+                     "lr": lr_now}
             print(json.dumps(entry))
             log.write(json.dumps(entry) + "\n")
             log.flush()
         if step % val_interval == 0 or step == steps:
             sel, dev_report = validate_all(step)
-            save_checkpoint(last_path, model, step, dev_report, args.seed)
+            save_checkpoint(last_path, model, step, dev_report, args.seed,
+                            optimizer=optimizer, lr=lr_now)
+            if args.keep_every and step % int(args.keep_every) == 0:
+                kept = os.path.join(args.output_dir, "incite_step%d.pth" % step)
+                shutil.copyfile(last_path, kept)
             if sel > best_sel:
                 best_sel = sel
                 best_path = os.path.join(args.output_dir, "incite_best.pth")
-                save_checkpoint(best_path, model, step, dev_report, args.seed)
+                save_checkpoint(best_path, model, step, dev_report, args.seed,
+                                optimizer=optimizer, lr=lr_now)
                 print("new best: selection %.4f at step %d -> %s"
                       % (sel, step, best_path))
 

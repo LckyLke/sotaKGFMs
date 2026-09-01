@@ -39,3 +39,16 @@
 {"dataset": "WikiTopicsMT4_health", "device": "gpu", "index": 21, "model": "incite", "run_id": "WikiTopicsMT4:health", "seconds": 20.709, "started": "2026-08-28T22:02:30Z", "status": "ok"}
 {"dataset": "Metafam", "device": "gpu", "index": 22, "model": "incite", "run_id": "Metafam:Metafam", "seconds": 2.609, "started": "2026-08-28T22:02:51Z", "status": "ok"}
 {"dataset": "FBNELL", "device": "gpu", "index": 23, "model": "incite", "run_id": "FBNELL:FBNELL_v1", "seconds": 4.823, "started": "2026-08-28T22:02:53Z", "status": "ok"}
+{"dataset": "NELL995", "device": "gpu", "index": 1, "model": "incite", "run_id": "NELL995", "seconds": 119.496, "started": "2026-09-01T01:14:54Z", "status": "ok"}
+{"dataset": "YAGO310", "device": "gpu", "index": 2, "model": "incite", "run_id": "YAGO310", "seconds": 2.427, "started": "2026-09-01T01:16:54Z", "status": "failed"}
+{"dataset": "CoDExSmall", "device": "gpu", "index": 3, "model": "incite", "run_id": "CoDExSmall", "seconds": 4.782, "started": "2026-09-01T01:16:56Z", "status": "ok"}
+{"dataset": "CoDExLarge", "device": "gpu", "index": 4, "model": "incite", "run_id": "CoDExLarge", "seconds": 1497.236, "started": "2026-09-01T01:17:01Z", "status": "ok"}
+{"dataset": "Hetionet", "device": "gpu", "index": 5, "model": "incite", "run_id": "Hetionet", "seconds": 3386.383, "started": "2026-09-01T01:41:58Z", "status": "ok"}
+{"dataset": "ConceptNet100k", "device": "gpu", "index": 6, "model": "incite", "run_id": "ConceptNet100k", "seconds": 49.082, "started": "2026-09-01T02:38:25Z", "status": "ok"}
+{"dataset": "DBpedia100k", "device": "gpu", "index": 7, "model": "incite", "run_id": "DBpedia100k", "seconds": 2.632, "started": "2026-09-01T02:39:14Z", "status": "failed"}
+{"dataset": "AristoV4", "device": "gpu", "index": 8, "model": "incite", "run_id": "AristoV4", "seconds": 530.724, "started": "2026-09-01T02:39:17Z", "status": "ok"}
+{"dataset": "WDsinger", "device": "gpu", "index": 9, "model": "incite", "run_id": "WDsinger", "seconds": 14.478, "started": "2026-09-01T02:48:07Z", "status": "ok"}
+{"dataset": "NELL23k", "device": "gpu", "index": 10, "model": "incite", "run_id": "NELL23k", "seconds": 60.725, "started": "2026-09-01T02:48:22Z", "status": "ok"}
+{"dataset": "FB15k237_10", "device": "gpu", "index": 11, "model": "incite", "run_id": "FB15k237_10", "seconds": 116.67, "started": "2026-09-01T02:49:23Z", "status": "ok"}
+{"dataset": "FB15k237_20", "device": "gpu", "index": 12, "model": "incite", "run_id": "FB15k237_20", "seconds": 147.06, "started": "2026-09-01T02:51:19Z", "status": "ok"}
+{"dataset": "FB15k237_50", "device": "gpu", "index": 13, "model": "incite", "run_id": "FB15k237_50", "seconds": 172.277, "started": "2026-09-01T02:53:46Z", "status": "ok"}
