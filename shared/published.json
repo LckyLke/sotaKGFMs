@@ -170,5 +170,23 @@
         }
       }
     }
+  },
+  "ultra-4g": {
+    "checkpoint": "ckpts/ultra_4g.pth",
+    "primary": "repo",
+    "targets": {
+      "repo": {
+        "source": "repos/ultra/README.md at pin 427966ad, table row 'ULTRA (4g) PyG'",
+        "note": "trained on FB15k237, WN18RR, CoDExMedium, NELL995 for 400,000 steps (README). Zero-shot on the 41 inductive graphs; NOT zero-shot on NELL995 in the transductive group. Measured here 2026-09-01: ind_e 0.4454 / 0.5890, ind_er 0.3460 / 0.5147 (ranks/ultra-4g), inside the 0.002 tolerance. This is the matched-diet baseline for INCITE's 4-graph rows.",
+        "ind_e": {
+          "mrr": 0.444,
+          "hits@10": 0.588
+        },
+        "ind_er": {
+          "mrr": 0.344,
+          "hits@10": 0.513
+        }
+      }
+    }
   }
 }

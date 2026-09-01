@@ -39,6 +39,8 @@ number from the rank files and read the code. Summary:
 | model | entity MRR ind_e / ind_er | status |
 | --- | --- | --- |
 | ULTRA | 0.4158 / 0.3421 | done |
+| ULTRA 4g (FB15k237, WN18RR, CoDExMedium, NELL995; the INCITE-4g diet) | 0.4454 / 0.3460 | done 2026-09-01, ranks/ultra-4g; INCITE-4g-last beats it by +0.008 / +0.036 (graph-bootstrap intervals exclude zero, 23/23 ind_er graphs) |
+| INCITE floor-family weight soup | 0.4571 / 0.3775 | done (E2); +0.002 / +0.0035 over the floor |
 | MOTIF | 0.4361 / 0.3491 | done |
 | TRIX | 0.4562 / 0.3679 | done; relation task (0.7564/0.8415 UNFILTERED); transductive 54/54 |
 | SEMMA | 0.4496 / 0.3520 | done |
