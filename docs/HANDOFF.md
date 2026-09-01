@@ -49,25 +49,55 @@ number from the rank files and read the code. Summary:
 Published targets live in `shared/published.json`. Group means regenerate
 via `scripts/make_summary.py`.
 
-## The plan now running: `scripts/research_plan.sh` (markers in output/research-plan/)
+## Where the MRR is lost (diagnostics of 2026-09-01, incite branch)
 
-Order, by expected gain per GPU hour. Every stage writes its own ranks dir
-on the incite worktree; nothing overwrites an earlier dump.
+`results/incite/halflink.json` (scenarios of Gregucci et al., arXiv
+2606.18001) and `results/incite/reachability.json`:
+
+* 28 percent of test queries in both groups have an answer WITHOUT any
+  edge of the query relation (SQUA). INCITE-4g scores 0.29 (ind_e) and
+  0.17 (ind_er) MRR there, against 0.61 / 0.58 when the answer half is
+  seen. Pretraining positives almost always carry a seen answer half, so
+  the model learns that shortcut.
+* 17 percent of ind_e answers (6 percent ind_er) lie beyond six hops of
+  the query entity and score MRR below 0.01. HM:1k/3k/5k are 73 to 83
+  percent unreachable, which is why every model sits near 0.06 there.
+* E1 showed the unselected LAST checkpoint of the 4-graph run is at least
+  as good as the DEV10-selected one (0.4534 / 0.3825). Report last
+  checkpoints; DEV10 is diagnostic only.
+
+Two remedies are implemented and tested (86 tests): half-link masking
+during pretraining (`--mask_answer_p/--mask_query_p`) and the unary
+channel (`model.unary`). KMAS (arXiv 2605.27023) already published hard
+negatives for KGFMs (+0.005 to +0.009), so that lever is a citation, not
+a contribution.
+
+## The plan now running: `scripts/research_plan_v2.sh` (markers in output/research-plan/)
+
+v2 took over from v1 after the cheap E-stages (same markers). Every
+stage writes its own ranks dir on the incite worktree.
 
 | stage | what | output |
 | --- | --- | --- |
-| E1 | 4-graph LAST checkpoint (selection-protocol check) | ranks/incite-4g-last |
+| E1 | 4-graph LAST checkpoint (done: 0.4534 / 0.3825) | ranks/incite-4g-last |
 | E2 | weight soup of the floor family | ranks/incite-soup |
-| E3 | DEV10 (valid splits) sweep of bidirectional re-ranking, k in 4/8/16, weight 0.5/1.0 | results/incite/rerank_dev.json |
-| E4/E5 | 41-graph re-ranking evals of the 4g and floor bests, IF E3 lifts the selection scalar by >= 0.002 | ranks/incite-4g-rerank, ranks/incite-rerank |
-| E6 | score ensemble of four trunks (floor, 4g, joint, support) | ranks/incite-ens4 |
+| E3 | DEV10 (valid splits) sweep of bidirectional re-ranking | results/incite/rerank_dev.json |
+| E4/E5 | 41-graph re-ranking evals, only if E3 passes its stop rule | ranks/incite-4g-rerank, ranks/incite-rerank |
+| E6 | score ensemble of four trunks | ranks/incite-ens4 |
+| L1 | 4g continuation 20k -> 30k, linear decay (the paired baseline) | ranks/incite-4g-decay(-last) |
+| M1 | same continuation WITH half-link masking 0.3 / 0.3 | ranks/incite-4g-mask(-last) |
+| G1 | unary channel, warm start from 4g last, 10k steps with decay | ranks/incite-4g-unary(-last) |
 | F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 |
-| L1/L2 | continue the 4g and floor runs 20k -> 30k with linear lr decay; eval best AND last | ranks/incite-4g-decay(-last), ranks/incite-decay(-last) |
+| L2 | floor continuation 20k -> 30k with decay | ranks/incite-decay(-last) |
 | X1/X2 | TRIX@20k with their code (fixed output dir); eval best epoch and last | ranks/trix-20k-best, ranks/trix-20k-last |
 | P1 | synthetic-prior 100 percent pilot, 10k steps | ranks/incite-synth100-pilot |
 
-Rough wall clock: E-stages 4 to 6 h, F0 1 to 2 h, L1+L2 10 h, X1+X2 12 h,
-P1 5 h. The KGPFN eval may share the GPU (1.7 GB); nothing else may.
+After M1 and G1 land: `python3 scripts/halflink_report.py --labels
+../sotaKGFMs-incite/results/incite/halflink_labels.json name=dir ...`
+gives the per-scenario table, and `scripts/paired_bootstrap.py` the
+graph-level intervals. The ULTRA 4-graph checkpoint (INCITE-4g's exact
+diet) is being evaluated into ranks/ultra-4g for the scaled table.
+The KGPFN eval may share the GPU (1.7 GB); nothing else may.
 
 ## Decisions after the plan
 

@@ -32,6 +32,13 @@ def per_scenario(rank_dir, gid, labels):
     qid = tb.column("query_id").to_numpy()
     dirn = tb.column("direction").to_numpy(zero_copy_only=False)
     rr = 1.0 / tb.column("rank").to_numpy().astype(np.float64)
+    n_lab = len(labels["tail"])
+    if qid.max() >= n_lab or len(qid) != 2 * n_lab and len(qid) != n_lab:
+        # a different query set (KG-ICL dumps half the rows under its own
+        # ids): the labels do not apply, skip rather than mislabel
+        print("skip %s on %s: %d rows, %d labels" % (rank_dir, gid, len(qid), n_lab),
+              file=sys.stderr)
+        return None
     lab = np.array([labels[d][int(q)] for q, d in zip(qid, dirn)])
     out = {"mrr": float(rr.mean())}
     for s in SCEN:
