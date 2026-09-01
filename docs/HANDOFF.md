@@ -1,144 +1,114 @@
-# Handoff — evening of 2026-08-27
+# Takeover — 2026-09-01 (day 5)
 
-Written at end of day two. FLOCK is grinding overnight; everything else is
-committed on `claude/gpu-multi-model-baseline` (not pushed).
+One GPU (RTX 4070 Ti SUPER, 16 GB), one shared rank definition, seven
+published KGFMs plus our own model. Two worktrees:
 
-## The one-table state
+* `~/Dokumente/GitHub/sotaKGFMs` — branch `claude/gpu-multi-model-baseline`:
+  the benchmark harness and all baselines.
+* `~/Dokumente/GitHub/sotaKGFMs-incite` — branch `incite`: our model
+  (INCITE) and every experiment on it. (`crest` branch: a falsified
+  predecessor, kept for the record.)
 
-| model | entity ranks | relation ranks | criterion A | vs published |
-| --- | --- | --- | --- | --- |
-| ULTRA | 41/41 | — | 123/123 | −0.004/−0.002, open (see report_notes) |
-| MOTIF | 41/41 | — | 123/123 | ≤0.0004 everywhere, PASS |
-| TRIX | 41/41 | **41/41** | 123/123 both tasks | PASS; relation matches FLOCK-paper per graph to 3rd decimal |
-| SEMMA | 41/41 | — | 123/123 | +0.002..0.003 (their table is 5-run avg) |
-| KG-ICL | 41/41 (+13 native-convention) | — | exact on own CSV | reproduces its paper under its own convention |
-| FLOCK | **16/41, running overnight** | — | pending | pending |
-| KGPFN | not started | — | — | — |
-| CREST | moved to the `crest` branch | — | inherits TRIX | **phase 2 STOPPED** — see below |
+After any pause or crash: `./RESTART.sh` in the main worktree relaunches
+every queue; all queues are marker-based and resume where they stopped.
+Nothing is pushed anywhere; all work is local commits.
 
-Headline numbers live in `baseline_report.md` (regenerate:
-`python3 scripts/make_summary.py`). Key findings of record:
-`docs/report_notes.md`. Per-model detail: `reports/`.
+## Baseline state (41 inductive graphs, test splits, seed 1024)
 
-## What happened today (day two)
+| model | entity MRR ind_e / ind_er | status |
+| --- | --- | --- |
+| ULTRA | 0.4158 / 0.3421 | done, criterion A/B recorded |
+| MOTIF | 0.4361 / 0.3491 | done |
+| TRIX | 0.4562 / 0.3679 | done; also relation task (0.7564/0.8415 UNFILTERED) and transductive 54/54 |
+| SEMMA | 0.4496 / 0.3520 | done |
+| KG-ICL | 0.4240 / 0.3722 | done (matched convention; its published edge was mostly preprocessing) |
+| FLOCK | 40/41 graphs | HM:indigo done at divisor 8; FBIngram:25 retrying (int32 bug, patches/flock/0005) |
+| KGPFN | 10/41 ok | suite running; 13 transient failures (rsync collision, retrying); Metafam 0.4727; first-ever cost numbers |
 
-1. **KG-ICL completed**, including the convention A/B that showed its published
-   Fully-Inductive advantage is mostly preprocessing (+0.079 MRR from validation
-   edges in the test message graph; collapses to +0.020 under matched data).
-2. **CREST was built end to end** — NOTE: all CREST code, plans, ranks, and
-   results now live on the `crest` branch, not here. This branch keeps only
-   the shared-harness improvements and the TRIX relation baseline.
-   Built by two Fable-5 subagents against
-   `docs/CREST_PLAN.md` (revision 3: CREST owns its encoder — the TRIX port +
-   bitwise-then-modernise verification plan is written but NOT yet executed).
-   - Phase 0 PASSED: zero-residual CREST is bit-for-bit TRIX, 185,870 ranks.
-   - Phase 1 PASSED: TRIX relation baseline now exists (`ranks-relation/trix/`,
-     ind_e 0.7564 / ind_er 0.8415 MRR, unfiltered protocol — state it on any
-     table). Recorded in `shared/published.json` under `trix.relation`.
-   - Phase 2 **STOPPED** per plan rule 5: `results/STOP.md` (crest branch).
-     Three checkpoints
-     (stage A frozen; stage B half-lr; stage B full-rate 5k steps) all transfer
-     zero. The decisive one: end-to-end training drove the readout to silence
-     (0.2% of ranks differ from TRIX). The optimiser discarded the mechanism.
-   - Also learned: pretraining-mix validation does NOT predict transfer
-     (rose +0.017..0.021 every time, transferred nothing). Checkpoint selection
-     must use zero-shot DEV10 (defined in `shared/suite.py` on the crest
-     branch; removed here with the rest of CREST).
-3. **FLOCK crashed with the host mid-day** (16/41 survived, nothing corrupted),
-   resumed this evening. `ranks/flock/RESUME.md` has the resume command.
+Published targets live in `shared/published.json` (data, never constants).
+Group means regenerate via `scripts/make_summary.py`.
 
-## FLOCK overnight: what to check tomorrow morning
+## INCITE: what we tried and what each verdict was
 
-```bash
-ls ranks/flock/*.parquet | wc -l     # want 41
-grep -c '!!! FAILED' /tmp/claude-1000/-home-lukef-Dokumente-GitHub-sotaKGFMs/*/tasks/bqwiopvhp.output
-```
+All detail on the `incite` branch under `results/incite/*.md` and
+`config_diff.md` (the deviation ledger — read it before changing any
+hyperparameter).
 
-* If 41/41: run `scripts/collect_flock_results.sh` (workdir
-  `output/flock-run`), then criterion A via
-  `python3 scripts/make_report.py --ranks ranks/flock --out reports/flock.md`,
-  then `python3 scripts/make_summary.py`. Note FLOCK's CSVs are
-  `results_*.csv` under `output/flock-run/src_entity/results/` — check
-  `analyse.CSV_PATTERNS` has a `flock` entry before criterion A (it may not).
-* If it died again: `rm -rf ranks/.claims-flock`, relaunch the exact command in
-  `ranks/flock/RESUME.md` (divisor 4 + expandable_segments — never change
-  mid-run). Completed graphs skip automatically.
-* Remaining cost from 16/41 was ~19 h; the two ~5 h graphs are ILPC2022:large
-  and HM:indigo.
-* Seed note for the report: FLOCK is stochastic (walk sampling); runs use seed
-  1024 with numpy seeded by patches/flock/0004. A few repeats with
-  FLOCK_UNSEEDED_WALKS=1 are still wanted to quantify sampling spread.
+1. **Floor (phase 1)**: TRIX's layer algebra (proven equal at 1e-5),
+   recomposed; trained 20k steps vs TRIX's ~100k. **Ties TRIX** (0.4553 /
+   0.3740). PHASE1_RESULT.md. Honest framing: a re-architected TRIX.
+2. **Support lever**: retrieval + hard negatives readout. **Dead** —
+   identical to floor to 1e-4 with live stores; labels consumed but
+   metric-invariant. Second dead in-context readout after CREST →
+   replicated negative result. PHASE22_RESULT.md.
+3. **Walks lever**: dead unsupervised (PETALS 47%, truth-uncorrelated),
+   **revived by ~5% synthetic automorphic training** (82%/94%). The
+   causal finding of the project: capability needs its own supervision.
+   PHASE21_RESULT.md / PHASE21B_RESULT.md.
+4. **Joint relation head**: one checkpoint, both tasks; entity −0.004,
+   relation within 0.03 of the TRIX specialist. PHASE23_RESULT.md.
+5. **4-graph mix** (+NELL995): biggest single gain, ind_er 0.3791
+   (diet-caveated — baselines are 3-graph). SCALE4G_RESULT.md.
+6. **v1 composite** (4g + joint + walks/synth, support dropped): entity
+   0.4500/0.3659 (multi-objective tax vs 4g), **relation ind_er 0.8484
+   BEATS the TRIX specialist**, PETALS 94.6%/98.6%. Seed 1337 training
+   now; seed 7 queued.
 
-## Open work, in the order I would do it
+## Running and queued right now (all self-driving)
 
-1. **Finish FLOCK** (overnight) → criterion B vs its paper (block already in
-   `shared/published.json`? check — if absent, add from arXiv 2510.01510).
-2. **KGPFN** — last of the seven. Python 3.12, torch 2.5.1, flash-attn
-   REQUIRED (prebuilt wheel; the SEMMA wheel-hunt pattern works). Checkpoint
-   via `python script/download.py --kgpfn`. Nothing built yet.
-3. **Transductive sweep** (13 graphs × models) — deferred all along. KG-ICL
-   note: its transductive test sets deduplicate; ConceptNet/AristoV4 differ.
-4. **ultra_torchdrug** as an eighth pinned repo — closes ULTRA's criterion B
-   gap, still the one open reproduction question (four published sources give
-   four different ULTRA ind_e numbers; ours is a fifth).
-5. **MOTIF timing re-run** (its first suite predates TIMINGS.jsonl).
-6. **CREST tracks A/B if desired** — on the `crest` branch. Untested,
-   independent of the readout, start from TRIX directly. The TRIX-port plan
-   (CREST_PLAN revision 3 §P, crest branch) is also unexecuted if
-   self-containment still matters.
+* `scripts/baseline_orchestrator.sh` — currently R3 (composite seed
+  1337), then R4 (seed 7). T1 transductive stages for ultra/motif/semma
+  + TI failed against mid-prefetch data roots: clear their .failed
+  markers and rerun the script after R4.
+* `scripts/retry_watcher.sh` — reruns the KGPFN suite (13 transient
+  failures) and FLOCK's FBIngram:25 when the GPU path frees.
+* `scripts/queued_research.sh` — fires at ranks/kgpfn == 41:
+  complementarity report (oracle gap, fusion, where-in-context-wins map)
+  then checkpoint soup (floor-family average) + its eval.
+* `scripts/research_chain2.sh` — after everything: **TRIX@20k A/B**
+  (decides whether "parity at 20% budget" is real) then the
+  **synthetic-prior fraction sweep** (25/75/100% rules-prior training —
+  the TabPFN-for-KGs experiment; generator in incite/synth.py, design in
+  RULES_PRIOR.md).
 
-## Traps that bit us (do not re-learn these)
+## Open decisions (agreed with the user)
 
-* `docker_run.sh` forwards a fixed env list — an unforwarded variable is
-  SILENTLY unset in the container. Bit us three times (FLOCK_BATCH_DIVISOR,
-  KGICL naming, CREST_TRAIN_*). Check the list before adding knobs.
-* The container images bake `crest/`+repos at build time; `sys.path[0]` (cwd)
-  beats PYTHONPATH. Both stage-A OOM and an eval bug came from running baked
-  code instead of the prepared work tree. run_crest.sh/train_crest.sh now cd
-  into `$WORKDIR` — keep that pattern for new runners.
-* `git diff` emits LF; KG-ICL sources are CRLF; patches must normalise both
-  sides (gen script + Dockerfile both do).
-* Wikidata labels drift (SEMMA patches 0004-0006); entity labels were 225k
-  fetched-and-discarded lookups.
-* Plan-vs-config: diff hyperparameters line by line
-  (`results/crest/config_diff.md` on the crest branch is the standing table).
-  The stage-B encoder lr ran at half spec until the user caught it by asking.
-* `compute_ranking_relation`'s missing `+1` is CORRECT (unfiltered counts the
-  target itself). Do not "fix" it — see report_notes "The unfiltered rank
-  offset is correct, and looks like a bug".
-* Read `BUILD_EXIT=`/exit lines explicitly; piped tails mask docker failures.
+* **MoE / mixture-of-checkpoints**: decide ONLY after the complementarity
+  report — oracle gap small → dead; large and structured → one-day
+  stats-router experiment.
+* SOTA claims: currently "co-SOTA, tied with TRIX"; every margin is
+  single-seed. Never claim "best" without the seed spread (R3/R4) and
+  never compare 4g-diet rows against 3-graph baselines without saying so.
+* KGPFN's published +0.044: the open question — two dead readouts here
+  suggest its edge is the imported TabPFN prior; ablation idea recorded.
 
-## Standing conventions
+## Traps (each cost us real time — do not relearn)
 
-Ranks: 1-based, pessimistic ties, strict filtering (except TRIX relation task:
-unfiltered by upstream design). One processed root and one TORCH_EXTENSIONS_DIR
-per repo. Never mix devices in one rank dir. Every upstream change is a
-Reason-headed diff in `patches/<repo>/`; `repos/` stays pristine at
-`repos/PINS.json` SHAs. Published targets are data (`shared/published.json`),
-never constants. Seed 1024 everywhere. All 21+ commits today are local:
-**nothing is pushed**.
+* docker_run.sh forwards a FIXED env list; unforwarded vars are silently
+  unset in containers. Grep the list every time you add a knob (5 hits).
+* Runners must execute the prepared work tree, never the baked image
+  copy (sys.path[0] beats PYTHONPATH; 4 hits).
+* Never edit a bash script while an instance runs (incremental reads).
+* Never write into a data root a live runner is reading (the KGPFN
+  rsync collision).
+* `--resume` must continue the step counter (fixed; first real resume
+  trained 20k extra steps).
+* Read paper AND code for every recipe number (lr, budget: both were
+  caught by the user asking questions, not by review).
+* Host crashes were hardware (GPU Xid 79, fixed by the user); every
+  long run must remain checkpoint-resumable anyway.
+* Exit codes lie (FLOCK loop exits 0 on per-graph failures); TIMINGS
+  status lines are the truth.
+* Upstream drifts: dataset URLs 404 (NELL995 moved, RED-GNN restructured),
+  Wikidata labels change. Pre-seed raw files; pinned repos stay pristine
+  via patches/ only.
 
-## Day three (2026-08-28/29) — INCITE
+## Conventions
 
-Full detail lives on the `incite` branch (worktree
-`~/Dokumente/GitHub/sotaKGFMs-incite`): docs/INCITE_DESIGN.md (the model),
-docs/INCITE_PLAN.md (phases), results/incite/PHASE1_RESULT.md (the verdict),
-results/incite/config_diff.md (every deviation, including two the user
-caught by asking questions).
-
-* **INCITE phase 1 PASSED**: the factorized incidence backbone (part A
-  alone) matches TRIX on ind_e (0.4553 vs 0.4562) and nominally leads
-  ind_er (0.3740, best measured, within noise of TRIX/KG-ICL) — at 20% of
-  TRIX's 100k-step budget, 2.08x ULTRA eval cost. Ranks in
-  ranks/incite/ on that branch, row counts identical to ranks/trix/.
-* **Phase 2.1 (walks lever) is training overnight**, warm-started from the
-  phase-1 trunk (walk module fresh). ~half the phase-1 throughput; done
-  early afternoon. Kill switches: DEV10 vs floor + PETALS. Known confound
-  to control before believing any gain: +20k trunk steps (run the
-  no-walks +20k resume as the budget control).
-* **The host crashes were hardware**: kernel Xid 79, GPU fell off the bus
-  under sustained load, three times. User is fixing the connection.
-  Crash-resume notes live next to each run's outputs.
-* FLOCK still 17/41, parked behind INCITE by user order; HM:indigo
-  prescription in ranks/flock/RESUME.md. KGPFN queued after INCITE eval
-  (user order). TRIX@20k matched-budget A/B deferred but wanted.
+Ranks: 1-based, pessimistic ties, strict filtering (TRIX/INCITE relation
+task: unfiltered by design — state it on tables). One processed root and
+one claims dir per model; never mix devices in a rank dir. Seed 1024.
+Checkpoint selection: zero-shot DEV10, one mean per group, never
+pretraining-mix validation. Every deviation goes in the ledger the day it
+happens. Stop rules are honored: dead levers get a result file, not
+tuning.
