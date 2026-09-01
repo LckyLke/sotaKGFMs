@@ -28,4 +28,10 @@ else
   nohup scripts/kgpfn_small_retry.sh >> output/kgpfn-small-retry-nohup.log 2>&1 & disown
   echo "kgpfn_small_retry.sh launched"
 fi
+if pgrep -f '^bash scripts/snapshot_watcher.sh' > /dev/null; then
+  echo "snapshot_watcher.sh already running"
+else
+  nohup scripts/snapshot_watcher.sh >> output/snapshot-watcher-nohup.log 2>&1 & disown
+  echo "snapshot_watcher.sh launched"
+fi
 echo "watch output/research-plan/log.txt"
