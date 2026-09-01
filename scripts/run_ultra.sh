@@ -16,9 +16,13 @@ GPUS="${2:-[0]}"
 PY="${3:-python}"
 
 WORKDIR="${ULTRA_WORKDIR:-/home/user/ultra-run}"
-CKPT="$WORKDIR/ckpts/ultra_3g.pth"
+# ULTRA_CKPT / ULTRA_RANKS (2026-09-01): the released 4g checkpoint
+# (FB15k237, WN18RR, CoDExMedium, NELL995) is zero-shot on the 41 inductive
+# graphs and matches INCITE's 4-graph diet, so it is the fair scaled
+# baseline; it dumps to its own ranks dir. 50g stays out (see above).
+CKPT="${ULTRA_CKPT:-$WORKDIR/ckpts/ultra_3g.pth}"
 DATA_ROOT="$ROOT/data/roots/ultra"
-RANKS="$ROOT/ranks/ultra"
+RANKS="${ULTRA_RANKS:-$ROOT/ranks/ultra}"
 # Per-shard output_dir: create_working_directory() writes a working_dir.tmp in
 # cfg.output_dir and deletes it again, so two processes sharing one output_dir
 # race on that file.
@@ -83,7 +87,13 @@ except Exception:
 json.dump(prov, open(path, "w"), indent=2, sort_keys=True)
 PROVPY
 
-CLAIMS="$ROOT/ranks/.claims"
+# one claims dir per ranks dir: a second checkpoint must not inherit the
+# 3g run's claims (every graph would count as taken)
+if [ -n "${ULTRA_RANKS:-}" ]; then
+  CLAIMS="$(dirname "$RANKS")/.claims-$(basename "$RANKS")"
+else
+  CLAIMS="$ROOT/ranks/.claims"
+fi
 mkdir -p "$CLAIMS"
 cd "$WORKDIR"
 
