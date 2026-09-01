@@ -1,0 +1,945 @@
+{
+ "FB15k237Inductive:v1": {
+  "group": "ind_e",
+  "num_nodes": 1093,
+  "num_edges": 3986,
+  "queries": 411,
+  "unreach@2": 0.5304,
+  "unreach@4": 0.2068,
+  "unreach@6": 0.0657,
+  "unreach@8": 0.0414,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5703,
+    "mrr_unreachable6": 0.3558,
+    "n_unreachable6": 27
+   },
+   "head": {
+    "mrr_reachable6": 0.4889,
+    "mrr_unreachable6": 0.1463,
+    "n_unreachable6": 27
+   }
+  },
+  "mrr": 0.5113
+ },
+ "FB15k237Inductive:v2": {
+  "group": "ind_e",
+  "num_nodes": 1660,
+  "num_edges": 8290,
+  "queries": 947,
+  "unreach@2": 0.453,
+  "unreach@4": 0.0908,
+  "unreach@6": 0.0253,
+  "unreach@8": 0.0158,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5908,
+    "mrr_unreachable6": 0.2675,
+    "n_unreachable6": 24
+   },
+   "head": {
+    "mrr_reachable6": 0.4826,
+    "mrr_unreachable6": 0.063,
+    "n_unreachable6": 24
+   }
+  },
+  "mrr": 0.5273
+ },
+ "FB15k237Inductive:v3": {
+  "group": "ind_e",
+  "num_nodes": 2501,
+  "num_edges": 14812,
+  "queries": 1731,
+  "unreach@2": 0.4997,
+  "unreach@4": 0.0555,
+  "unreach@6": 0.0098,
+  "unreach@8": 0.0052,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5829,
+    "mrr_unreachable6": 0.114,
+    "n_unreachable6": 17
+   },
+   "head": {
+    "mrr_reachable6": 0.4243,
+    "mrr_unreachable6": 0.1253,
+    "n_unreachable6": 17
+   }
+  },
+  "mrr": 0.4998
+ },
+ "FB15k237Inductive:v4": {
+  "group": "ind_e",
+  "num_nodes": 3051,
+  "num_edges": 23428,
+  "queries": 2840,
+  "unreach@2": 0.4482,
+  "unreach@4": 0.0313,
+  "unreach@6": 0.0056,
+  "unreach@8": 0.0032,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5455,
+    "mrr_unreachable6": 0.0913,
+    "n_unreachable6": 16
+   },
+   "head": {
+    "mrr_reachable6": 0.4375,
+    "mrr_unreachable6": 0.1089,
+    "n_unreachable6": 16
+   }
+  },
+  "mrr": 0.4893
+ },
+ "WN18RRInductive:v1": {
+  "group": "ind_e",
+  "num_nodes": 922,
+  "num_edges": 3236,
+  "queries": 373,
+  "unreach@2": 0.2815,
+  "unreach@4": 0.1609,
+  "unreach@6": 0.1233,
+  "unreach@8": 0.1046,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.7571,
+    "mrr_unreachable6": 0.0073,
+    "n_unreachable6": 46
+   },
+   "head": {
+    "mrr_reachable6": 0.7488,
+    "mrr_unreachable6": 0.0082,
+    "n_unreachable6": 46
+   }
+  },
+  "mrr": 0.661
+ },
+ "WN18RRInductive:v2": {
+  "group": "ind_e",
+  "num_nodes": 2757,
+  "num_edges": 8022,
+  "queries": 852,
+  "unreach@2": 0.304,
+  "unreach@4": 0.1749,
+  "unreach@6": 0.1467,
+  "unreach@8": 0.1338,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.8016,
+    "mrr_unreachable6": 0.0049,
+    "n_unreachable6": 125
+   },
+   "head": {
+    "mrr_reachable6": 0.7811,
+    "mrr_unreachable6": 0.0082,
+    "n_unreachable6": 125
+   }
+  },
+  "mrr": 0.6762
+ },
+ "WN18RRInductive:v3": {
+  "group": "ind_e",
+  "num_nodes": 5084,
+  "num_edges": 12654,
+  "queries": 1143,
+  "unreach@2": 0.6719,
+  "unreach@4": 0.3622,
+  "unreach@6": 0.2301,
+  "unreach@8": 0.203,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5299,
+    "mrr_unreachable6": 0.0131,
+    "n_unreachable6": 263
+   },
+   "head": {
+    "mrr_reachable6": 0.5347,
+    "mrr_unreachable6": 0.1153,
+    "n_unreachable6": 263
+   }
+  },
+  "mrr": 0.4246
+ },
+ "WN18RRInductive:v4": {
+  "group": "ind_e",
+  "num_nodes": 7084,
+  "num_edges": 24668,
+  "queries": 2823,
+  "unreach@2": 0.3418,
+  "unreach@4": 0.2242,
+  "unreach@6": 0.18,
+  "unreach@8": 0.1541,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.7704,
+    "mrr_unreachable6": 0.003,
+    "n_unreachable6": 508
+   },
+   "head": {
+    "mrr_reachable6": 0.7589,
+    "mrr_unreachable6": 0.0029,
+    "n_unreachable6": 508
+   }
+  },
+  "mrr": 0.6276
+ },
+ "NELLInductive:v1": {
+  "group": "ind_e",
+  "num_nodes": 225,
+  "num_edges": 1666,
+  "queries": 201,
+  "unreach@2": 0.2289,
+  "unreach@4": 0.0,
+  "unreach@6": 0.0,
+  "unreach@8": 0.0,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 1.0,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   },
+   "head": {
+    "mrr_reachable6": 0.6437,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   }
+  },
+  "mrr": 0.8219
+ },
+ "NELLInductive:v2": {
+  "group": "ind_e",
+  "num_nodes": 2086,
+  "num_edges": 9172,
+  "queries": 935,
+  "unreach@2": 0.2813,
+  "unreach@4": 0.0257,
+  "unreach@6": 0.0096,
+  "unreach@8": 0.0096,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5924,
+    "mrr_unreachable6": 0.1152,
+    "n_unreachable6": 9
+   },
+   "head": {
+    "mrr_reachable6": 0.596,
+    "mrr_unreachable6": 0.079,
+    "n_unreachable6": 9
+   }
+  },
+  "mrr": 0.5894
+ },
+ "NELLInductive:v3": {
+  "group": "ind_e",
+  "num_nodes": 3566,
+  "num_edges": 16096,
+  "queries": 1620,
+  "unreach@2": 0.2025,
+  "unreach@4": 0.0309,
+  "unreach@6": 0.0099,
+  "unreach@8": 0.0074,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.6261,
+    "mrr_unreachable6": 0.0597,
+    "n_unreachable6": 16
+   },
+   "head": {
+    "mrr_reachable6": 0.5936,
+    "mrr_unreachable6": 0.1,
+    "n_unreachable6": 16
+   }
+  },
+  "mrr": 0.6046
+ },
+ "NELLInductive:v4": {
+  "group": "ind_e",
+  "num_nodes": 2795,
+  "num_edges": 14146,
+  "queries": 1447,
+  "unreach@2": 0.2384,
+  "unreach@4": 0.0428,
+  "unreach@6": 0.0117,
+  "unreach@8": 0.0055,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5694,
+    "mrr_unreachable6": 0.1051,
+    "n_unreachable6": 17
+   },
+   "head": {
+    "mrr_reachable6": 0.5684,
+    "mrr_unreachable6": 0.3232,
+    "n_unreachable6": 17
+   }
+  },
+  "mrr": 0.5647
+ },
+ "ILPC2022:small": {
+  "group": "ind_e",
+  "num_nodes": 6653,
+  "num_edges": 41920,
+  "queries": 2902,
+  "unreach@2": 0.8318,
+  "unreach@4": 0.0751,
+  "unreach@6": 0.0048,
+  "unreach@8": 0.0024,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5205,
+    "mrr_unreachable6": 0.0938,
+    "n_unreachable6": 14
+   },
+   "head": {
+    "mrr_reachable6": 0.0859,
+    "mrr_unreachable6": 0.0015,
+    "n_unreachable6": 14
+   }
+  },
+  "mrr": 0.3019
+ },
+ "ILPC2022:large": {
+  "group": "ind_e",
+  "num_nodes": 29246,
+  "num_edges": 154088,
+  "queries": 10184,
+  "unreach@2": 0.7663,
+  "unreach@4": 0.0399,
+  "unreach@6": 0.0045,
+  "unreach@8": 0.0034,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5365,
+    "mrr_unreachable6": 0.2302,
+    "n_unreachable6": 46
+   },
+   "head": {
+    "mrr_reachable6": 0.0642,
+    "mrr_unreachable6": 0.0014,
+    "n_unreachable6": 46
+   }
+  },
+  "mrr": 0.2995
+ },
+ "HM:1k": {
+  "group": "ind_e",
+  "num_nodes": 9899,
+  "num_edges": 37276,
+  "queries": 476,
+  "unreach@2": 0.9118,
+  "unreach@4": 0.8634,
+  "unreach@6": 0.8256,
+  "unreach@8": 0.7395,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.3215,
+    "mrr_unreachable6": 0.0235,
+    "n_unreachable6": 393
+   },
+   "head": {
+    "mrr_reachable6": 0.2507,
+    "mrr_unreachable6": 0.0169,
+    "n_unreachable6": 393
+   }
+  },
+  "mrr": 0.0666
+ },
+ "HM:3k": {
+  "group": "ind_e",
+  "num_nodes": 19218,
+  "num_edges": 76570,
+  "queries": 1349,
+  "unreach@2": 0.914,
+  "unreach@4": 0.8384,
+  "unreach@6": 0.7472,
+  "unreach@8": 0.6538,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.1757,
+    "mrr_unreachable6": 0.0147,
+    "n_unreachable6": 1008
+   },
+   "head": {
+    "mrr_reachable6": 0.2124,
+    "mrr_unreachable6": 0.0088,
+    "n_unreachable6": 1008
+   }
+  },
+  "mrr": 0.0578
+ },
+ "HM:5k": {
+  "group": "ind_e",
+  "num_nodes": 23792,
+  "num_edges": 96850,
+  "queries": 2124,
+  "unreach@2": 0.9204,
+  "unreach@4": 0.8404,
+  "unreach@6": 0.7321,
+  "unreach@8": 0.6304,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.158,
+    "mrr_unreachable6": 0.0128,
+    "n_unreachable6": 1555
+   },
+   "head": {
+    "mrr_reachable6": 0.1741,
+    "mrr_unreachable6": 0.0096,
+    "n_unreachable6": 1555
+   }
+  },
+  "mrr": 0.0527
+ },
+ "HM:indigo": {
+  "group": "ind_e",
+  "num_nodes": 14775,
+  "num_edges": 500390,
+  "queries": 14904,
+  "unreach@2": 0.2574,
+  "unreach@4": 0.0025,
+  "unreach@6": 0.0025,
+  "unreach@8": 0.0025,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4826,
+    "mrr_unreachable6": 0.268,
+    "n_unreachable6": 37
+   },
+   "head": {
+    "mrr_reachable6": 0.3156,
+    "mrr_unreachable6": 0.0695,
+    "n_unreachable6": 37
+   }
+  },
+  "mrr": 0.3985
+ },
+ "FBIngram:25": {
+  "group": "ind_er",
+  "num_nodes": 4097,
+  "num_edges": 34294,
+  "queries": 5716,
+  "unreach@2": 0.3984,
+  "unreach@4": 0.0082,
+  "unreach@6": 0.0002,
+  "unreach@8": 0.0,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4254,
+    "mrr_unreachable6": 0.0263,
+    "n_unreachable6": 1
+   },
+   "head": {
+    "mrr_reachable6": 0.3572,
+    "mrr_unreachable6": 0.025,
+    "n_unreachable6": 1
+   }
+  },
+  "mrr": 0.3913
+ },
+ "FBIngram:50": {
+  "group": "ind_er",
+  "num_nodes": 4445,
+  "num_edges": 23272,
+  "queries": 3879,
+  "unreach@2": 0.5775,
+  "unreach@4": 0.0317,
+  "unreach@6": 0.001,
+  "unreach@8": 0.0,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4021,
+    "mrr_unreachable6": 0.049,
+    "n_unreachable6": 4
+   },
+   "head": {
+    "mrr_reachable6": 0.2822,
+    "mrr_unreachable6": 0.1111,
+    "n_unreachable6": 4
+   }
+  },
+  "mrr": 0.3419
+ },
+ "FBIngram:75": {
+  "group": "ind_er",
+  "num_nodes": 2792,
+  "num_edges": 18632,
+  "queries": 3106,
+  "unreach@2": 0.5393,
+  "unreach@4": 0.0222,
+  "unreach@6": 0.0,
+  "unreach@8": 0.0,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4906,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   },
+   "head": {
+    "mrr_reachable6": 0.2923,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   }
+  },
+  "mrr": 0.3914
+ },
+ "FBIngram:100": {
+  "group": "ind_er",
+  "num_nodes": 2624,
+  "num_edges": 13974,
+  "queries": 2329,
+  "unreach@2": 0.672,
+  "unreach@4": 0.0232,
+  "unreach@6": 0.0004,
+  "unreach@8": 0.0,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5586,
+    "mrr_unreachable6": 0.0667,
+    "n_unreachable6": 1
+   },
+   "head": {
+    "mrr_reachable6": 0.3185,
+    "mrr_unreachable6": 0.0769,
+    "n_unreachable6": 1
+   }
+  },
+  "mrr": 0.4384
+ },
+ "WKIngram:25": {
+  "group": "ind_er",
+  "num_nodes": 3228,
+  "num_edges": 6782,
+  "queries": 1131,
+  "unreach@2": 0.8515,
+  "unreach@4": 0.2927,
+  "unreach@6": 0.1017,
+  "unreach@8": 0.0531,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5609,
+    "mrr_unreachable6": 0.2609,
+    "n_unreachable6": 115
+   },
+   "head": {
+    "mrr_reachable6": 0.1159,
+    "mrr_unreachable6": 0.0182,
+    "n_unreachable6": 115
+   }
+  },
+  "mrr": 0.3182
+ },
+ "WKIngram:50": {
+  "group": "ind_er",
+  "num_nodes": 9328,
+  "num_edges": 19344,
+  "queries": 3225,
+  "unreach@2": 0.8893,
+  "unreach@4": 0.5901,
+  "unreach@6": 0.3457,
+  "unreach@8": 0.1622,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.3479,
+    "mrr_unreachable6": 0.1092,
+    "n_unreachable6": 1115
+   },
+   "head": {
+    "mrr_reachable6": 0.133,
+    "mrr_unreachable6": 0.0078,
+    "n_unreachable6": 1115
+   }
+  },
+  "mrr": 0.1776
+ },
+ "WKIngram:75": {
+  "group": "ind_er",
+  "num_nodes": 2722,
+  "num_edges": 6860,
+  "queries": 1144,
+  "unreach@2": 0.8531,
+  "unreach@4": 0.1276,
+  "unreach@6": 0.0332,
+  "unreach@8": 0.0087,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.6544,
+    "mrr_unreachable6": 0.2472,
+    "n_unreachable6": 38
+   },
+   "head": {
+    "mrr_reachable6": 0.1297,
+    "mrr_unreachable6": 0.0141,
+    "n_unreachable6": 38
+   }
+  },
+  "mrr": 0.3834
+ },
+ "WKIngram:100": {
+  "group": "ind_er",
+  "num_nodes": 12136,
+  "num_edges": 26974,
+  "queries": 4496,
+  "unreach@2": 0.9248,
+  "unreach@4": 0.4061,
+  "unreach@6": 0.1639,
+  "unreach@8": 0.0236,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.3727,
+    "mrr_unreachable6": 0.0638,
+    "n_unreachable6": 737
+   },
+   "head": {
+    "mrr_reachable6": 0.054,
+    "mrr_unreachable6": 0.0032,
+    "n_unreachable6": 737
+   }
+  },
+  "mrr": 0.1839
+ },
+ "NLIngram:0": {
+  "group": "ind_er",
+  "num_nodes": 2026,
+  "num_edges": 4574,
+  "queries": 763,
+  "unreach@2": 0.5465,
+  "unreach@4": 0.1835,
+  "unreach@6": 0.0629,
+  "unreach@8": 0.021,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4914,
+    "mrr_unreachable6": 0.1394,
+    "n_unreachable6": 48
+   },
+   "head": {
+    "mrr_reachable6": 0.2953,
+    "mrr_unreachable6": 0.1235,
+    "n_unreachable6": 48
+   }
+  },
+  "mrr": 0.3768
+ },
+ "NLIngram:25": {
+  "group": "ind_er",
+  "num_nodes": 2146,
+  "num_edges": 4460,
+  "queries": 744,
+  "unreach@2": 0.5739,
+  "unreach@4": 0.1559,
+  "unreach@6": 0.0578,
+  "unreach@8": 0.0349,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5502,
+    "mrr_unreachable6": 0.2688,
+    "n_unreachable6": 43
+   },
+   "head": {
+    "mrr_reachable6": 0.2375,
+    "mrr_unreachable6": 0.2013,
+    "n_unreachable6": 43
+   }
+  },
+  "mrr": 0.3847
+ },
+ "NLIngram:50": {
+  "group": "ind_er",
+  "num_nodes": 2335,
+  "num_edges": 5152,
+  "queries": 859,
+  "unreach@2": 0.6694,
+  "unreach@4": 0.156,
+  "unreach@6": 0.0559,
+  "unreach@8": 0.0175,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5122,
+    "mrr_unreachable6": 0.3245,
+    "n_unreachable6": 48
+   },
+   "head": {
+    "mrr_reachable6": 0.3504,
+    "mrr_unreachable6": 0.1697,
+    "n_unreachable6": 48
+   }
+  },
+  "mrr": 0.421
+ },
+ "NLIngram:75": {
+  "group": "ind_er",
+  "num_nodes": 1578,
+  "num_edges": 3636,
+  "queries": 607,
+  "unreach@2": 0.547,
+  "unreach@4": 0.0873,
+  "unreach@6": 0.0329,
+  "unreach@8": 0.0066,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4918,
+    "mrr_unreachable6": 0.4823,
+    "n_unreachable6": 20
+   },
+   "head": {
+    "mrr_reachable6": 0.2734,
+    "mrr_unreachable6": 0.0721,
+    "n_unreachable6": 20
+   }
+  },
+  "mrr": 0.3791
+ },
+ "NLIngram:100": {
+  "group": "ind_er",
+  "num_nodes": 1709,
+  "num_edges": 4756,
+  "queries": 793,
+  "unreach@2": 0.5939,
+  "unreach@4": 0.0265,
+  "unreach@6": 0.0,
+  "unreach@8": 0.0,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5904,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   },
+   "head": {
+    "mrr_reachable6": 0.3665,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   }
+  },
+  "mrr": 0.4784
+ },
+ "WikiTopicsMT1:tax": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 33052,
+  "queries": 1834,
+  "unreach@2": 0.9847,
+  "unreach@4": 0.139,
+  "unreach@6": 0.0262,
+  "unreach@8": 0.0153,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4672,
+    "mrr_unreachable6": 0.0953,
+    "n_unreachable6": 48
+   },
+   "head": {
+    "mrr_reachable6": 0.2465,
+    "mrr_unreachable6": 0.0132,
+    "n_unreachable6": 48
+   }
+  },
+  "mrr": 0.3489
+ },
+ "WikiTopicsMT1:health": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 28220,
+  "queries": 1566,
+  "unreach@2": 0.8953,
+  "unreach@4": 0.0977,
+  "unreach@6": 0.023,
+  "unreach@8": 0.0083,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.6259,
+    "mrr_unreachable6": 0.0778,
+    "n_unreachable6": 36
+   },
+   "head": {
+    "mrr_reachable6": 0.144,
+    "mrr_unreachable6": 0.0075,
+    "n_unreachable6": 36
+   }
+  },
+  "mrr": 0.3771
+ },
+ "WikiTopicsMT2:org": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 43952,
+  "queries": 2441,
+  "unreach@2": 0.998,
+  "unreach@4": 0.5682,
+  "unreach@6": 0.1868,
+  "unreach@8": 0.0635,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.1276,
+    "mrr_unreachable6": 0.0069,
+    "n_unreachable6": 456
+   },
+   "head": {
+    "mrr_reachable6": 0.097,
+    "mrr_unreachable6": 0.0005,
+    "n_unreachable6": 456
+   }
+  },
+  "mrr": 0.092
+ },
+ "WikiTopicsMT2:sci": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 29704,
+  "queries": 1650,
+  "unreach@2": 0.9097,
+  "unreach@4": 0.2103,
+  "unreach@6": 0.1036,
+  "unreach@8": 0.0885,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4895,
+    "mrr_unreachable6": 0.0186,
+    "n_unreachable6": 171
+   },
+   "head": {
+    "mrr_reachable6": 0.1844,
+    "mrr_unreachable6": 0.0036,
+    "n_unreachable6": 171
+   }
+  },
+  "mrr": 0.3032
+ },
+ "WikiTopicsMT3:art": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 56046,
+  "queries": 3113,
+  "unreach@2": 0.9319,
+  "unreach@4": 0.0893,
+  "unreach@6": 0.0186,
+  "unreach@8": 0.0112,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.4269,
+    "mrr_unreachable6": 0.0779,
+    "n_unreachable6": 58
+   },
+   "head": {
+    "mrr_reachable6": 0.1474,
+    "mrr_unreachable6": 0.0064,
+    "n_unreachable6": 58
+   }
+  },
+  "mrr": 0.2826
+ },
+ "WikiTopicsMT3:infra": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 43292,
+  "queries": 2405,
+  "unreach@2": 0.3081,
+  "unreach@4": 0.0478,
+  "unreach@6": 0.0287,
+  "unreach@8": 0.0233,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.7723,
+    "mrr_unreachable6": 0.0795,
+    "n_unreachable6": 69
+   },
+   "head": {
+    "mrr_reachable6": 0.5686,
+    "mrr_unreachable6": 0.0108,
+    "n_unreachable6": 69
+   }
+  },
+  "mrr": 0.6525
+ },
+ "WikiTopicsMT4:sci": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 25032,
+  "queries": 1388,
+  "unreach@2": 0.8905,
+  "unreach@4": 0.2406,
+  "unreach@6": 0.1635,
+  "unreach@8": 0.1448,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5503,
+    "mrr_unreachable6": 0.0917,
+    "n_unreachable6": 227
+   },
+   "head": {
+    "mrr_reachable6": 0.1447,
+    "mrr_unreachable6": 0.0175,
+    "n_unreachable6": 227
+   }
+  },
+  "mrr": 0.2996
+ },
+ "WikiTopicsMT4:health": {
+  "group": "ind_er",
+  "num_nodes": 10000,
+  "num_edges": 30674,
+  "queries": 1703,
+  "unreach@2": 0.4075,
+  "unreach@4": 0.1116,
+  "unreach@6": 0.0464,
+  "unreach@8": 0.0335,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.7818,
+    "mrr_unreachable6": 0.0963,
+    "n_unreachable6": 79
+   },
+   "head": {
+    "mrr_reachable6": 0.6809,
+    "mrr_unreachable6": 0.0165,
+    "n_unreachable6": 79
+   }
+  },
+  "mrr": 0.7
+ },
+ "Metafam": {
+  "group": "ind_er",
+  "num_nodes": 656,
+  "num_edges": 14514,
+  "queries": 184,
+  "unreach@2": 0.0,
+  "unreach@4": 0.0,
+  "unreach@6": 0.0,
+  "unreach@8": 0.0,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5132,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   },
+   "head": {
+    "mrr_reachable6": 0.446,
+    "mrr_unreachable6": null,
+    "n_unreachable6": 0
+   }
+  },
+  "mrr": 0.4796
+ },
+ "FBNELL": {
+  "group": "ind_er",
+  "num_nodes": 4752,
+  "num_edges": 21370,
+  "queries": 597,
+  "unreach@2": 0.2814,
+  "unreach@4": 0.0754,
+  "unreach@6": 0.0235,
+  "unreach@8": 0.0201,
+  "model": {
+   "tail": {
+    "mrr_reachable6": 0.5446,
+    "mrr_unreachable6": 0.1522,
+    "n_unreachable6": 14
+   },
+   "head": {
+    "mrr_reachable6": 0.5096,
+    "mrr_unreachable6": 0.1236,
+    "n_unreachable6": 14
+   }
+  },
+  "mrr": 0.518
+ }
+}

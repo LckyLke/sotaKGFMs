@@ -24,7 +24,7 @@ from torch.nn import functional as F
 
 __all__ = ["edge_match", "strict_negative_mask", "negative_sampling",
            "sample_positive_triples", "self_adversarial_nll",
-           "entity_batch_loss", "relation_batch_loss"]
+           "entity_batch_loss", "relation_batch_loss", "halflink_masks"]
 
 
 # ---------------------------------------------------------------------------
@@ -149,18 +149,37 @@ def entity_loss_from_triples(model, graph, triples: torch.Tensor,
                              adversarial_temperature: float = 1.0,
                              strict: bool = True, support=None,
                              walk_offset: int = 0,
-                             sampler=negative_sampling) -> torch.Tensor:
+                             sampler=negative_sampling,
+                             halflink=None) -> torch.Tensor:
     """TRIX's objective on given positives: sample negatives, score in one
     batched forward, weight self-adversarially.
 
     ``sampler`` defaults to the verbatim copy above; the container driver
     passes TRIX's own ``tasks.negative_sampling`` so the sampling code is
     literally TRIX's (crest precedent). ``support`` is a SupportStore or
-    None (reduction mode / phase 1).
+    None (reduction mode / phase 1). ``halflink`` is the optional
+    ``(mask_answer, mask_query)`` pair of ``model.mask_halflinks``.
     """
     batch = sampler(graph, triples, num_negative, strict=strict)
-    pred = model(graph, batch, support=support, walk_offset=walk_offset)
+    pred = model(graph, batch, support=support, walk_offset=walk_offset,
+                 halflink=halflink)
     return self_adversarial_nll(pred, num_negative, adversarial_temperature)
+
+
+def halflink_masks(batch_size: int, p_answer: float, p_query: float,
+                   seed: int, step: int, micro: int = 0, device=None):
+    """The per-row coins for half-link masking, a pure function of
+    (seed, step, micro) so a resumed run draws the same masks. Returns None
+    when both probabilities are zero (the loop is then byte-for-byte the old
+    one)."""
+    if p_answer <= 0.0 and p_query <= 0.0:
+        return None
+    gen = torch.Generator().manual_seed(int(seed) * 1000003 + int(step) * 7 + int(micro))
+    mask_answer = torch.rand(batch_size, generator=gen) < float(p_answer)
+    mask_query = torch.rand(batch_size, generator=gen) < float(p_query)
+    if device is not None:
+        mask_answer, mask_query = mask_answer.to(device), mask_query.to(device)
+    return mask_answer, mask_query
 
 
 def entity_batch_loss(model, graph, batch_size: int, num_negative: int,

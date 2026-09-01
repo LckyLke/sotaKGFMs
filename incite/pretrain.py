@@ -250,6 +250,14 @@ def main(argv=None):
                              "the resumed step, so a crash-resume continues "
                              "the same decay (continuation runs pass their "
                              "own first step)")
+    # half-link masking (2026-09-01; incite/model.py::mask_halflinks). CLI
+    # wins over the config's train.mask_answer_p / train.mask_query_p.
+    parser.add_argument("--mask_answer_p", type=float, default=None,
+                        help="per-row probability of dropping the target's "
+                             "other incoming query-relation edges")
+    parser.add_argument("--mask_query_p", type=float, default=None,
+                        help="per-row probability of dropping the head's "
+                             "other outgoing query-relation edges")
     args = parser.parse_args(argv)
 
     with open(args.config) as handle:
@@ -269,6 +277,12 @@ def main(argv=None):
     adv_temperature = float(tcfg.adversarial_temperature)
     strict = bool(tcfg.strict_negative)
     lam = float(cfg.relation.get("lambda", 0.0))
+    p_answer = (args.mask_answer_p if args.mask_answer_p is not None
+                else float(tcfg.get("mask_answer_p", 0.0)))
+    p_query = (args.mask_query_p if args.mask_query_p is not None
+               else float(tcfg.get("mask_query_p", 0.0)))
+    if p_answer > 0 or p_query > 0:
+        print("half-link masking ON: p_answer %.2f, p_query %.2f" % (p_answer, p_query))
     # phase 2.1b: synthetic automorphic-instance supervision. None unless a
     # config carries `synth: {enabled: yes, ...}` -- absent or off means not a
     # line of incite/synth.py runs and the loop is byte-for-byte the old one.
@@ -471,7 +485,10 @@ def main(argv=None):
                     model, graph, triples, num_negative,
                     adversarial_temperature=adv_temperature, strict=strict,
                     support=store, walk_offset=step * accum + micro,
-                    sampler=tasks.negative_sampling)
+                    sampler=tasks.negative_sampling,
+                    halflink=incite_train.halflink_masks(
+                        batch_size, p_answer, p_query, args.seed, step, micro,
+                        device=device))
                 if lam > 0:
                     micro_rel = incite_train.relation_loss_from_triples(
                         model, graph, triples, support=store,

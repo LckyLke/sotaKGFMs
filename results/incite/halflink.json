@@ -1,0 +1,1068 @@
+{
+ "FB15k237Inductive:v1": {
+  "group": "ind_e",
+  "queries": 411,
+  "share": {
+   "SQSA": 0.2214,
+   "SQUA": 0.3005,
+   "UQSA": 0.3005,
+   "UQUA": 0.1776
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.6091,
+    "SQUA": 0.2216,
+    "UQSA": 0.7354,
+    "UQUA": 0.5005,
+    "mrr": 0.5113
+   },
+   "incite": {
+    "SQSA": 0.6159,
+    "SQUA": 0.2284,
+    "UQSA": 0.726,
+    "UQUA": 0.4978,
+    "mrr": 0.5116
+   }
+  }
+ },
+ "FB15k237Inductive:v2": {
+  "group": "ind_e",
+  "queries": 947,
+  "share": {
+   "SQSA": 0.3717,
+   "SQUA": 0.2455,
+   "UQSA": 0.2455,
+   "UQUA": 0.1373
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.5756,
+    "SQUA": 0.26,
+    "UQSA": 0.7252,
+    "UQUA": 0.5206,
+    "mrr": 0.5273
+   },
+   "incite": {
+    "SQSA": 0.5787,
+    "SQUA": 0.2546,
+    "UQSA": 0.7188,
+    "UQUA": 0.5359,
+    "mrr": 0.5277
+   }
+  }
+ },
+ "FB15k237Inductive:v3": {
+  "group": "ind_e",
+  "queries": 1731,
+  "share": {
+   "SQSA": 0.3703,
+   "SQUA": 0.2499,
+   "UQSA": 0.2499,
+   "UQUA": 0.13
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.5544,
+    "SQUA": 0.2393,
+    "UQSA": 0.69,
+    "UQUA": 0.4794,
+    "mrr": 0.4998
+   },
+   "incite": {
+    "SQSA": 0.5569,
+    "SQUA": 0.235,
+    "UQSA": 0.6927,
+    "UQUA": 0.501,
+    "mrr": 0.5031
+   }
+  }
+ },
+ "FB15k237Inductive:v4": {
+  "group": "ind_e",
+  "queries": 2840,
+  "share": {
+   "SQSA": 0.4345,
+   "SQUA": 0.2308,
+   "UQSA": 0.2308,
+   "UQUA": 0.1039
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.5276,
+    "SQUA": 0.2403,
+    "UQSA": 0.6742,
+    "UQUA": 0.4712,
+    "mrr": 0.4893
+   },
+   "incite": {
+    "SQSA": 0.5299,
+    "SQUA": 0.2341,
+    "UQSA": 0.6734,
+    "UQUA": 0.499,
+    "mrr": 0.4915
+   }
+  }
+ },
+ "WN18RRInductive:v1": {
+  "group": "ind_e",
+  "queries": 373,
+  "share": {
+   "SQSA": 0.3566,
+   "SQUA": 0.2346,
+   "UQSA": 0.2346,
+   "UQUA": 0.1743
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.7227,
+    "SQUA": 0.7265,
+    "UQSA": 0.7246,
+    "UQUA": 0.3611,
+    "mrr": 0.661
+   },
+   "incite": {
+    "SQSA": 0.7676,
+    "SQUA": 0.7054,
+    "UQSA": 0.7303,
+    "UQUA": 0.3921,
+    "mrr": 0.6788
+   }
+  }
+ },
+ "WN18RRInductive:v2": {
+  "group": "ind_e",
+  "queries": 852,
+  "share": {
+   "SQSA": 0.3239,
+   "SQUA": 0.2377,
+   "UQSA": 0.2377,
+   "UQUA": 0.2007
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.748,
+    "SQUA": 0.6893,
+    "UQSA": 0.7296,
+    "UQUA": 0.4814,
+    "mrr": 0.6762
+   },
+   "incite": {
+    "SQSA": 0.7462,
+    "SQUA": 0.6889,
+    "UQSA": 0.7209,
+    "UQUA": 0.4778,
+    "mrr": 0.6727
+   }
+  }
+ },
+ "WN18RRInductive:v3": {
+  "group": "ind_e",
+  "queries": 1143,
+  "share": {
+   "SQSA": 0.1496,
+   "SQUA": 0.3364,
+   "UQSA": 0.3364,
+   "UQUA": 0.1776
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.5828,
+    "SQUA": 0.3306,
+    "UQSA": 0.4891,
+    "UQUA": 0.3471,
+    "mrr": 0.4246
+   },
+   "incite": {
+    "SQSA": 0.5838,
+    "SQUA": 0.34,
+    "UQSA": 0.5011,
+    "UQUA": 0.3457,
+    "mrr": 0.4317
+   }
+  }
+ },
+ "WN18RRInductive:v4": {
+  "group": "ind_e",
+  "queries": 2823,
+  "share": {
+   "SQSA": 0.3092,
+   "SQUA": 0.2582,
+   "UQSA": 0.2582,
+   "UQUA": 0.1743
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.7929,
+    "SQUA": 0.5841,
+    "UQSA": 0.6034,
+    "UQUA": 0.4346,
+    "mrr": 0.6276
+   },
+   "incite": {
+    "SQSA": 0.8135,
+    "SQUA": 0.5808,
+    "UQSA": 0.6174,
+    "UQUA": 0.4408,
+    "mrr": 0.6378
+   }
+  }
+ },
+ "NELLInductive:v1": {
+  "group": "ind_e",
+  "queries": 201,
+  "share": {
+   "SQSA": 0.0,
+   "SQUA": 0.5,
+   "UQSA": 0.5,
+   "UQUA": 0.0
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": null,
+    "SQUA": 0.6437,
+    "UQSA": 1.0,
+    "UQUA": null,
+    "mrr": 0.8219
+   },
+   "incite": {
+    "SQSA": null,
+    "SQUA": 0.62,
+    "UQSA": 1.0,
+    "UQUA": null,
+    "mrr": 0.81
+   }
+  }
+ },
+ "NELLInductive:v2": {
+  "group": "ind_e",
+  "queries": 935,
+  "share": {
+   "SQSA": 0.4813,
+   "SQUA": 0.2096,
+   "UQSA": 0.2096,
+   "UQUA": 0.0995
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.6401,
+    "SQUA": 0.334,
+    "UQSA": 0.8241,
+    "UQUA": 0.388,
+    "mrr": 0.5894
+   },
+   "incite": {
+    "SQSA": 0.6321,
+    "SQUA": 0.3309,
+    "UQSA": 0.8118,
+    "UQUA": 0.4014,
+    "mrr": 0.5837
+   }
+  }
+ },
+ "NELLInductive:v3": {
+  "group": "ind_e",
+  "queries": 1620,
+  "share": {
+   "SQSA": 0.4123,
+   "SQUA": 0.2593,
+   "UQSA": 0.2593,
+   "UQUA": 0.0691
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.6279,
+    "SQUA": 0.3497,
+    "UQSA": 0.8816,
+    "UQUA": 0.3832,
+    "mrr": 0.6046
+   },
+   "incite": {
+    "SQSA": 0.6135,
+    "SQUA": 0.3108,
+    "UQSA": 0.8725,
+    "UQUA": 0.403,
+    "mrr": 0.5876
+   }
+  }
+ },
+ "NELLInductive:v4": {
+  "group": "ind_e",
+  "queries": 1447,
+  "share": {
+   "SQSA": 0.5639,
+   "SQUA": 0.1856,
+   "UQSA": 0.1856,
+   "UQUA": 0.065
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.6038,
+    "SQUA": 0.2775,
+    "UQSA": 0.7869,
+    "UQUA": 0.4119,
+    "mrr": 0.5647
+   },
+   "incite": {
+    "SQSA": 0.5962,
+    "SQUA": 0.2557,
+    "UQSA": 0.7813,
+    "UQUA": 0.4059,
+    "mrr": 0.555
+   }
+  }
+ },
+ "ILPC2022:small": {
+  "group": "ind_e",
+  "queries": 2902,
+  "share": {
+   "SQSA": 0.4456,
+   "SQUA": 0.2633,
+   "UQSA": 0.2633,
+   "UQUA": 0.0279
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.3154,
+    "SQUA": 0.061,
+    "UQSA": 0.5176,
+    "UQUA": 0.3258,
+    "mrr": 0.3019
+   },
+   "incite": {
+    "SQSA": 0.3193,
+    "SQUA": 0.0594,
+    "UQSA": 0.5202,
+    "UQUA": 0.3179,
+    "mrr": 0.3038
+   }
+  }
+ },
+ "ILPC2022:large": {
+  "group": "ind_e",
+  "queries": 10184,
+  "share": {
+   "SQSA": 0.3162,
+   "SQUA": 0.3266,
+   "UQSA": 0.3266,
+   "UQUA": 0.0305
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.2835,
+    "SQUA": 0.0444,
+    "UQSA": 0.5742,
+    "UQUA": 0.2565,
+    "mrr": 0.2995
+   },
+   "incite": {
+    "SQSA": 0.2882,
+    "SQUA": 0.0417,
+    "UQSA": 0.5824,
+    "UQUA": 0.2556,
+    "mrr": 0.3028
+   }
+  }
+ },
+ "HM:1k": {
+  "group": "ind_e",
+  "queries": 476,
+  "share": {
+   "SQSA": 0.1576,
+   "SQUA": 0.3897,
+   "UQSA": 0.3897,
+   "UQUA": 0.063
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.0939,
+    "SQUA": 0.0217,
+    "UQSA": 0.1086,
+    "UQUA": 0.016,
+    "mrr": 0.0666
+   },
+   "incite": {
+    "SQSA": 0.1043,
+    "SQUA": 0.0255,
+    "UQSA": 0.1155,
+    "UQUA": 0.0189,
+    "mrr": 0.0726
+   }
+  }
+ },
+ "HM:3k": {
+  "group": "ind_e",
+  "queries": 1349,
+  "share": {
+   "SQSA": 0.1171,
+   "SQUA": 0.4099,
+   "UQSA": 0.4099,
+   "UQUA": 0.063
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.0596,
+    "SQUA": 0.0154,
+    "UQSA": 0.1029,
+    "UQUA": 0.0369,
+    "mrr": 0.0578
+   },
+   "incite": {
+    "SQSA": 0.0573,
+    "SQUA": 0.0196,
+    "UQSA": 0.1091,
+    "UQUA": 0.0418,
+    "mrr": 0.0621
+   }
+  }
+ },
+ "HM:5k": {
+  "group": "ind_e",
+  "queries": 2124,
+  "share": {
+   "SQSA": 0.0993,
+   "SQUA": 0.4204,
+   "UQSA": 0.4204,
+   "UQUA": 0.0598
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.0554,
+    "SQUA": 0.016,
+    "UQSA": 0.0919,
+    "UQUA": 0.0305,
+    "mrr": 0.0527
+   },
+   "incite": {
+    "SQSA": 0.0534,
+    "SQUA": 0.0184,
+    "UQSA": 0.0997,
+    "UQUA": 0.0343,
+    "mrr": 0.057
+   }
+  }
+ },
+ "HM:indigo": {
+  "group": "ind_e",
+  "queries": 14904,
+  "share": {
+   "SQSA": 0.722,
+   "SQUA": 0.1334,
+   "UQSA": 0.1334,
+   "UQUA": 0.0112
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.378,
+    "SQUA": 0.1302,
+    "UQSA": 0.7755,
+    "UQUA": 0.4294,
+    "mrr": 0.3985
+   },
+   "incite": {
+    "SQSA": 0.3893,
+    "SQUA": 0.1202,
+    "UQSA": 0.7815,
+    "UQUA": 0.449,
+    "mrr": 0.4064
+   }
+  }
+ },
+ "FBIngram:25": {
+  "group": "ind_er",
+  "queries": 5716,
+  "share": {
+   "SQSA": 0.5149,
+   "SQUA": 0.1894,
+   "UQSA": 0.1894,
+   "UQUA": 0.1064
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.3791,
+    "SQUA": 0.1672,
+    "UQSA": 0.6148,
+    "UQUA": 0.451,
+    "mrr": 0.3913
+   },
+   "incite": {
+    "SQSA": 0.3867,
+    "SQUA": 0.1564,
+    "UQSA": 0.615,
+    "UQUA": 0.4741,
+    "mrr": 0.3956
+   }
+  }
+ },
+ "FBIngram:50": {
+  "group": "ind_er",
+  "queries": 3879,
+  "share": {
+   "SQSA": 0.4053,
+   "SQUA": 0.2233,
+   "UQSA": 0.2233,
+   "UQUA": 0.1482
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.3512,
+    "SQUA": 0.131,
+    "UQSA": 0.512,
+    "UQUA": 0.3779,
+    "mrr": 0.3419
+   },
+   "incite": {
+    "SQSA": 0.3557,
+    "SQUA": 0.1262,
+    "UQSA": 0.5084,
+    "UQUA": 0.4122,
+    "mrr": 0.3469
+   }
+  }
+ },
+ "FBIngram:75": {
+  "group": "ind_er",
+  "queries": 3106,
+  "share": {
+   "SQSA": 0.4804,
+   "SQUA": 0.2094,
+   "UQSA": 0.2094,
+   "UQUA": 0.1008
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.4306,
+    "SQUA": 0.1323,
+    "UQSA": 0.6303,
+    "UQUA": 0.247,
+    "mrr": 0.3914
+   },
+   "incite": {
+    "SQSA": 0.4434,
+    "SQUA": 0.1466,
+    "UQSA": 0.6281,
+    "UQUA": 0.2852,
+    "mrr": 0.404
+   }
+  }
+ },
+ "FBIngram:100": {
+  "group": "ind_er",
+  "queries": 2329,
+  "share": {
+   "SQSA": 0.599,
+   "SQUA": 0.1825,
+   "UQSA": 0.1825,
+   "UQUA": 0.0361
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.4641,
+    "SQUA": 0.1495,
+    "UQSA": 0.6835,
+    "UQUA": 0.2325,
+    "mrr": 0.4384
+   },
+   "incite": {
+    "SQSA": 0.4787,
+    "SQUA": 0.1629,
+    "UQSA": 0.6758,
+    "UQUA": 0.2734,
+    "mrr": 0.4496
+   }
+  }
+ },
+ "WKIngram:25": {
+  "group": "ind_er",
+  "queries": 1131,
+  "share": {
+   "SQSA": 0.4332,
+   "SQUA": 0.2551,
+   "UQSA": 0.2551,
+   "UQUA": 0.0566
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.3548,
+    "SQUA": 0.0758,
+    "UQSA": 0.5266,
+    "UQUA": 0.1909,
+    "mrr": 0.3182
+   },
+   "incite": {
+    "SQSA": 0.3453,
+    "SQUA": 0.0941,
+    "UQSA": 0.4973,
+    "UQUA": 0.2064,
+    "mrr": 0.3122
+   }
+  }
+ },
+ "WKIngram:50": {
+  "group": "ind_er",
+  "queries": 3225,
+  "share": {
+   "SQSA": 0.4146,
+   "SQUA": 0.2623,
+   "UQSA": 0.2623,
+   "UQUA": 0.0608
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.185,
+    "SQUA": 0.0632,
+    "UQSA": 0.2756,
+    "UQUA": 0.1972,
+    "mrr": 0.1776
+   },
+   "incite": {
+    "SQSA": 0.1735,
+    "SQUA": 0.0642,
+    "UQSA": 0.2724,
+    "UQUA": 0.2063,
+    "mrr": 0.1727
+   }
+  }
+ },
+ "WKIngram:75": {
+  "group": "ind_er",
+  "queries": 1144,
+  "share": {
+   "SQSA": 0.4476,
+   "SQUA": 0.2526,
+   "UQSA": 0.2526,
+   "UQUA": 0.0472
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.4478,
+    "SQUA": 0.0971,
+    "UQSA": 0.6029,
+    "UQUA": 0.131,
+    "mrr": 0.3834
+   },
+   "incite": {
+    "SQSA": 0.4662,
+    "SQUA": 0.0891,
+    "UQSA": 0.605,
+    "UQUA": 0.1355,
+    "mrr": 0.3904
+   }
+  }
+ },
+ "WKIngram:100": {
+  "group": "ind_er",
+  "queries": 4496,
+  "share": {
+   "SQSA": 0.4304,
+   "SQUA": 0.2562,
+   "UQSA": 0.2562,
+   "UQUA": 0.0572
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.2601,
+    "SQUA": 0.0206,
+    "UQSA": 0.2554,
+    "UQUA": 0.0205,
+    "mrr": 0.1839
+   },
+   "incite": {
+    "SQSA": 0.2584,
+    "SQUA": 0.0215,
+    "UQSA": 0.2608,
+    "UQUA": 0.0215,
+    "mrr": 0.1848
+   }
+  }
+ },
+ "NLIngram:0": {
+  "group": "ind_er",
+  "queries": 763,
+  "share": {
+   "SQSA": 0.2267,
+   "SQUA": 0.3054,
+   "UQSA": 0.3054,
+   "UQUA": 0.1625
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.4362,
+    "SQUA": 0.1621,
+    "UQSA": 0.6713,
+    "UQUA": 0.1441,
+    "mrr": 0.3768
+   },
+   "incite": {
+    "SQSA": 0.4382,
+    "SQUA": 0.2265,
+    "UQSA": 0.6729,
+    "UQUA": 0.1668,
+    "mrr": 0.4011
+   }
+  }
+ },
+ "NLIngram:25": {
+  "group": "ind_er",
+  "queries": 744,
+  "share": {
+   "SQSA": 0.1989,
+   "SQUA": 0.3535,
+   "UQSA": 0.3535,
+   "UQUA": 0.0941
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.3775,
+    "SQUA": 0.1209,
+    "UQSA": 0.7301,
+    "UQUA": 0.0933,
+    "mrr": 0.3847
+   },
+   "incite": {
+    "SQSA": 0.3847,
+    "SQUA": 0.1524,
+    "UQSA": 0.7643,
+    "UQUA": 0.1178,
+    "mrr": 0.4117
+   }
+  }
+ },
+ "NLIngram:50": {
+  "group": "ind_er",
+  "queries": 859,
+  "share": {
+   "SQSA": 0.2538,
+   "SQUA": 0.3265,
+   "UQSA": 0.3265,
+   "UQUA": 0.0931
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.4565,
+    "SQUA": 0.0982,
+    "UQSA": 0.8184,
+    "UQUA": 0.0632,
+    "mrr": 0.421
+   },
+   "incite": {
+    "SQSA": 0.4275,
+    "SQUA": 0.1074,
+    "UQSA": 0.8102,
+    "UQUA": 0.084,
+    "mrr": 0.416
+   }
+  }
+ },
+ "NLIngram:75": {
+  "group": "ind_er",
+  "queries": 607,
+  "share": {
+   "SQSA": 0.3229,
+   "SQUA": 0.2825,
+   "UQSA": 0.2825,
+   "UQUA": 0.112
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.3926,
+    "SQUA": 0.1328,
+    "UQSA": 0.6978,
+    "UQUA": 0.1575,
+    "mrr": 0.3791
+   },
+   "incite": {
+    "SQSA": 0.3716,
+    "SQUA": 0.1453,
+    "UQSA": 0.6449,
+    "UQUA": 0.1567,
+    "mrr": 0.3608
+   }
+  }
+ },
+ "NLIngram:100": {
+  "group": "ind_er",
+  "queries": 793,
+  "share": {
+   "SQSA": 0.3405,
+   "SQUA": 0.3228,
+   "UQSA": 0.3228,
+   "UQUA": 0.0139
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.5068,
+    "SQUA": 0.1511,
+    "UQSA": 0.7887,
+    "UQUA": 0.1786,
+    "mrr": 0.4784
+   },
+   "incite": {
+    "SQSA": 0.5182,
+    "SQUA": 0.1987,
+    "UQSA": 0.7901,
+    "UQUA": 0.1562,
+    "mrr": 0.4978
+   }
+  }
+ },
+ "WikiTopicsMT1:tax": {
+  "group": "ind_er",
+  "queries": 1834,
+  "share": {
+   "SQSA": 0.0818,
+   "SQUA": 0.4417,
+   "UQSA": 0.4417,
+   "UQUA": 0.0349
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.2765,
+    "SQUA": 0.2505,
+    "UQSA": 0.487,
+    "UQUA": 0.0153,
+    "mrr": 0.3489
+   },
+   "incite": {
+    "SQSA": 0.2781,
+    "SQUA": 0.0261,
+    "UQSA": 0.4981,
+    "UQUA": 0.0128,
+    "mrr": 0.2547
+   }
+  }
+ },
+ "WikiTopicsMT1:health": {
+  "group": "ind_er",
+  "queries": 1566,
+  "share": {
+   "SQSA": 0.1628,
+   "SQUA": 0.4154,
+   "UQSA": 0.4154,
+   "UQUA": 0.0064
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.5026,
+    "SQUA": 0.0871,
+    "UQSA": 0.6189,
+    "UQUA": 0.3017,
+    "mrr": 0.3771
+   },
+   "incite": {
+    "SQSA": 0.4949,
+    "SQUA": 0.0895,
+    "UQSA": 0.6124,
+    "UQUA": 0.3015,
+    "mrr": 0.3741
+   }
+  }
+ },
+ "WikiTopicsMT2:org": {
+  "group": "ind_er",
+  "queries": 2441,
+  "share": {
+   "SQSA": 0.8783,
+   "SQUA": 0.0592,
+   "UQSA": 0.0592,
+   "UQUA": 0.0033
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.0779,
+    "SQUA": 0.1008,
+    "UQSA": 0.2972,
+    "UQUA": 0.0028,
+    "mrr": 0.092
+   },
+   "incite": {
+    "SQSA": 0.0728,
+    "SQUA": 0.1011,
+    "UQSA": 0.35,
+    "UQUA": 0.0021,
+    "mrr": 0.0906
+   }
+  }
+ },
+ "WikiTopicsMT2:sci": {
+  "group": "ind_er",
+  "queries": 1650,
+  "share": {
+   "SQSA": 0.1994,
+   "SQUA": 0.3827,
+   "UQSA": 0.3827,
+   "UQUA": 0.0352
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.2644,
+    "SQUA": 0.169,
+    "UQSA": 0.4845,
+    "UQUA": 0.0096,
+    "mrr": 0.3032
+   },
+   "incite": {
+    "SQSA": 0.2614,
+    "SQUA": 0.0749,
+    "UQSA": 0.5024,
+    "UQUA": 0.0131,
+    "mrr": 0.2735
+   }
+  }
+ },
+ "WikiTopicsMT3:art": {
+  "group": "ind_er",
+  "queries": 3113,
+  "share": {
+   "SQSA": 0.2589,
+   "SQUA": 0.3408,
+   "UQSA": 0.3408,
+   "UQUA": 0.0594
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.2707,
+    "SQUA": 0.1545,
+    "UQSA": 0.4462,
+    "UQUA": 0.1304,
+    "mrr": 0.2826
+   },
+   "incite": {
+    "SQSA": 0.2777,
+    "SQUA": 0.16,
+    "UQSA": 0.4621,
+    "UQUA": 0.143,
+    "mrr": 0.2924
+   }
+  }
+ },
+ "WikiTopicsMT3:infra": {
+  "group": "ind_er",
+  "queries": 2405,
+  "share": {
+   "SQSA": 0.4287,
+   "SQUA": 0.2705,
+   "UQSA": 0.2705,
+   "UQUA": 0.0304
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.6412,
+    "SQUA": 0.5182,
+    "UQSA": 0.806,
+    "UQUA": 0.641,
+    "mrr": 0.6525
+   },
+   "incite": {
+    "SQSA": 0.6439,
+    "SQUA": 0.4398,
+    "UQSA": 0.8229,
+    "UQUA": 0.6273,
+    "mrr": 0.6366
+   }
+  }
+ },
+ "WikiTopicsMT4:sci": {
+  "group": "ind_er",
+  "queries": 1388,
+  "share": {
+   "SQSA": 0.6744,
+   "SQUA": 0.1585,
+   "UQSA": 0.1585,
+   "UQUA": 0.0086
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.3221,
+    "SQUA": 0.0295,
+    "UQSA": 0.4634,
+    "UQUA": 0.4956,
+    "mrr": 0.2996
+   },
+   "incite": {
+    "SQSA": 0.323,
+    "SQUA": 0.0461,
+    "UQSA": 0.458,
+    "UQUA": 0.453,
+    "mrr": 0.3017
+   }
+  }
+ },
+ "WikiTopicsMT4:health": {
+  "group": "ind_er",
+  "queries": 1703,
+  "share": {
+   "SQSA": 0.6424,
+   "SQUA": 0.1718,
+   "UQSA": 0.1718,
+   "UQUA": 0.0141
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.7763,
+    "SQUA": 0.4285,
+    "UQSA": 0.7065,
+    "UQUA": 0.4519,
+    "mrr": 0.7
+   },
+   "incite": {
+    "SQSA": 0.7733,
+    "SQUA": 0.4194,
+    "UQSA": 0.6775,
+    "UQUA": 0.4517,
+    "mrr": 0.6915
+   }
+  }
+ },
+ "Metafam": {
+  "group": "ind_er",
+  "queries": 184,
+  "share": {
+   "SQSA": 0.0,
+   "SQUA": 0.5,
+   "UQSA": 0.5,
+   "UQUA": 0.0
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": null,
+    "SQUA": 0.5132,
+    "UQSA": 0.446,
+    "UQUA": null,
+    "mrr": 0.4796
+   },
+   "incite": {
+    "SQSA": null,
+    "SQUA": 0.4224,
+    "UQSA": 0.4311,
+    "UQUA": null,
+    "mrr": 0.4267
+   }
+  }
+ },
+ "FBNELL": {
+  "group": "ind_er",
+  "queries": 597,
+  "share": {
+   "SQSA": 0.3702,
+   "SQUA": 0.2755,
+   "UQSA": 0.2755,
+   "UQUA": 0.0787
+  },
+  "models": {
+   "incite-4g": {
+    "SQSA": 0.5128,
+    "SQUA": 0.2315,
+    "UQSA": 0.8244,
+    "UQUA": 0.4725,
+    "mrr": 0.518
+   },
+   "incite": {
+    "SQSA": 0.5222,
+    "SQUA": 0.2241,
+    "UQSA": 0.8107,
+    "UQUA": 0.4733,
+    "mrr": 0.5157
+   }
+  }
+ }
+}

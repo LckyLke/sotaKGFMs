@@ -124,9 +124,9 @@ class ScoreEnsemble(nn.Module):
         self.members = nn.ModuleList(list(members))
         self.checkpoint_activations = False
 
-    def forward(self, data, batch, support=None, walk_offset: int = 0):
+    def forward(self, data, batch, support=None, walk_offset: int = 0, **kwargs):
         assert support is None, "score ensembles run support-off"
-        outs = [m(data, batch, support=None, walk_offset=walk_offset)
+        outs = [m(data, batch, support=None, walk_offset=walk_offset, **kwargs)
                 for m in self.members]
         return torch.stack(outs).mean(0)
 

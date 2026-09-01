@@ -45,7 +45,7 @@ from .support import SupportStore, row_dim
 from .walks import WalkModule
 
 __all__ = ["INCITE", "SupportReadout", "compute_ranking",
-           "remove_easy_edges", "negative_sample_to_tail"]
+           "remove_easy_edges", "negative_sample_to_tail", "mask_halflinks"]
 
 TASK_ENTITY = 0
 TASK_RELATION = 1
@@ -98,6 +98,55 @@ def negative_sample_to_tail(h_index, t_index, r_index, num_direct_rel):
     return new_h_index, new_t_index, new_r_index
 
 
+def mask_halflinks(graph, h, r, t, mask_answer, mask_query, num_direct):
+    """Half-link masking (2026-09-01): a copy of ``graph`` without the
+    answer half and/or the query half of the given tail-form positives.
+
+    Gregucci et al. (arXiv 2606.18001) show KGFMs lean on the answer half:
+    a candidate that already has an incoming r-edge is scored up, and on
+    the 28 percent of test queries whose true answer has none (SQUA) MRR
+    falls below 0.2. Pretraining graphs are dense, so training positives
+    almost always carry a seen answer half. Masking makes the training
+    scenario mix look like the test mix.
+
+    Rows are in tail form (``negative_sample_to_tail``): query ``(h_i, r_i)``
+    with target ``t_i``, relation ids in the doubled vocabulary. For row i:
+
+    * ``mask_answer[i]``: drop every edge ``(x, r_i, t_i)`` and its inverse
+      copy ``(t_i, inv(r_i), x)`` -- t_i loses its incoming r-edges;
+    * ``mask_query[i]``: drop every edge ``(h_i, r_i, x)`` and its inverse
+      copy ``(x, inv(r_i), h_i)`` -- h_i loses its outgoing r-edges.
+
+    The positive edge itself is among the dropped ones, so this subsumes
+    ``remove_easy_edges`` for masked rows. The relation-level incidence
+    pairs (built from the full graph, as in TRIX) are untouched: they carry
+    a per-relation bulk statistic, not a per-entity signal.
+    """
+    if not (bool(mask_answer.any()) or bool(mask_query.any())):
+        return graph
+    ei, et = graph.edge_index, graph.edge_type
+    R2 = int(graph.num_relations)
+
+    def inv(rr):
+        return torch.where(rr < num_direct, rr + num_direct, rr - num_direct)
+
+    src_key = ei[0] * R2 + et
+    dst_key = ei[1] * R2 + et
+    drop = torch.zeros(et.shape[0], dtype=torch.bool, device=et.device)
+    if bool(mask_answer.any()):
+        ta, ra = t[mask_answer], r[mask_answer]
+        drop |= torch.isin(dst_key, ta * R2 + ra)          # (x, r, t)
+        drop |= torch.isin(src_key, ta * R2 + inv(ra))     # (t, inv r, x)
+    if bool(mask_query.any()):
+        hq, rq = h[mask_query], r[mask_query]
+        drop |= torch.isin(src_key, hq * R2 + rq)          # (h, r, x)
+        drop |= torch.isin(dst_key, hq * R2 + inv(rq))     # (x, inv r, h)
+    out = copy.copy(graph)
+    out.edge_index = ei[:, ~drop]
+    out.edge_type = et[~drop]
+    return out
+
+
 def compute_ranking(pred, target, mask=None):
     """trix/tasks.py::compute_ranking: 1-based, pessimistic, strict."""
     pos_pred = pred.gather(-1, target.unsqueeze(-1))
@@ -147,12 +196,29 @@ class INCITE(nn.Module):
                  walks: Optional[dict] = None,
                  support_readout: bool = True,
                  support_k: int = 16,
-                 num_mlp_layer: int = 2):
+                 num_mlp_layer: int = 2,
+                 unary: bool = False):
         super().__init__()
         self.dim = int(dim)
         self.rounds = int(rounds)
         self.short_cut = bool(short_cut)
         self.support_k = int(support_k)
+        # Unary channel (2026-09-01): a query-INDEPENDENT state for every
+        # entity from the unlabeled pass (``encode_unlabeled``), read at the
+        # head and at each candidate and scored with the query relation's
+        # state by a second head that is ADDED to the path score. Every
+        # candidate gets evidence of its own -- its relation signature --
+        # even when no path from the head reaches it within the rounds
+        # (17 percent of ind_e answers, results/incite/reachability.json)
+        # or when it lacks an edge of the query relation (the SQUA case).
+        self.unary_mlp = None
+        if unary:
+            ufeat = 3 * self.dim
+            umlp = []
+            for _ in range(num_mlp_layer - 1):
+                umlp += [nn.Linear(ufeat, ufeat), nn.ReLU()]
+            umlp.append(nn.Linear(ufeat, 1))
+            self.unary_mlp = nn.Sequential(*umlp)
         # per-round activation checkpointing (train.checkpoint_activations):
         # default OFF so behavior is unchanged; the pretrain driver flips it.
         # Applied only where gradients are live -- no_grad passes (eval,
@@ -278,8 +344,12 @@ class INCITE(nn.Module):
     # -- entity task --------------------------------------------------------
     def forward(self, data, batch: torch.Tensor,
                 support: Optional[SupportStore] = None,
-                walk_offset: int = 0) -> torch.Tensor:
-        """TRIX's entity interface: ``batch [b, c, 3]`` (h, t, r) -> ``[b, c]``."""
+                walk_offset: int = 0, halflink=None) -> torch.Tensor:
+        """TRIX's entity interface: ``batch [b, c, 3]`` (h, t, r) -> ``[b, c]``.
+
+        ``halflink``: optional ``(mask_answer [b], mask_query [b])`` bool
+        tensors, training only -- see ``mask_halflinks``.
+        """
         h_index, t_index, r_index = batch.unbind(-1)
         num_direct = int(data.num_relations) // 2
         pairs = self._pairs(data)
@@ -290,6 +360,11 @@ class INCITE(nn.Module):
             h_index, t_index, r_index, num_direct)
         assert (h_index[:, [0]] == h_index).all()
         assert (r_index[:, [0]] == r_index).all()
+        if self.training and halflink is not None:
+            mask_answer, mask_query = halflink
+            msg_graph = mask_halflinks(msg_graph, h_index[:, 0], r_index[:, 0],
+                                       t_index[:, 0], mask_answer, mask_query,
+                                       num_direct)
 
         x, z = self._trunk(msg_graph, pairs, h_index[:, 0], r_index[:, 0],
                            None, TASK_ENTITY, walk_offset)
@@ -300,6 +375,16 @@ class INCITE(nn.Module):
         cand_feature = feature.gather(
             1, t_index.unsqueeze(-1).expand(-1, -1, feature.shape[-1]))
         score = self.score_mlp(cand_feature).squeeze(-1)
+
+        if self.unary_mlp is not None:
+            g = self._global_states(msg_graph)                      # [V, d]
+            g_h = g[h_index[:, 0]]                                  # [b, d]
+            g_t = g[t_index]                                        # [b, c, d]
+            z_q = node_query[:, 0]                                  # [b, d]
+            c = t_index.shape[1]
+            ufeat = torch.cat([g_h.unsqueeze(1).expand(b, c, d), g_t,
+                               z_q.unsqueeze(1).expand(b, c, d)], dim=-1)
+            score = score + self.unary_mlp(ufeat).squeeze(-1)
 
         if support is not None and self.readout is not None:
             residual = torch.zeros_like(score)
@@ -368,6 +453,24 @@ class INCITE(nn.Module):
         feature = torch.cat([x, z_q.unsqueeze(1).expand_as(x)], dim=-1)
         s0 = self.score_mlp(feature).squeeze(-1)
         return x, z_q, s0
+
+    def _global_states(self, graph) -> torch.Tensor:
+        """``encode_unlabeled`` for the unary channel: recomputed on every
+        training forward (the weights move, and the message graph carries
+        that step's edge removals), cached per graph object under no_grad
+        at evaluation. The cache key holds the edge count, like ``_pairs``."""
+        if self.training or torch.is_grad_enabled():
+            return self.encode_unlabeled(graph)
+        key = int(graph.edge_index.shape[1])
+        cached = getattr(graph, "incite_global", None)
+        if cached is not None and cached[0] == key and cached[1] is self:
+            return cached[2]
+        g = self.encode_unlabeled(graph)
+        try:
+            graph.incite_global = (key, self, g)
+        except AttributeError:
+            pass
+        return g
 
     def encode_unlabeled(self, graph) -> torch.Tensor:
         """The once-per-graph unlabeled entity encoding (design B step 1).
