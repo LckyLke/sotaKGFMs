@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUPERSEDED by scripts/research_plan_v3.sh (same markers; faster order). Do not relaunch.
 # Research plan (2026-09-01, approved by the user): test-time levers first,
 # then learning-rate-decay continuations, the fixed TRIX matched-budget A/B,
 # and one synthetic-prior pilot. Supersedes baseline_orchestrator.sh's R3/R4

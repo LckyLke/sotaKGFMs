@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
-# SUPERSEDED by scripts/research_plan_v3.sh (same markers; faster order). Do not relaunch.
+# Research plan v3 (2026-09-01, 23:15). Same markers as v1/v2. Fastest path
+# to a three-seed headline table, in this order after E1-E3:
+#   M1 L1 G1 MG1        the lever runs, all paired from the 4g last checkpoint
+#   B2 B3               backbone seed repeats (4g, 20k, seeds 1337 and 7):
+#                       lever-independent, so they run before the winner is known
+#   C2 C3               the winning continuation recipe applied to each seed
+#                       (picked from the -last dumps of M1/L1/G1/MG1)
+#   E4 E5 E6            test-time levers (re-ranking evals, ensemble)
+#   F0 L2 X1 X2 P1      baseline chores
+# The takeover from v1 now happens after E3 (the DEV10 sweep), not E6.
+# Restart: nohup scripts/research_plan_v3.sh >> output/research-plan/nohup.log 2>&1 & disown
+#
+# ---- v2 header follows ----
 # Research plan v2 (2026-09-01, late evening). Same markers as v1
 # (output/research-plan/), same stages, plus the two diagnosis-driven levers
 # from results/incite/halflink.json and reachability.json:
@@ -8,7 +20,7 @@
 # and a takeover: v2 waits for v1 to finish the cheap E-stages, then stops
 # v1 and its containers and owns the GPU. Order after the E-stages:
 #   L1 M1 G1 F0 L2 X1 X2 P1.
-# Restart: nohup scripts/research_plan_v2.sh >> output/research-plan/nohup.log 2>&1 & disown
+# Restart (old): nohup scripts/research_plan_v2.sh >> output/research-plan/nohup.log 2>&1 & disown
 #
 # ---- v1 header follows ----
 # Research plan (2026-09-01, approved by the user): test-time levers first,
@@ -52,6 +64,8 @@ skip() { [ -e "$ORC/$1.done" ] || [ -e "$ORC/$1.failed" ]; }
 nparquet() { ls "$1"/*.parquet 2>/dev/null | wc -l; }
 incite_container_running() { docker ps --format '{{.Image}}' | grep -q '^kgfm/incite:'; }
 ALLOC=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+DECAY="--lr_schedule linear --lr_final 0 --warmup_steps 500 --keep_every 1000 --schedule_start 20001"
+UDECAY="--lr_schedule linear --lr_final 0 --warmup_steps 500 --keep_every 1000"
 
 # 41-graph entity eval of one INCITE checkpoint (or a comma list = ensemble).
 # $1 ckpt(s, container paths)  $2 config (container path)  $3 ranks dir name
@@ -95,12 +109,12 @@ incite_pretrain() {
   done
 }
 
-say "=== research plan v2 start (pid $$) ==="
+say "=== research plan v3 start (pid $$) ==="
 
 # ---- takeover from v1: let it finish E6, then stop it -------------------
 if pgrep -f '^bash scripts/research_plan.sh' > /dev/null; then
-  say "v1 running; waiting for its E6 marker"
-  until [ -e "$ORC/E6.done" ] || [ -e "$ORC/E6.failed" ] || ! pgrep -f '^bash scripts/research_plan.sh' > /dev/null; do
+  say "v1 running; waiting for its E3 marker"
+  until [ -e "$ORC/E3.done" ] || [ -e "$ORC/E3.failed" ] || ! pgrep -f '^bash scripts/research_plan.sh' > /dev/null; do
     sleep 60
   done
   pkill -f '^bash scripts/research_plan.sh' && say "v1 stopped"
@@ -179,44 +193,6 @@ else
   PICK="dead"
 fi
 
-# ---- E4/E5: 41-graph re-ranking evals ------------------------------------
-for pair in "E4 /kgfm-src/output/incite-pretrain-4g/incite_best.pth incite-4g-rerank" \
-            "E5 /kgfm-src/output/incite-pretrain-phase1/incite_best.pth incite-rerank"; do
-  set -- $pair; st="$1"; ckpt="$2"; name="$3"
-  if skip "$st"; then continue; fi
-  if [ "$PICK" = dead ]; then
-    say "$st: re-ranking lever dead on DEV10, skipped"; fail_mark "$st"; continue
-  fi
-  set -- $PICK; K="$1"; W="$2"
-  if incite_eval "$ckpt" /kgfm-src/configs/incite_phase1.yaml "$name" \
-       "--rerank_k $K --rerank_weight $W"; then done_mark "$st"; else fail_mark "$st"; fi
-done
-
-# ---- E6: score ensemble of four trunks ------------------------------------
-if ! skip E6; then
-  if incite_eval "/kgfm-src/output/incite-pretrain-phase1/incite_best.pth,/kgfm-src/output/incite-pretrain-4g/incite_best.pth,/kgfm-src/output/incite-pretrain-phase23/incite_best.pth,/kgfm-src/output/incite-pretrain-phase22/incite_best.pth" \
-       /kgfm-src/configs/incite_phase1.yaml incite-ens4; then done_mark E6; else fail_mark E6; fi
-fi
-
-# ---- L1/L2: learning-rate-decay continuations -----------------------------
-DECAY="--lr_schedule linear --lr_final 0 --warmup_steps 500 --keep_every 1000 --schedule_start 20001"
-if ! skip L1; then
-  rm -rf "$INC/output/incite-pretrain"
-  mkdir -p "$INC/output/incite-pretrain"
-  cp "$INC/output/incite-pretrain-4g/incite_last.pth" "$INC/output/incite-pretrain/incite_last.pth"
-  if incite_pretrain L1 /kgfm-src/configs/incite_phase1_4g.yaml 4g-decay 30000 \
-       INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
-       INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
-    ok=1
-    incite_eval /kgfm-src/output/incite-pretrain-4g-decay/incite_best.pth \
-      /kgfm-src/configs/incite_phase1.yaml incite-4g-decay || ok=0
-    incite_eval /kgfm-src/output/incite-pretrain-4g-decay/incite_last.pth \
-      /kgfm-src/configs/incite_phase1.yaml incite-4g-decay-last || ok=0
-    [ "$ok" -eq 1 ] && done_mark L1 || fail_mark L1
-  else
-    fail_mark L1
-  fi
-fi
 # ---- M1: half-link masking, paired against L1 (same start, same decay) ---
 if ! skip M1; then
   rm -rf "$INC/output/incite-pretrain"
@@ -236,8 +212,25 @@ if ! skip M1; then
   fi
 fi
 
+# ---- L1: 4g decay continuation (the paired baseline) -----------------------------
+if ! skip L1; then
+  rm -rf "$INC/output/incite-pretrain"
+  mkdir -p "$INC/output/incite-pretrain"
+  cp "$INC/output/incite-pretrain-4g/incite_last.pth" "$INC/output/incite-pretrain/incite_last.pth"
+  if incite_pretrain L1 /kgfm-src/configs/incite_phase1_4g.yaml 4g-decay 30000 \
+       INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
+    ok=1
+    incite_eval /kgfm-src/output/incite-pretrain-4g-decay/incite_best.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-decay || ok=0
+    incite_eval /kgfm-src/output/incite-pretrain-4g-decay/incite_last.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-decay-last || ok=0
+    [ "$ok" -eq 1 ] && done_mark L1 || fail_mark L1
+  else
+    fail_mark L1
+  fi
+fi
 # ---- G1: the unary channel, warm start from the 4g last checkpoint ---------
-UDECAY="--lr_schedule linear --lr_final 0 --warmup_steps 500 --keep_every 1000"
 if ! skip G1; then
   rm -rf "$INC/output/incite-pretrain"
   if PLAN_INIT_FROM=/kgfm-src/output/incite-pretrain-4g/incite_last.pth \
@@ -255,6 +248,118 @@ if ! skip G1; then
   fi
 fi
 
+# ---- MG1: masking + unary together, from the same checkpoint -------------
+if ! skip MG1; then
+  rm -rf "$INC/output/incite-pretrain"
+  if PLAN_INIT_FROM=/kgfm-src/output/incite-pretrain-4g/incite_last.pth \
+     incite_pretrain MG1 /kgfm-src/configs/incite_phase1_4g_unary.yaml 4g-maskunary 10000 \
+       INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="$UDECAY --mask_answer_p 0.3 --mask_query_p 0.3"; then
+    ok=1
+    incite_eval /kgfm-src/output/incite-pretrain-4g-maskunary/incite_last.pth \
+      /kgfm-src/configs/incite_phase1_4g_unary.yaml incite-4g-maskunary-last || ok=0
+    incite_eval /kgfm-src/output/incite-pretrain-4g-maskunary/incite_best.pth \
+      /kgfm-src/configs/incite_phase1_4g_unary.yaml incite-4g-maskunary || ok=0
+    [ "$ok" -eq 1 ] && done_mark MG1 || fail_mark MG1
+  else
+    fail_mark MG1
+  fi
+fi
+
+# ---- B2/B3: backbone seed repeats (4g, 20k constant, from scratch) ---------
+for pair in "B2 1337" "B3 7"; do
+  set -- $pair; st="$1"; seed="$2"
+  if skip "$st"; then continue; fi
+  rm -rf "$INC/output/incite-pretrain"
+  if incite_pretrain "$st" /kgfm-src/configs/incite_phase1_4g.yaml "4g-seed$seed" 20000 \
+       INCITE_SEED="$seed" INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="--keep_every 1000"; then
+    done_mark "$st"
+  else
+    fail_mark "$st"
+  fi
+done
+
+# ---- the winning continuation recipe, by the -last dumps' mean group MRR --
+pick_winner() {
+  python3 - "$INC/ranks" <<'PY'
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[1]), "..", "sotaKGFMs", "shared"))
+sys.path.insert(0, "/home/lukef/Dokumente/GitHub/sotaKGFMs/shared")
+import metrics, suite
+cands = {"L1": "incite-4g-decay-last", "M1": "incite-4g-mask-last",
+         "G1": "incite-4g-unary-last", "MG1": "incite-4g-maskunary-last"}
+best, best_v = None, -1.0
+for name, d in cands.items():
+    p = os.path.join(sys.argv[1], d)
+    per = metrics.compute_dir(p, dtype="float64") if os.path.isdir(p) else {}
+    if len(per) < 41:
+        continue
+    e = metrics.group_mean({k: v for k, v in per.items() if suite.by_id(k).group == "ind_e"}, "mrr")
+    er = metrics.group_mean({k: v for k, v in per.items() if suite.by_id(k).group == "ind_er"}, "mrr")
+    v = (e + er) / 2
+    if v > best_v:
+        best, best_v = name, v
+print(best or "none")
+PY
+}
+WIN="$(pick_winner)"
+say "winning continuation recipe: $WIN"
+case "$WIN" in
+  L1)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY";  WMODE=resume ;;
+  M1)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY --mask_answer_p 0.3 --mask_query_p 0.3"; WMODE=resume ;;
+  G1)  WCFG=/kgfm-src/configs/incite_phase1_4g_unary.yaml; WFLAGS="$UDECAY"; WMODE=init ;;
+  MG1) WCFG=/kgfm-src/configs/incite_phase1_4g_unary.yaml; WFLAGS="$UDECAY --mask_answer_p 0.3 --mask_query_p 0.3"; WMODE=init ;;
+  *)   WCFG=""; ;;
+esac
+
+# ---- C2/C3: apply the winner to the seed-repeat backbones ------------------
+for pair in "C2 1337 B2" "C3 7 B3"; do
+  set -- $pair; st="$1"; seed="$2"; dep="$3"
+  if skip "$st"; then continue; fi
+  if [ -z "$WCFG" ] || [ ! -e "$ORC/$dep.done" ]; then
+    say "$st: no winner or backbone $dep missing"; fail_mark "$st"; continue
+  fi
+  src="$INC/output/incite-pretrain-4g-seed$seed/incite_last.pth"
+  rm -rf "$INC/output/incite-pretrain"
+  if [ "$WMODE" = resume ]; then
+    mkdir -p "$INC/output/incite-pretrain"
+    cp "$src" "$INC/output/incite-pretrain/incite_last.pth"
+    total=30000; initenv=""
+  else
+    total=10000; initenv="/kgfm-src/output/incite-pretrain-4g-seed$seed/incite_last.pth"
+  fi
+  if PLAN_INIT_FROM="$initenv" incite_pretrain "$st" "$WCFG" "$WIN-seed$seed" "$total" \
+       INCITE_SEED="$seed" INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="$WFLAGS"; then
+    ok=1
+    incite_eval "/kgfm-src/output/incite-pretrain-$WIN-seed$seed/incite_last.pth" \
+      "$WCFG" "incite-$WIN-seed$seed-last" || ok=0
+    [ "$ok" -eq 1 ] && done_mark "$st" || fail_mark "$st"
+  else
+    fail_mark "$st"
+  fi
+done
+
+# ---- E4/E5: 41-graph re-ranking evals ------------------------------------
+for pair in "E4 /kgfm-src/output/incite-pretrain-4g/incite_best.pth incite-4g-rerank" \
+            "E5 /kgfm-src/output/incite-pretrain-phase1/incite_best.pth incite-rerank"; do
+  set -- $pair; st="$1"; ckpt="$2"; name="$3"
+  if skip "$st"; then continue; fi
+  if [ "$PICK" = dead ]; then
+    say "$st: re-ranking lever dead on DEV10, skipped"; fail_mark "$st"; continue
+  fi
+  set -- $PICK; K="$1"; W="$2"
+  if incite_eval "$ckpt" /kgfm-src/configs/incite_phase1.yaml "$name" \
+       "--rerank_k $K --rerank_weight $W"; then done_mark "$st"; else fail_mark "$st"; fi
+done
+
+# ---- E6: score ensemble of four trunks ------------------------------------
+if ! skip E6; then
+  if incite_eval "/kgfm-src/output/incite-pretrain-phase1/incite_best.pth,/kgfm-src/output/incite-pretrain-4g/incite_best.pth,/kgfm-src/output/incite-pretrain-phase23/incite_best.pth,/kgfm-src/output/incite-pretrain-phase22/incite_best.pth" \
+       /kgfm-src/configs/incite_phase1.yaml incite-ens4; then done_mark E6; else fail_mark E6; fi
+fi
+
 # ---- F0: FLOCK's last graph ----------------------------------------------
 if ! skip F0; then
   rm -rf "$ROOT/ranks/.claims-flock"
@@ -264,6 +369,7 @@ if ! skip F0; then
   if [ -f "$ROOT/ranks/flock/FBIngram_25.parquet" ]; then done_mark F0; else fail_mark F0; fi
 fi
 
+# ---- L2: floor continuation -------------------------------------------
 if ! skip L2; then
   rm -rf "$INC/output/incite-pretrain"
   mkdir -p "$INC/output/incite-pretrain"
