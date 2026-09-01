@@ -116,6 +116,15 @@ json.dump(prov, open(path, "w"), indent=2, sort_keys=True)
 PROVPY
 
 mkdir -p "$CLAIMS"
+# Reclaim stale claims (2026-09-01): a claim without a parquet belongs to a
+# worker that died or was stopped mid-graph (the plan v3 takeover stopped
+# one, and E2 then skipped that graph as "taken"). Only one worker runs
+# per ranks dir in this project, so a parquet-less claim is always stale.
+for c in "$CLAIMS"/*/; do
+  [ -d "$c" ] || continue
+  id="$(basename "$c")"
+  [ -s "$RANKS/$id.parquet" ] || { rmdir "$c" && echo "reclaimed stale claim: $id"; }
+done
 export TRIX_ROOT="$TRIXDIR"
 export PYTHONPATH="$WORKDIR:$ROOT/shared${PYTHONPATH:+:$PYTHONPATH}"
 # python -m puts the *current directory* ahead of PYTHONPATH, and the image's
