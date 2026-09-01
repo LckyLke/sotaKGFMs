@@ -1,18 +1,30 @@
 #!/usr/bin/env bash
-# ONE command brings the whole program back after a pause/reboot
-# (2026-09-01). Every queue is marker-based and self-ordering: the
-# baseline orchestrator resumes the composite seed runs from their last
-# checkpoint, the retry watcher re-runs the KGPFN suite (finished graphs
-# skip via parquets) and FLOCK's last graph, research chain 1 fires when
-# ranks/kgpfn hits 41, research chain 2 waits for the GPU to free.
+# ONE command brings the program back after a pause or reboot (rewritten
+# 2026-09-01). The research plan is marker-based and self-ordering: it
+# resumes pretrain stages from their last checkpoint (optimizer state and
+# lr schedule included) and skips finished stages. The KGPFN small retry
+# waits for any running KGPFN suite container, then reruns the small failed
+# graphs beside the plan.
+#
+# The old queues (baseline_orchestrator.sh R3/R4, retry_watcher.sh,
+# queued_research.sh, research_chain2.sh) are superseded: see
+# scripts/research_plan.sh's header for why. Do not relaunch them.
 #
 #   cd ~/Dokumente/GitHub/sotaKGFMs && ./RESTART.sh
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
-mkdir -p output/baseline-orchestrator output/research-chain output/research-chain2
-nohup scripts/baseline_orchestrator.sh >> output/baseline-orchestrator/nohup.log 2>&1 & disown
-nohup scripts/retry_watcher.sh        >> output/retry-watcher-nohup.log        2>&1 & disown
-nohup scripts/queued_research.sh      >> output/research-chain-nohup.log       2>&1 & disown
-nohup scripts/research_chain2.sh      >> output/research-chain2-nohup.log      2>&1 & disown
-echo "all queues relaunched; watch output/*/log.txt"
+mkdir -p output/research-plan
+if pgrep -f '^bash scripts/research_plan.sh' > /dev/null; then
+  echo "research_plan.sh already running"
+else
+  nohup scripts/research_plan.sh >> output/research-plan/nohup.log 2>&1 & disown
+  echo "research_plan.sh launched"
+fi
+if pgrep -f '^bash scripts/kgpfn_small_retry.sh' > /dev/null; then
+  echo "kgpfn_small_retry.sh already running"
+else
+  nohup scripts/kgpfn_small_retry.sh >> output/kgpfn-small-retry-nohup.log 2>&1 & disown
+  echo "kgpfn_small_retry.sh launched"
+fi
+echo "watch output/research-plan/log.txt"

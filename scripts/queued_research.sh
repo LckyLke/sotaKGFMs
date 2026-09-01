@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUPERSEDED 2026-09-01 by scripts/research_plan.sh (see its header). Do not relaunch.
 # Research chain behind the KGPFN suite (2026-08-31): checkpoint soup +
 # complementarity analysis. Waits for ranks/kgpfn to reach 41 parquets,
 # then: (1) complementarity report (CPU), (2) build the floor-descendant

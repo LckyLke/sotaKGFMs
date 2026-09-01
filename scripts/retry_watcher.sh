@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUPERSEDED 2026-09-01 by scripts/research_plan.sh (see its header). Do not relaunch.
 # Retry watcher (2026-09-01): after the current KGPFN pass exits, rerun the
 # suite for the 13 rsync-collision failures (parquets skip the 10 done),
 # then retry FLOCK's FBIngram:25 with patch 0005 applied to the workdir.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUPERSEDED 2026-09-01 by scripts/research_plan.sh (see its header). Do not relaunch.
 # Research chain 2 (2026-08-31): the TRIX matched-budget A/B and the
 # synthetic-prior fraction sweep. Runs AFTER the baseline orchestrator's
 # process exits (its R-stages own the GPU until then) and after research

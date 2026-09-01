@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUPERSEDED 2026-09-01 by scripts/research_plan.sh (see its header). Do not relaunch.
 # Baseline-completion queue (2026-08-31, user order: "complete everything,
 # also FLOCK, establish the baseline, then push the research").
 #

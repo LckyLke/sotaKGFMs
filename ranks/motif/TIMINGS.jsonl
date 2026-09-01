@@ -1,0 +1,13 @@
+{"dataset": "NELL995", "device": "gpu", "index": 1, "model": "motif", "run_id": "NELL995", "seconds": 350.36, "started": "2026-08-31T21:16:55Z", "status": "ok"}
+{"dataset": "YAGO310", "device": "gpu", "index": 2, "model": "motif", "run_id": "YAGO310", "seconds": 11.578, "started": "2026-08-31T21:22:45Z", "status": "failed"}
+{"dataset": "CoDExSmall", "device": "gpu", "index": 3, "model": "motif", "run_id": "CoDExSmall", "seconds": 11.264, "started": "2026-08-31T21:22:57Z", "status": "failed"}
+{"dataset": "CoDExLarge", "device": "gpu", "index": 4, "model": "motif", "run_id": "CoDExLarge", "seconds": 11.245, "started": "2026-08-31T21:23:08Z", "status": "failed"}
+{"dataset": "Hetionet", "device": "gpu", "index": 5, "model": "motif", "run_id": "Hetionet", "seconds": 11.231, "started": "2026-08-31T21:23:20Z", "status": "failed"}
+{"dataset": "ConceptNet100k", "device": "gpu", "index": 6, "model": "motif", "run_id": "ConceptNet100k", "seconds": 11.245, "started": "2026-08-31T21:23:31Z", "status": "failed"}
+{"dataset": "DBpedia100k", "device": "gpu", "index": 7, "model": "motif", "run_id": "DBpedia100k", "seconds": 11.235, "started": "2026-08-31T21:23:42Z", "status": "failed"}
+{"dataset": "AristoV4", "device": "gpu", "index": 8, "model": "motif", "run_id": "AristoV4", "seconds": 11.245, "started": "2026-08-31T21:23:53Z", "status": "failed"}
+{"dataset": "WDsinger", "device": "gpu", "index": 9, "model": "motif", "run_id": "WDsinger", "seconds": 11.246, "started": "2026-08-31T21:24:05Z", "status": "failed"}
+{"dataset": "NELL23k", "device": "gpu", "index": 10, "model": "motif", "run_id": "NELL23k", "seconds": 11.238, "started": "2026-08-31T21:24:16Z", "status": "failed"}
+{"dataset": "FB15k237_10", "device": "gpu", "index": 11, "model": "motif", "run_id": "FB15k237_10", "seconds": 11.247, "started": "2026-08-31T21:24:27Z", "status": "failed"}
+{"dataset": "FB15k237_20", "device": "gpu", "index": 12, "model": "motif", "run_id": "FB15k237_20", "seconds": 11.294, "started": "2026-08-31T21:24:38Z", "status": "failed"}
+{"dataset": "FB15k237_50", "device": "gpu", "index": 13, "model": "motif", "run_id": "FB15k237_50", "seconds": 11.229, "started": "2026-08-31T21:24:50Z", "status": "failed"}
