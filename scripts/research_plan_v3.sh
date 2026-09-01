@@ -178,9 +178,13 @@ import json, sys
 r = json.load(open(sys.argv[1]))
 def sel(c): g = c["dev10_groups"]; return sum(g.values()) / len(g)
 base = [c for c in r["cells"] if c["k"] == 0][0]
-best = max((c for c in r["cells"] if c["k"] > 0), key=sel)
+cells = [c for c in r["cells"] if c["k"] > 0]
+best = max(cells, key=sel)
 if sel(best) - sel(base) >= 0.002:
-    print("%d %g" % (best["k"], best["weight"]))
+    # the cheapest cell within 0.001 of the best (eval cost grows with k)
+    ok = [c for c in cells if sel(best) - sel(c) <= 0.001]
+    pick = min(ok, key=lambda c: (c["k"], -sel(c)))
+    print("%d %g" % (pick["k"], pick["weight"]))
 else:
     print("dead")
 PY
