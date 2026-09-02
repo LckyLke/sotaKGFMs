@@ -258,6 +258,11 @@ def main(argv=None):
     parser.add_argument("--mask_query_p", type=float, default=None,
                         help="per-row probability of dropping the head's "
                              "other outgoing query-relation edges")
+    parser.add_argument("--mask_answer_maxdeg", type=int, default=None,
+                        help="answer masking only for targets with at most "
+                             "this many incoming query-relation edges "
+                             "(0 = no cap; M1 masked hubs and learned a "
+                             "popularity prior)")
     args = parser.parse_args(argv)
 
     with open(args.config) as handle:
@@ -281,8 +286,11 @@ def main(argv=None):
                 else float(tcfg.get("mask_answer_p", 0.0)))
     p_query = (args.mask_query_p if args.mask_query_p is not None
                else float(tcfg.get("mask_query_p", 0.0)))
+    mask_maxdeg = (args.mask_answer_maxdeg if args.mask_answer_maxdeg is not None
+                   else int(tcfg.get("mask_answer_maxdeg", 0)))
     if p_answer > 0 or p_query > 0:
-        print("half-link masking ON: p_answer %.2f, p_query %.2f" % (p_answer, p_query))
+        print("half-link masking ON: p_answer %.2f, p_query %.2f, answer in-degree cap %d"
+              % (p_answer, p_query, mask_maxdeg))
     # phase 2.1b: synthetic automorphic-instance supervision. None unless a
     # config carries `synth: {enabled: yes, ...}` -- absent or off means not a
     # line of incite/synth.py runs and the loop is byte-for-byte the old one.
@@ -488,7 +496,7 @@ def main(argv=None):
                     sampler=tasks.negative_sampling,
                     halflink=incite_train.halflink_masks(
                         batch_size, p_answer, p_query, args.seed, step, micro,
-                        device=device))
+                        device=device, max_answer_degree=mask_maxdeg))
                 if lam > 0:
                     micro_rel = incite_train.relation_loss_from_triples(
                         model, graph, triples, support=store,

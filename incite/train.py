@@ -167,11 +167,12 @@ def entity_loss_from_triples(model, graph, triples: torch.Tensor,
 
 
 def halflink_masks(batch_size: int, p_answer: float, p_query: float,
-                   seed: int, step: int, micro: int = 0, device=None):
+                   seed: int, step: int, micro: int = 0, device=None,
+                   max_answer_degree: int = 0):
     """The per-row coins for half-link masking, a pure function of
     (seed, step, micro) so a resumed run draws the same masks. Returns None
     when both probabilities are zero (the loop is then byte-for-byte the old
-    one)."""
+    one); else ``(mask_answer, mask_query, max_answer_degree)``."""
     if p_answer <= 0.0 and p_query <= 0.0:
         return None
     gen = torch.Generator().manual_seed(int(seed) * 1000003 + int(step) * 7 + int(micro))
@@ -179,7 +180,7 @@ def halflink_masks(batch_size: int, p_answer: float, p_query: float,
     mask_query = torch.rand(batch_size, generator=gen) < float(p_query)
     if device is not None:
         mask_answer, mask_query = mask_answer.to(device), mask_query.to(device)
-    return mask_answer, mask_query
+    return mask_answer, mask_query, int(max_answer_degree)
 
 
 def entity_batch_loss(model, graph, batch_size: int, num_negative: int,

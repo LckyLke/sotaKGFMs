@@ -98,7 +98,8 @@ def negative_sample_to_tail(h_index, t_index, r_index, num_direct_rel):
     return new_h_index, new_t_index, new_r_index
 
 
-def mask_halflinks(graph, h, r, t, mask_answer, mask_query, num_direct):
+def mask_halflinks(graph, h, r, t, mask_answer, mask_query, num_direct,
+                   max_answer_degree: int = 0):
     """Half-link masking (2026-09-01): a copy of ``graph`` without the
     answer half and/or the query half of the given tail-form positives.
 
@@ -121,6 +122,12 @@ def mask_halflinks(graph, h, r, t, mask_answer, mask_query, num_direct):
     ``remove_easy_edges`` for masked rows. The relation-level incidence
     pairs (built from the full graph, as in TRIX) are untouched: they carry
     a per-relation bulk statistic, not a per-entity signal.
+
+    ``max_answer_degree > 0`` (2026-09-02, after M1) restricts answer
+    masking to targets with at most that many incoming query-relation
+    edges in ``graph``. M1 masked hubs too (one target lost 484 edges of a
+    relation) and the model learned a popularity prior from the stripped
+    hubs; real unseen-answer targets are rare entities.
     """
     if not (bool(mask_answer.any()) or bool(mask_query.any())):
         return graph
@@ -132,6 +139,11 @@ def mask_halflinks(graph, h, r, t, mask_answer, mask_query, num_direct):
 
     src_key = ei[0] * R2 + et
     dst_key = ei[1] * R2 + et
+    if max_answer_degree > 0 and bool(mask_answer.any()):
+        # in-degree of each row's target under its query relation
+        counts = torch.bincount(dst_key, minlength=int(graph.num_nodes) * R2)
+        deg = counts[t * R2 + r]
+        mask_answer = mask_answer & (deg <= int(max_answer_degree))
     drop = torch.zeros(et.shape[0], dtype=torch.bool, device=et.device)
     if bool(mask_answer.any()):
         ta, ra = t[mask_answer], r[mask_answer]
@@ -361,10 +373,11 @@ class INCITE(nn.Module):
         assert (h_index[:, [0]] == h_index).all()
         assert (r_index[:, [0]] == r_index).all()
         if self.training and halflink is not None:
-            mask_answer, mask_query = halflink
+            mask_answer, mask_query = halflink[0], halflink[1]
+            maxdeg = int(halflink[2]) if len(halflink) > 2 else 0
             msg_graph = mask_halflinks(msg_graph, h_index[:, 0], r_index[:, 0],
                                        t_index[:, 0], mask_answer, mask_query,
-                                       num_direct)
+                                       num_direct, max_answer_degree=maxdeg)
 
         x, z = self._trunk(msg_graph, pairs, h_index[:, 0], r_index[:, 0],
                            None, TASK_ENTITY, walk_offset)

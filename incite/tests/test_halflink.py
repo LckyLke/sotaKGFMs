@@ -120,3 +120,32 @@ def test_masks_are_pure_functions_of_seed_step_micro():
     assert torch.equal(a[0], b[0]) and torch.equal(a[1], b[1])
     assert not (torch.equal(a[0], c[0]) and torch.equal(a[1], c[1]))
     assert halflink_masks(16, 0.0, 0.0, 1024, 1) is None
+    assert halflink_masks(16, 0.5, 0.0, 1024, 1, max_answer_degree=5)[2] == 5
+
+
+def test_degree_cap_spares_hub_targets():
+    """With a cap, a target whose query-relation in-degree exceeds it keeps
+    its edges; a low-degree target is still masked."""
+    g = make_toy_graph(num_edges=60)
+    nd = g.num_relations // 2
+    e = _edges(g)
+    # in-degree of every (t, r) under direct relations
+    deg = {}
+    for (x, rr, y) in e:
+        if rr < nd:
+            deg[(y, rr)] = deg.get((y, rr), 0) + 1
+    (hub_t, hub_r), hub_deg = max(deg.items(), key=lambda kv: kv[1])
+    low = [(k, v) for k, v in deg.items() if v == 1]
+    assert hub_deg >= 2 and low, deg
+    (low_t, low_r), _ = low[0]
+    hub_h = next(x for (x, rr, y) in e if rr == hub_r and y == hub_t)
+    low_h = next(x for (x, rr, y) in e if rr == low_r and y == low_t)
+    h = torch.tensor([hub_h, low_h]); r = torch.tensor([hub_r, low_r]); t = torch.tensor([hub_t, low_t])
+    both = torch.tensor([True, True]); no = torch.tensor([False, False])
+    out = mask_halflinks(g, h, r, t, both, no, nd, max_answer_degree=1)
+    after = _edges(out)
+    assert sum(1 for (x, rr, y) in after if rr == hub_r and y == hub_t) == hub_deg   # hub spared
+    assert not any(rr == low_r and y == low_t for (x, rr, y) in after)             # low masked
+    # without the cap the hub is masked too
+    out2 = mask_halflinks(g, h, r, t, both, no, nd)
+    assert not any(rr == hub_r and y == hub_t for (x, rr, y) in _edges(out2))
