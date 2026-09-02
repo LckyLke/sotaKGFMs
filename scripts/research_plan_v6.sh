@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# SUPERSEDED by scripts/research_plan_v6.sh (seed stages deferred). Do not relaunch.
+# Research plan v6 (2026-09-02, 12:50): seed repeats deferred (user decision:
+# run them once the paper model is known). Order after L1:
+#   G1 M2 P1 L2 X1 X2 E4 E5 E6 F0, then B2 B3 C2 C3 ONLY if the sentinel
+#   output/research-plan/SEEDS_GO exists (touch it to release them).
+# Restart: nohup scripts/research_plan_v6.sh >> output/research-plan/nohup.log 2>&1 & disown
+#
+# ---- v5 header follows ----
 # Research plan v5 (2026-09-02, 10:40): v4 with the masking dose corrected.
 # M1 (p 0.3/0.3, hubs included) was net-negative and inverted
 # (results/incite/MASKING_RESULT.md). MG1 (masking + unary at that dose)
@@ -149,7 +155,7 @@ seed_pretrain_dir() {
   return 0
 }
 
-say "=== research plan v5 start (pid $$) ==="
+say "=== research plan v6 start (pid $$) ==="
 
 # ---- takeover from v1: let it finish E6, then stop it -------------------
 if pgrep -f '^bash scripts/research_plan.sh' > /dev/null; then
@@ -305,6 +311,113 @@ if ! skip M2; then
   fi
 fi
 
+# ---- P1: synthetic-prior 100% pilot, 10k steps ----------------------------
+if ! skip P1; then
+  seed_pretrain_dir P1
+  if incite_pretrain P1 /kgfm-src/configs/incite_synthsweep_100.yaml synth100-pilot 10000 \
+       INCITE_TRAIN_EXTRA_ARGS="--keep_every 1000"; then
+    if incite_eval /kgfm-src/output/incite-pretrain-synth100-pilot/incite_best.pth \
+         /kgfm-src/configs/incite_synthsweep_100.yaml incite-synth100-pilot; then
+      done_mark P1
+    else
+      fail_mark P1
+    fi
+  else
+    fail_mark P1
+  fi
+fi
+
+# ---- L2: floor continuation -------------------------------------------
+if ! skip L2; then
+  seed_pretrain_dir L2 "$INC/output/incite-pretrain-phase1/incite_last.pth"
+  if incite_pretrain L2 /kgfm-src/configs/incite_phase1.yaml decay 30000 \
+       INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
+    ok=1
+    incite_eval /kgfm-src/output/incite-pretrain-decay/incite_best.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-decay || ok=0
+    incite_eval /kgfm-src/output/incite-pretrain-decay/incite_last.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-decay-last || ok=0
+    [ "$ok" -eq 1 ] && done_mark L2 || fail_mark L2
+  else
+    fail_mark L2
+  fi
+fi
+
+# ---- X1: TRIX@20k matched-budget pretrain (output_dir FIXED) --------------
+if ! skip X1; then
+  mkdir -p "$ROOT/output/trix-20k" "$ROOT/data/roots/trix-20k"
+  # its own processed root, copied from INCITE's pretrain root (the same
+  # TRIX loaders built it): never write into a root a live runner reads
+  cp -rn "$INC/data/roots/incite/pretrain/." "$ROOT/data/roots/trix-20k/" 2>/dev/null
+  env $ALLOC scripts/docker_run.sh trix bash -c '
+    cd /kgfm-src/output/trix-20k
+    cp /kgfm/repos/trix/config/pretrain_entity.yaml cfg.yaml
+    sed -i "s/batch_per_epoch: 80000/batch_per_epoch: 2000/; s|root: /kg-datasets/|root: /kgfm-src/data/roots/trix-20k/|; s|output_dir: /output|output_dir: /kgfm-src/output/trix-20k|" cfg.yaml
+    grep -E "output_dir|batch_per_epoch|root:" cfg.yaml
+    python /kgfm/repos/trix/src/pretrain_entity.py -c cfg.yaml --gpus "[0]"' \
+    >> "$LOG" 2>&1
+  if ls "$ROOT"/output/trix-20k/TRIX/*/*/model_epoch_*.pth >/dev/null 2>&1; then
+    done_mark X1
+  else
+    fail_mark X1
+  fi
+fi
+
+# ---- X2: eval best epoch (from TRIX's own log) and the last epoch ---------
+if ! skip X2; then
+  if [ -e "$ORC/X1.done" ]; then
+    wd="$(dirname "$(ls -t "$ROOT"/output/trix-20k/TRIX/*/*/model_epoch_*.pth | head -1)")"
+    last="$(ls "$wd"/model_epoch_*.pth | sort -t_ -k3 -n | tail -1)"
+    bestep="$(grep -o 'Load checkpoint from model_epoch_[0-9]*.pth' "$wd/log.txt" 2>/dev/null | tail -1 | grep -o '[0-9]*' | tail -1)"
+    best="$wd/model_epoch_${bestep:-10}.pth"
+    say "X2: last=$last best=$best"
+    ok=1
+    for pair in "$best trix-20k-best" "$last trix-20k-last"; do
+      set -- $pair; ck="$1"; name="$2"
+      env TRIX_CKPT="${ck/$ROOT//kgfm-src}" TRIX_RANKS="/kgfm-src/ranks/$name" $ALLOC \
+        scripts/docker_run.sh trix bash -c \
+        '/kgfm-src/scripts/run_trix.sh ind_e "[0]"; /kgfm-src/scripts/run_trix.sh ind_er "[0]"' \
+        >> "$LOG" 2>&1
+      [ "$(nparquet "$ROOT/ranks/$name")" -ge 41 ] || ok=0
+    done
+    [ "$ok" -eq 1 ] && done_mark X2 || fail_mark X2
+  else
+    fail_mark X2
+  fi
+fi
+
+# ---- E4/E5: 41-graph re-ranking evals ------------------------------------
+for pair in "E4 /kgfm-src/output/incite-pretrain-4g/incite_best.pth incite-4g-rerank" \
+            "E5 /kgfm-src/output/incite-pretrain-phase1/incite_best.pth incite-rerank"; do
+  set -- $pair; st="$1"; ckpt="$2"; name="$3"
+  if skip "$st"; then continue; fi
+  if [ "$PICK" = dead ]; then
+    say "$st: re-ranking lever dead on DEV10, skipped"; fail_mark "$st"; continue
+  fi
+  set -- $PICK; K="$1"; W="$2"
+  if incite_eval "$ckpt" /kgfm-src/configs/incite_phase1.yaml "$name" \
+       "--rerank_k $K --rerank_weight $W"; then done_mark "$st"; else fail_mark "$st"; fi
+done
+
+# ---- E6: score ensemble of four trunks ------------------------------------
+if ! skip E6; then
+  if incite_eval "/kgfm-src/output/incite-pretrain-phase1/incite_best.pth,/kgfm-src/output/incite-pretrain-4g/incite_best.pth,/kgfm-src/output/incite-pretrain-phase23/incite_best.pth,/kgfm-src/output/incite-pretrain-phase22/incite_best.pth" \
+       /kgfm-src/configs/incite_phase1.yaml incite-ens4; then done_mark E6; else fail_mark E6; fi
+fi
+
+# ---- F0: FLOCK's last graph ----------------------------------------------
+if ! skip F0; then
+  rm -rf "$ROOT/ranks/.claims-flock"
+  env $ALLOC FLOCK_BATCH_DIVISOR=4 FLOCK_DATASETS="FBIngram:25" \
+    FLOCK_WORKDIR=/kgfm-src/output/flock-run \
+    scripts/docker_run.sh flock /kgfm-src/scripts/run_flock.sh ind_er "[0]" >> "$LOG" 2>&1
+  if [ -f "$ROOT/ranks/flock/FBIngram_25.parquet" ]; then done_mark F0; else fail_mark F0; fi
+fi
+
+# ---- seed repeats: released by the sentinel only --------------------------
+if [ ! -e "$ORC/SEEDS_GO" ]; then
+  say "seed stages B2/B3/C2/C3 deferred: touch output/research-plan/SEEDS_GO to release them"
+else
 # ---- B2/B3: backbone seed repeats (4g, 20k constant, from scratch) ---------
 for pair in "B2 1337" "B3 7"; do
   set -- $pair; st="$1"; seed="$2"
@@ -379,107 +492,6 @@ for pair in "C2 1337 B2" "C3 7 B3"; do
   fi
 done
 
-# ---- E4/E5: 41-graph re-ranking evals ------------------------------------
-for pair in "E4 /kgfm-src/output/incite-pretrain-4g/incite_best.pth incite-4g-rerank" \
-            "E5 /kgfm-src/output/incite-pretrain-phase1/incite_best.pth incite-rerank"; do
-  set -- $pair; st="$1"; ckpt="$2"; name="$3"
-  if skip "$st"; then continue; fi
-  if [ "$PICK" = dead ]; then
-    say "$st: re-ranking lever dead on DEV10, skipped"; fail_mark "$st"; continue
-  fi
-  set -- $PICK; K="$1"; W="$2"
-  if incite_eval "$ckpt" /kgfm-src/configs/incite_phase1.yaml "$name" \
-       "--rerank_k $K --rerank_weight $W"; then done_mark "$st"; else fail_mark "$st"; fi
-done
-
-# ---- E6: score ensemble of four trunks ------------------------------------
-if ! skip E6; then
-  if incite_eval "/kgfm-src/output/incite-pretrain-phase1/incite_best.pth,/kgfm-src/output/incite-pretrain-4g/incite_best.pth,/kgfm-src/output/incite-pretrain-phase23/incite_best.pth,/kgfm-src/output/incite-pretrain-phase22/incite_best.pth" \
-       /kgfm-src/configs/incite_phase1.yaml incite-ens4; then done_mark E6; else fail_mark E6; fi
-fi
-
-# ---- F0: FLOCK's last graph ----------------------------------------------
-if ! skip F0; then
-  rm -rf "$ROOT/ranks/.claims-flock"
-  env $ALLOC FLOCK_BATCH_DIVISOR=4 FLOCK_DATASETS="FBIngram:25" \
-    FLOCK_WORKDIR=/kgfm-src/output/flock-run \
-    scripts/docker_run.sh flock /kgfm-src/scripts/run_flock.sh ind_er "[0]" >> "$LOG" 2>&1
-  if [ -f "$ROOT/ranks/flock/FBIngram_25.parquet" ]; then done_mark F0; else fail_mark F0; fi
-fi
-
-# ---- L2: floor continuation -------------------------------------------
-if ! skip L2; then
-  seed_pretrain_dir L2 "$INC/output/incite-pretrain-phase1/incite_last.pth"
-  if incite_pretrain L2 /kgfm-src/configs/incite_phase1.yaml decay 30000 \
-       INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
-    ok=1
-    incite_eval /kgfm-src/output/incite-pretrain-decay/incite_best.pth \
-      /kgfm-src/configs/incite_phase1.yaml incite-decay || ok=0
-    incite_eval /kgfm-src/output/incite-pretrain-decay/incite_last.pth \
-      /kgfm-src/configs/incite_phase1.yaml incite-decay-last || ok=0
-    [ "$ok" -eq 1 ] && done_mark L2 || fail_mark L2
-  else
-    fail_mark L2
-  fi
-fi
-
-# ---- X1: TRIX@20k matched-budget pretrain (output_dir FIXED) --------------
-if ! skip X1; then
-  mkdir -p "$ROOT/output/trix-20k" "$ROOT/data/roots/trix-20k"
-  # its own processed root, copied from INCITE's pretrain root (the same
-  # TRIX loaders built it): never write into a root a live runner reads
-  cp -rn "$INC/data/roots/incite/pretrain/." "$ROOT/data/roots/trix-20k/" 2>/dev/null
-  env $ALLOC scripts/docker_run.sh trix bash -c '
-    cd /kgfm-src/output/trix-20k
-    cp /kgfm/repos/trix/config/pretrain_entity.yaml cfg.yaml
-    sed -i "s/batch_per_epoch: 80000/batch_per_epoch: 2000/; s|root: /kg-datasets/|root: /kgfm-src/data/roots/trix-20k/|; s|output_dir: /output|output_dir: /kgfm-src/output/trix-20k|" cfg.yaml
-    grep -E "output_dir|batch_per_epoch|root:" cfg.yaml
-    python /kgfm/repos/trix/src/pretrain_entity.py -c cfg.yaml --gpus "[0]"' \
-    >> "$LOG" 2>&1
-  if ls "$ROOT"/output/trix-20k/TRIX/*/*/model_epoch_*.pth >/dev/null 2>&1; then
-    done_mark X1
-  else
-    fail_mark X1
-  fi
-fi
-
-# ---- X2: eval best epoch (from TRIX's own log) and the last epoch ---------
-if ! skip X2; then
-  if [ -e "$ORC/X1.done" ]; then
-    wd="$(dirname "$(ls -t "$ROOT"/output/trix-20k/TRIX/*/*/model_epoch_*.pth | head -1)")"
-    last="$(ls "$wd"/model_epoch_*.pth | sort -t_ -k3 -n | tail -1)"
-    bestep="$(grep -o 'Load checkpoint from model_epoch_[0-9]*.pth' "$wd/log.txt" 2>/dev/null | tail -1 | grep -o '[0-9]*' | tail -1)"
-    best="$wd/model_epoch_${bestep:-10}.pth"
-    say "X2: last=$last best=$best"
-    ok=1
-    for pair in "$best trix-20k-best" "$last trix-20k-last"; do
-      set -- $pair; ck="$1"; name="$2"
-      env TRIX_CKPT="${ck/$ROOT//kgfm-src}" TRIX_RANKS="/kgfm-src/ranks/$name" $ALLOC \
-        scripts/docker_run.sh trix bash -c \
-        '/kgfm-src/scripts/run_trix.sh ind_e "[0]"; /kgfm-src/scripts/run_trix.sh ind_er "[0]"' \
-        >> "$LOG" 2>&1
-      [ "$(nparquet "$ROOT/ranks/$name")" -ge 41 ] || ok=0
-    done
-    [ "$ok" -eq 1 ] && done_mark X2 || fail_mark X2
-  else
-    fail_mark X2
-  fi
-fi
-
-# ---- P1: synthetic-prior 100% pilot, 10k steps ----------------------------
-if ! skip P1; then
-  seed_pretrain_dir P1
-  if incite_pretrain P1 /kgfm-src/configs/incite_synthsweep_100.yaml synth100-pilot 10000 \
-       INCITE_TRAIN_EXTRA_ARGS="--keep_every 1000"; then
-    if incite_eval /kgfm-src/output/incite-pretrain-synth100-pilot/incite_best.pth \
-         /kgfm-src/configs/incite_synthsweep_100.yaml incite-synth100-pilot; then
-      done_mark P1
-    else
-      fail_mark P1
-    fi
-  else
-    fail_mark P1
-  fi
 fi
 
 say "=== research plan finished ==="

@@ -93,24 +93,26 @@ margin), `scripts/halflink_report.py --labels
    up to 0.10 MRR on single graphs; the only statistics we have are
    graph-level bootstraps. Three seeds of the winner are in the plan.
 
-## Running on this machine: `scripts/research_plan_v5.sh` (markers in output/research-plan/)
+## Running on this machine: `scripts/research_plan_v6.sh` (markers in output/research-plan/)
 
 Stages are idempotent (v4 fixed a relaunch that wiped a finished run).
-`./RESTART.sh` relaunches everything after a pause. Order and ETAs
-(continuations: 10k steps from the 4g last checkpoint, linear lr decay,
-warmup 500, kept snapshots every 1000):
+`./RESTART.sh` relaunches everything after a pause. Seed repeats are
+DEFERRED (user decision, 2026-09-02): they run only after someone
+creates `output/research-plan/SEEDS_GO`, once the paper model is known.
+Order and ETAs (continuations: 10k steps from the 4g last checkpoint,
+linear lr decay, warmup 500, kept snapshots every 1000):
 
 | stage | what | output (incite worktree) | ETA |
 | --- | --- | --- | --- |
-| L1 | decay only, the paired baseline (training now, step 21k) | ranks/incite-4g-decay(-last) | 14:45, 2 Sep |
-| G1 | unary channel (`model.unary`), warm start, unary head fresh | ranks/incite-4g-unary(-last) | 19:45 |
-| M2 | masking dose 2 (answer only, in-degree cap 10, p 0.5) | ranks/incite-4g-mask2(-last) | 00:30, 3 Sep |
-| B2/B3 | 4g backbone from scratch, seeds 1337 and 7, 20k constant lr | output/incite-pretrain-4g-seed* | 17:30, 3 Sep |
-| C2/C3 | the winning continuation recipe (auto-picked among L1/M1/G1/M2 by mean group MRR of the -last dumps) applied to both seeds | ranks/incite-<winner>-seed*-last | 03:30, 4 Sep |
-| E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 4 Sep |
-| F0, L2 | FLOCK's last graph; floor decay continuation | ranks/flock, incite-decay(-last) | 4 Sep |
-| X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 5 Sep |
-| P1 | synthetic rules-prior 100 percent pilot, 10k steps | ranks/incite-synth100-pilot | 5 Sep |
+| L1 | decay only, the paired baseline (training now, step 25k) | ranks/incite-4g-decay(-last) | 15:30, 2 Sep |
+| G1 | unary channel (`model.unary`), warm start, unary head fresh | ranks/incite-4g-unary(-last) | 20:30 |
+| M2 | masking dose 2 (answer only, in-degree cap 10, p 0.5) | ranks/incite-4g-mask2(-last) | 01:15, 3 Sep |
+| P1 | synthetic rules-prior 100 percent pilot, 10k steps | ranks/incite-synth100-pilot | 03:30, 3 Sep |
+| L2 | floor (3-graph) decay continuation, the matched-diet row | ranks/incite-decay(-last) | 08:00, 3 Sep |
+| X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 15:00, 3 Sep |
+| E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 19:00, 3 Sep |
+| F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 | 21:00, 3 Sep |
+| B2/B3, C2/C3 | backbone seeds 1337 and 7 (20k), then the winner continuation (auto-picked among L1/M1/G1/M2) on each | gated by SEEDS_GO | on release, about 26 h |
 
 Also running: the KGPFN suite in the background (1.7 GB, days), and
 `scripts/kgpfn_small_retry.sh` for its small failed graphs. Do NOT start
