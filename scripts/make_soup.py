@@ -25,7 +25,7 @@ import torch
 def main():
     out, donors = sys.argv[1], sys.argv[2:]
     assert len(donors) >= 2, "a soup needs at least two donors"
-    states = [torch.load(p, map_location="cpu") for p in donors]
+    states = [torch.load(p, map_location="cpu", weights_only=False) for p in donors]
     models = [s["model"] for s in states]
     ref = models[0]
     shared = set(ref)

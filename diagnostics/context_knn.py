@@ -51,7 +51,7 @@ def main():
     ap.add_argument("--eval_instances", type=int, default=None)
     args = ap.parse_args()
     cfg = EasyDict(yaml.safe_load(open(args.config)))
-    state = torch.load(args.ckpt, map_location="cpu")
+    state = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     model = D.ContextModel(cfg, state.get("mode", "floor"))
     model.load_state_dict(state["model"])
     model.eval()

@@ -108,7 +108,7 @@ def main():
     cfg = EasyDict(yaml.safe_load(open(args.config)))
     assert cfg.support.enabled, "probe needs a support-enabled config"
     model = build_model(cfg)
-    state = torch.load(args.ckpt, map_location="cpu")
+    state = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     model.load_state_dict(state["model"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device).eval()

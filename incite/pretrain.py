@@ -113,7 +113,7 @@ def load_mix_graphs(pretrain_root: str, names):
     from trix import datasets as trix_datasets
     cache = os.path.join(pretrain_root, "incite_mix_%s.pt" % "-".join(names))
     if os.path.exists(cache):
-        return torch.load(cache, map_location="cpu")
+        return torch.load(cache, map_location="cpu", weights_only=False)
     graphs = [trix_datasets.JointDataset.datasets_map[n](root=pretrain_root)
               for n in names]
     splits = ([g[0] for g in graphs], [g[1] for g in graphs], [g[2] for g in graphs])
@@ -340,7 +340,7 @@ def main(argv=None):
     start_step = 1
     resume_state = None
     if args.resume:
-        state = torch.load(args.resume, map_location="cpu")
+        state = torch.load(args.resume, map_location="cpu", weights_only=False)
         resume_state = state
         model.load_state_dict(state["model"])
         # Continue the counter: a resume that restarts at step 1 trains
@@ -356,7 +356,7 @@ def main(argv=None):
         print("resumed from %s: continuing at step %d of %d"
               % (args.resume, start_step, steps))
     if args.init_from:
-        state = torch.load(args.init_from, map_location="cpu")
+        state = torch.load(args.init_from, map_location="cpu", weights_only=False)
         missing, unexpected = model.load_state_dict(state["model"], strict=False)
         # A lever run must inherit the whole trunk: tensors missing from the
         # checkpoint may only belong to newly enabled modules, and every
@@ -558,7 +558,7 @@ def main(argv=None):
     # prove the round trip: the file just written must load into a fresh model
     if best_path:
         probe = build_model(cfg)
-        probe.load_state_dict(torch.load(best_path, map_location="cpu")["model"])
+        probe.load_state_dict(torch.load(best_path, map_location="cpu", weights_only=False)["model"])
         print("checkpoint reload OK: %s" % best_path)
     return 0
 

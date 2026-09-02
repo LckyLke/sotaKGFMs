@@ -74,7 +74,10 @@ def load_members(cfg: EasyDict, ckpt_paths):
     members, hashes = [], []
     for path in ckpt_paths:
         model = build_model(cfg)
-        state = torch.load(path, map_location="cpu")
+        # weights_only=False (2026-09-02): torch 2.6 flipped the default and
+        # our checkpoints carry config dicts beside the tensors; they are our
+        # own files, the cu128 stack is the first to hit this
+        state = torch.load(path, map_location="cpu", weights_only=False)
         missing, unexpected = model.load_state_dict(state["model"], strict=False)
         bad_missing = [k for k in missing if not k.startswith(LEVER_PREFIXES)]
         bad_unexpected = [k for k in unexpected if not k.startswith(LEVER_PREFIXES)]

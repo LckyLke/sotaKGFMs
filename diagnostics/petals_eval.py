@@ -81,7 +81,7 @@ def main():
 
     cfg = EasyDict(yaml.safe_load(open(args.config)))
     model = build_model(cfg)
-    state = torch.load(args.ckpt, map_location="cpu")
+    state = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     missing, unexpected = model.load_state_dict(state["model"], strict=False)
     assert not unexpected, unexpected
     if missing:
