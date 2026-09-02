@@ -11,7 +11,7 @@
 # kernels for it and torch 2.1 ships no SASS or PTX it could JIT, so the
 # image cannot run on the second machine (RTX 5070 Laptop, 8 GB). This file
 # is the same recipe on the first stack that supports sm_120: CUDA 12.8,
-# torch 2.8.0+cu128, PyG 2.6.1 with the matching torch-scatter/torch-sparse
+# torch 2.8.0+cu128, PyG 2.4.0 (TRIX's pin) with the matching torch-scatter/torch-sparse
 # wheels, Python 3.12.
 #
 # RULES.
@@ -60,7 +60,12 @@ RUN python3.12 -m pip install --no-cache-dir \
 RUN python3.12 -m pip install --no-cache-dir \
         torch-scatter==2.1.2 torch-sparse==0.6.18 \
         -f https://data.pyg.org/whl/torch-2.8.0+cu128.html
-RUN python3.12 -m pip install --no-cache-dir 'torch-geometric==2.6.1'
+# torch-geometric stays at TRIX's pin, 2.4.0: PyG 2.5+ renamed the
+# MessagePassing internals TRIX's propagate override calls
+# (Inspector.distribute -> collect_param_data), which breaks the pinned
+# reference layer and with it the layer gate. 2.4.0 imports and runs on
+# torch 2.8; the full INCITE suite passes on it in this image.
+RUN python3.12 -m pip install --no-cache-dir 'torch-geometric==2.4.0'
 RUN python3.12 -m pip install --no-cache-dir ninja easydict pyyaml jinja2
 
 # matplotlib: src/run_entity.py imports it at module scope (same reason as
