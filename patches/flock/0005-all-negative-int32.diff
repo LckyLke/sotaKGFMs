@@ -1,0 +1,16 @@
+Reason: FBIngram:25's data path yields int32 triples; all_negative's
+torch.meshgrid against the int64 arange raises "meshgrid expects all
+tensors to have the same dtype" and the graph fails in seconds. Cast the
+batch to long once at the function boundary. Found 2026-09-01 as the
+missing 41st FLOCK graph. The live workdir copy was patched in place;
+this diff makes the fix reproducible from a clean prepare.
+
+--- a/src_entity/flock/tasks.py
++++ b/src_entity/flock/tasks.py
+@@ -78,6 +78,10 @@
+ def all_negative(data, batch):
++    # FBIngram:25 delivers int32 triples; meshgrid against int64 arange
++    # raises "meshgrid expects all tensors to have the same dtype"
++    # (patches/flock/0005). Cast once at the boundary.
++    batch = batch.long()
+     pos_h_index, pos_t_index, pos_r_index = batch.t()

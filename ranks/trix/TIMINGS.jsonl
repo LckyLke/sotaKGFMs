@@ -40,3 +40,16 @@
 {"dataset": "Metafam", "device": "gpu", "index": 22, "model": "trix", "run_id": "Metafam:Metafam", "seconds": 3.754, "started": "2026-08-26T20:42:33Z", "status": "ok"}
 {"dataset": "FBNELL", "device": "gpu", "index": 23, "model": "trix", "run_id": "FBNELL:FBNELL_v1", "seconds": 5.087, "started": "2026-08-26T20:42:37Z", "status": "ok"}
 {"dataset": "NLIngram_0", "device": "gpu", "index": 1, "model": "trix", "run_id": "NLIngram:0", "seconds": 3.62, "started": "2026-08-26T20:43:30Z", "status": "ok"}
+{"dataset": "NELL995", "device": "gpu", "index": 1, "model": "trix", "run_id": "NELL995", "seconds": 96.501, "started": "2026-08-31T21:25:04Z", "status": "ok"}
+{"dataset": "YAGO310", "device": "gpu", "index": 2, "model": "trix", "run_id": "YAGO310", "seconds": 413.906, "started": "2026-08-31T21:26:40Z", "status": "ok"}
+{"dataset": "CoDExSmall", "device": "gpu", "index": 3, "model": "trix", "run_id": "CoDExSmall", "seconds": 5.563, "started": "2026-08-31T21:33:34Z", "status": "ok"}
+{"dataset": "CoDExLarge", "device": "gpu", "index": 4, "model": "trix", "run_id": "CoDExLarge", "seconds": 2300.96, "started": "2026-08-31T21:33:40Z", "status": "ok"}
+{"dataset": "Hetionet", "device": "gpu", "index": 5, "model": "trix", "run_id": "Hetionet", "seconds": 4485.694, "started": "2026-08-31T22:12:01Z", "status": "ok"}
+{"dataset": "ConceptNet100k", "device": "gpu", "index": 6, "model": "trix", "run_id": "ConceptNet100k", "seconds": 30.421, "started": "2026-08-31T23:26:47Z", "status": "ok"}
+{"dataset": "DBpedia100k", "device": "gpu", "index": 7, "model": "trix", "run_id": "DBpedia100k", "seconds": 2894.901, "started": "2026-08-31T23:27:17Z", "status": "ok"}
+{"dataset": "AristoV4", "device": "gpu", "index": 8, "model": "trix", "run_id": "AristoV4", "seconds": 811.95, "started": "2026-09-01T00:15:32Z", "status": "ok"}
+{"dataset": "WDsinger", "device": "gpu", "index": 9, "model": "trix", "run_id": "WDsinger", "seconds": 9.849, "started": "2026-09-01T00:29:04Z", "status": "ok"}
+{"dataset": "NELL23k", "device": "gpu", "index": 10, "model": "trix", "run_id": "NELL23k", "seconds": 35.831, "started": "2026-09-01T00:29:14Z", "status": "ok"}
+{"dataset": "FB15k237_10", "device": "gpu", "index": 11, "model": "trix", "run_id": "FB15k237_10", "seconds": 75.993, "started": "2026-09-01T00:29:50Z", "status": "ok"}
+{"dataset": "FB15k237_20", "device": "gpu", "index": 12, "model": "trix", "run_id": "FB15k237_20", "seconds": 108.998, "started": "2026-09-01T00:31:06Z", "status": "ok"}
+{"dataset": "FB15k237_50", "device": "gpu", "index": 13, "model": "trix", "run_id": "FB15k237_50", "seconds": 185.661, "started": "2026-09-01T00:32:55Z", "status": "ok"}

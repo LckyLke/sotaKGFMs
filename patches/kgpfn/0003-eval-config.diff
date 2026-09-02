@@ -1,0 +1,105 @@
+Reason: add a per-graph zero-shot evaluation config. The shipped test.yaml hardcodes graphs: CoDExMedium, subsamples 256 test queries via fast_test and re-initialises weights from the separate encoder/transformer checkpoints; this config takes one suite graph, the data root, the KGPFN checkpoint and the context budget as CLI flags (util.parse_args turns every template variable into a required flag), evaluates the full test split and loads all weights from the single pretrained checkpoint (init_model: false). hits@10_50 is added to the metric list because it is the one metric that consumes the candidate count, proving the dump's n_candidates. num_pos/num_neg default to the repo's own 20/80 (the paper states 20/60 -- recorded in shared/published.json), exposed as flags so the A/B costs one run.
+
+diff --git a/config/script/eval_zero_shot.yaml b/config/script/eval_zero_shot.yaml
+new file mode 100644
+index 0000000..9ac45c2
+--- /dev/null
++++ b/config/script/eval_zero_shot.yaml
+@@ -0,0 +1,97 @@
++# Zero-shot evaluation of ONE suite graph from a pretrained KGPFN checkpoint.
++# Added by this project (patches/kgpfn/0003), not by upstream: the shipped
++# config/script/test.yaml pins graphs: CoDExMedium, subsamples fast_test: 256
++# test queries and re-initialises encoder/transformer weights from their
++# separate checkpoints. None of that is what a benchmark run wants.
++#
++# Every {{ '{{ var }}' }} below becomes a REQUIRED CLI flag: pfn/util.py::parse_args
++# builds the parser from the template variables it detects in this file.
++# scripts/run_kgpfn.sh passes all of them on every invocation.
++#
++# The model block is verbatim from config/script/test.yaml at the pin; the
++# checkpoint decides the weights (init_model: false), the block decides the
++# architecture, and the two must agree -- patches/kgpfn/0002 prints the
++# missing/unexpected-key evidence on every load.
++output_dir: "{{ output_dir }}"
++model_config_path: null
++
++dataset:
++  class: JointDataset
++  graphs: "{{ dataset }}"
++  root: "{{ data_root }}"
++
++model:
++  class: KGPFN
++  structure_encoder: True
++  enhance_structure: True
++  structure_score_enhance: True
++  with_relation: True
++  context_graph: 0
++  context_tail: false
++  seq_chunk_size: 40
++  feature_transformer: tabicl
++  relation_model:
++    class: RelNBFNet
++    input_dim: 64
++    hidden_dims: [64, 64, 64, 64, 64, 64]
++    message_func: distmult
++    aggregate_func: sum
++    short_cut: yes
++    layer_norm: yes
++  entity_model:
++    class: EntityNBFNet
++    input_dim: 64
++    entity_chunk_size: 64
++    hidden_dims: [64, 64, 64, 64, 64, 64]
++    message_func: distmult
++    aggregate_func: sum
++    short_cut: yes
++    layer_norm: yes
++  semantic_encoder:
++    model_name: none
++    dim: 384
++
++task:
++  name: MultiGraphPretraining
++  num_negative: 256
++  strict_negative: yes
++  adversarial_temperature: 1.0
++  # hits@10_50 on top of test.yaml's list: it is the one metric that consumes
++  # the candidate count, so it proves the n_candidates side of the rank dump.
++  metric: [mr, mrr, hits@1, hits@3, hits@10, hits@10_50]
++  # In-context retrieval budget per query. The pinned repo's own test.yaml
++  # ships 20/80 (and script/test_kgpfn.py forces 40 negatives on
++  # NELLInductive:v1); the paper (arXiv 2605.14907) states 20/60. The pinned
++  # code's values are the defaults here -- it is the code being measured --
++  # and both are flags so the paper-config A/B costs one run.
++  num_pos: {{ num_pos }}
++  num_neg: {{ num_neg }}
++  loss_weights: [1.0, 1.0]
++  label_smoothing: 0.1
++  context_label_correction: True
++
++# Never constructed at num_epoch 0 (train_and_validate returns first); kept
++# for shape parity with test.yaml.
++optimizer:
++  class: AdamW
++  lr: 5.0e-5
++  weight_decay: 1.0e-5
++
++train:
++  gpus: {{ gpus }}
++  batch_size: {{ batch_size }}
++  num_epoch: 0
++  log_interval: 25
++  batch_per_epoch: 100
++  valid_eval_step_interval: 0
++  # deliberately NO fast_test: the whole held-out test split is evaluated
++  eval_chunk_size: 256
++  eval_log_interval: 50
++  max_checkpoints: 1
++  checkpoint_dir: ./checkpoints/
++  train_structure_encoder: false
++  inverse_relation_semantic_mode: text
++  init_model: false
++  tabicl_config_path: "{{ tabicl_config }}"
++  kgpfn_checkpoint: "{{ ckpt }}"
++  use_wandb: false

@@ -55,3 +55,16 @@
 {"dataset": "WikiTopicsMT4_sci", "device": "gpu", "index": 11, "model": "semma", "run_id": "WikiTopicsMT4:sci", "seconds": 29.517, "started": "2026-08-27T06:59:54Z", "status": "ok"}
 {"dataset": "WikiTopicsMT4_health", "device": "gpu", "index": 12, "model": "semma", "run_id": "WikiTopicsMT4:health", "seconds": 30.915, "started": "2026-08-27T07:00:24Z", "status": "ok"}
 {"dataset": "WKIngram_50", "device": "gpu", "index": 1, "model": "semma", "run_id": "WKIngram:50", "seconds": 35.931, "started": "2026-08-27T07:01:09Z", "status": "ok"}
+{"dataset": "NELL995", "device": "gpu", "index": 1, "model": "semma", "run_id": "NELL995", "seconds": 115.813, "started": "2026-09-01T00:36:03Z", "status": "ok"}
+{"dataset": "YAGO310", "device": "gpu", "index": 2, "model": "semma", "run_id": "YAGO310", "seconds": 53.04, "started": "2026-09-01T00:37:59Z", "status": "failed"}
+{"dataset": "CoDExSmall", "device": "gpu", "index": 3, "model": "semma", "run_id": "CoDExSmall", "seconds": 11.703, "started": "2026-09-01T00:38:52Z", "status": "failed"}
+{"dataset": "CoDExLarge", "device": "gpu", "index": 4, "model": "semma", "run_id": "CoDExLarge", "seconds": 11.679, "started": "2026-09-01T00:39:04Z", "status": "failed"}
+{"dataset": "Hetionet", "device": "gpu", "index": 5, "model": "semma", "run_id": "Hetionet", "seconds": 1955.426, "started": "2026-09-01T00:39:15Z", "status": "ok"}
+{"dataset": "ConceptNet100k", "device": "gpu", "index": 6, "model": "semma", "run_id": "ConceptNet100k", "seconds": 48.14, "started": "2026-09-01T01:11:51Z", "status": "ok"}
+{"dataset": "DBpedia100k", "device": "gpu", "index": 7, "model": "semma", "run_id": "DBpedia100k", "seconds": 61.158, "started": "2026-09-01T01:12:39Z", "status": "failed"}
+{"dataset": "AristoV4", "device": "gpu", "index": 8, "model": "semma", "run_id": "AristoV4", "seconds": 11.687, "started": "2026-09-01T01:13:40Z", "status": "failed"}
+{"dataset": "WDsinger", "device": "gpu", "index": 9, "model": "semma", "run_id": "WDsinger", "seconds": 11.673, "started": "2026-09-01T01:13:52Z", "status": "failed"}
+{"dataset": "NELL23k", "device": "gpu", "index": 10, "model": "semma", "run_id": "NELL23k", "seconds": 11.682, "started": "2026-09-01T01:14:04Z", "status": "failed"}
+{"dataset": "FB15k237_10", "device": "gpu", "index": 11, "model": "semma", "run_id": "FB15k237_10", "seconds": 11.665, "started": "2026-09-01T01:14:15Z", "status": "failed"}
+{"dataset": "FB15k237_20", "device": "gpu", "index": 12, "model": "semma", "run_id": "FB15k237_20", "seconds": 11.678, "started": "2026-09-01T01:14:27Z", "status": "failed"}
+{"dataset": "FB15k237_50", "device": "gpu", "index": 13, "model": "semma", "run_id": "FB15k237_50", "seconds": 11.702, "started": "2026-09-01T01:14:39Z", "status": "failed"}

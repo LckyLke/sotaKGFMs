@@ -1,0 +1,60 @@
+Reason: record the metric values KGPFN itself computes, one ULTRA-shaped CSV per graph, so criterion A can be run against them -- upstream only writes a stacked metrics.csv at 6 printed digits, which cannot anchor a bitwise comparison. The dataset column carries the suite run_id spelling. eval_seconds and peak_gpu_mem_bytes ride along as extra columns: the whole per-graph eval is timed, in-context retrieval included, because KGPFN's paper reports no cost and cost is a first-class result here. Directory arrives via KGPFN_RESULTS_DIR (forwarded by scripts/docker_run.sh); unset means upstream behaviour exactly.
+
+diff --git a/script/test_kgpfn.py b/script/test_kgpfn.py
+index 2e918d7..3abb34f 100644
+--- a/script/test_kgpfn.py
++++ b/script/test_kgpfn.py
+@@ -1,5 +1,6 @@
+ import glob
+ import os
++import time
+ import sys
+ import copy
+ import math
+@@ -746,6 +747,13 @@ def test(cfg, model, test_data, filtered_data=None, split: str = "valid", shared
+ 
+     for graph_idx, (test_graph, filters) in enumerate(zip(test_data, filtered_data)):
+         graph_name = getattr(test_graph, "dataset", f"graph_{graph_idx}")
++        # Cost accounting: wall seconds and peak GPU memory per graph,
++        # measured around the WHOLE per-graph eval -- the in-context
++        # retrieval (build_context_relation_aware) included, because that
++        # retrieval is the method and its cost is a first-class result.
++        graph_t0 = time.time()
++        if torch.cuda.is_available():
++            torch.cuda.reset_peak_memory_stats()
+         is_nell_inductive_v1 = graph_name == "NELLInductive-v1"
+         cfg.task.num_neg = 40 if is_nell_inductive_v1 else default_num_neg
+         if rank == 0:
+@@ -1019,6 +1027,32 @@ def test(cfg, model, test_data, filtered_data=None, split: str = "valid", shared
+             for k, v in graph_metrics.items():
+                 collected_metric_values.setdefault(k, []).append(v)
+ 
++            # The model's own metric values, in the shape ULTRA's
++            # run_many.py writes them: one CSV per graph, full float repr.
++            # Criterion A compares shared/metrics.py against what the
++            # model itself computed over the same ranks in the same
++            # process; upstream's metrics.csv is a stacked two-column
++            # sheet at 6 digits, which cannot serve that comparison.
++            # eval_seconds / peak_gpu_mem_bytes ride along as extra
++            # columns (harmless to the CSV reader): KGPFN's paper
++            # reports no cost, so this run's cost is part of the result.
++            results_dir = os.environ.get("KGPFN_RESULTS_DIR")
++            if results_dir and split == "test":
++                os.makedirs(results_dir, exist_ok=True)
++                _row = {"dataset": str(graph_name).replace("-", ":", 1)}
++                _row.update({k: repr(v) for k, v in graph_metrics.items()})
++                _row["eval_seconds"] = round(time.time() - graph_t0, 3)
++                if torch.cuda.is_available():
++                    _row["peak_gpu_mem_bytes"] = torch.cuda.max_memory_allocated()
++                _out_path = os.path.join(
++                    results_dir,
++                    "KGPFN_results_%s.csv" % time.strftime("%Y-%m-%d-%H-%M-%S"))
++                with open(_out_path, "w", newline="", encoding="utf-8") as _fh:
++                    _writer = csv.DictWriter(_fh, fieldnames=list(_row.keys()))
++                    _writer.writeheader()
++                    _writer.writerow(_row)
++                logger.warning("Own-metric csv written to %s", _out_path)
++
+     if not all_metrics:
+         if rank == 0:
+             logger.warning("[%s] No dataset produced valid rankings; return NaN metric.", split)

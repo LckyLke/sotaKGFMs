@@ -97,6 +97,39 @@
       }
     }
   },
+  "kgpfn": {
+    "checkpoint": "data/raw/kgpfn/cache/kgpfn_icl.pth",
+    "primary": "paper",
+    "targets": {
+      "paper": {
+        "source": "arXiv 2605.14907 v1, Table 1, row 'KGPFN' (TabICL feature transformer)",
+        "caption": "Average MRR and Hits@10 over 57 KGs; column groups Inductive(e,r)=23, Inductive(e)=18, Transductive=16 (the 3 pretraining graphs counted inside the 16).",
+        "note": "AVERAGED OVER 5 RUNS; this project runs one seed (1024). The paper's 18 Inductive(e) and 23 Inductive(e,r) graphs are the same sets as this suite's ind_e/ind_er groups, so those two group means compare directly; the Transductive-16 and 57-graph totals do NOT (this suite excludes the 3 pretraining graphs from zero-shot). Protocol notes, from the pinned code vs the paper: the paper states 20 positive + 60 negative in-context triples per query, the pinned repo's test config ships 20/80 (with num_neg forced to 40 on NELLInductive:v1 in script/test_kgpfn.py), and 20/80 is what runs here; the paper claims full-test-split evaluation while the shipped entry point subsamples 256 queries -- patches/kgpfn/0001 makes the full split the default. KGPFN's own filter graph omits validation targets on ILPC/Ingram where ULTRA's protocol filters them; the dump carries both definitions (rank vs rank_native). The checkpoint is HF Eason-nuo/KGPFN kgpfn_icl.pth, which the GitHub README names as the TabICL variant; the Table-1 row is taken to be this model (the LimiX variant appears only in the appendix; iclsemantic is not in the paper). The paper reports no inference cost; hardware stated as 8x A800 80GB.",
+        "ind_e": {
+          "mrr": 0.465,
+          "hits@10": 0.638
+        },
+        "ind_er": {
+          "mrr": 0.433,
+          "hits@10": 0.639
+        },
+        "not_targets_for_reference": {
+          "transductive_16_incl_pretrain": {
+            "mrr": 0.393,
+            "hits@10": 0.6
+          },
+          "total_57": {
+            "mrr": 0.432,
+            "hits@10": 0.628
+          },
+          "pretraining_3": {
+            "mrr": 0.423,
+            "hits@10": 0.623
+          }
+        }
+      }
+    }
+  },
   "semma": {
     "checkpoint": "ckpts/semma.pth",
     "primary": "paper",
@@ -112,6 +145,46 @@
         "ind_er": {
           "mrr": 0.35,
           "hits@10": 0.514
+        }
+      }
+    }
+  },
+  "flock": {
+    "checkpoint": "flock_entity.pth",
+    "primary": "paper",
+    "targets": {
+      "paper": {
+        "source": "arXiv 2510.01510 Table 2, zero-shot entity prediction, 54 KGs",
+        "note": "FLOCK is stochastic (walk sampling); our runs use seed 1024 with numpy seeded by patches/flock/0004. The paper reports single numbers without spread.",
+        "ind_e": {
+          "mrr": 0.456,
+          "hits@10": 0.604
+        },
+        "ind_er": {
+          "mrr": 0.369,
+          "hits@10": 0.554
+        },
+        "transductive": {
+          "mrr": 0.34,
+          "hits@10": 0.509
+        }
+      }
+    }
+  },
+  "ultra-4g": {
+    "checkpoint": "ckpts/ultra_4g.pth",
+    "primary": "repo",
+    "targets": {
+      "repo": {
+        "source": "repos/ultra/README.md at pin 427966ad, table row 'ULTRA (4g) PyG'",
+        "note": "trained on FB15k237, WN18RR, CoDExMedium, NELL995 for 400,000 steps (README). Zero-shot on the 41 inductive graphs; NOT zero-shot on NELL995 in the transductive group. Measured here 2026-09-01: ind_e 0.4454 / 0.5890, ind_er 0.3460 / 0.5147 (ranks/ultra-4g), inside the 0.002 tolerance. This is the matched-diet baseline for INCITE's 4-graph rows.",
+        "ind_e": {
+          "mrr": 0.444,
+          "hits@10": 0.588
+        },
+        "ind_er": {
+          "mrr": 0.344,
+          "hits@10": 0.513
         }
       }
     }

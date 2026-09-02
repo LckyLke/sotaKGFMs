@@ -1,7 +1,7 @@
 {
   "cpu_count": 16,
   "device": "gpu",
-  "gpu": null,
+  "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER, 610.57.04",
   "host": "Linux-7.1.9-arch1-2-x86_64-with-glibc2.35",
   "note": "FLOCK scores by sampling random walks; results are an ensemble of test_samples walks and depend on the seed.",
   "repeats": 1,
