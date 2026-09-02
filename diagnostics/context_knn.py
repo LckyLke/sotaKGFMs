@@ -61,7 +61,7 @@ def main():
     held = D.make_instances(int(cfg.train.eval_seed), n, ccfg, ranges)
     out = {}
     with torch.no_grad():
-        for cond in ("knn", "knn_shuffled", "floor_mlp"):
+        for cond in ("knn", "knn_shuffled", "floor_mlp", "mlp_plus_knn"):
             gen = torch.Generator().manual_seed(int(cfg.seed))
             ranks = []
             for i in range(0, len(held), 4):
@@ -74,6 +74,15 @@ def main():
                 q_rows, c_rows, labels = build_rows(x, z_q, batch, k)
                 if cond == "floor_mlp":
                     score = model.trunk.score_mlp(q_rows).squeeze(-1)
+                elif cond == "mlp_plus_knn":
+                    # the eval-time lever: both terms standardised within the
+                    # query's candidate set (masked columns excluded), summed
+                    def zs(t):
+                        m = batch["cand_mask"].float()
+                        mu = (t * m).sum(-1, keepdim=True) / m.sum(-1, keepdim=True)
+                        sd = (((t - mu) ** 2) * m).sum(-1, keepdim=True).div(m.sum(-1, keepdim=True)).sqrt() + 1e-6
+                        return (t - mu) / sd
+                    score = zs(model.trunk.score_mlp(q_rows).squeeze(-1)) + zs(knn_scores(q_rows, c_rows, labels))
                 else:
                     if cond == "knn_shuffled":
                         labels = shuffle_labels(labels, gen)
