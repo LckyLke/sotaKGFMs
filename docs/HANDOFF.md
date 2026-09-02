@@ -39,6 +39,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g (20k) DEV10-best | 0.4542 | 0.3791 | |
 | INCITE 4g (20k) last | 0.4534 | 0.3825 | beats ULTRA-4g by +0.008 / +0.036; TRIX by −0.003 / +0.015 (ind_er interval excludes zero) |
 | **INCITE 4g + 10k decay (L1), last** | **0.4560** | **0.3852** | THE REFERENCE (2026-09-02, `checkpoints/incite-4g-decay-last-step30k.pth`): ties TRIX on ind_e, +0.017 on ind_er [+0.005, +0.036], 18 of 23 graphs; see results/incite/DECAY_RESULT.md |
+| **INCITE 4g + unary channel (G1), last** | **0.4571** | **0.3874** | best single model (2026-09-02, `checkpoints/incite-4g-unary-last-step10k.pth`): +0.001 / +0.002 over L1, gains in the unseen-answer cells; results/incite/UNARY_RESULT.md |
 | INCITE 4g + masked continuation (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
 
@@ -109,7 +110,7 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | stage | what | output (incite worktree) | ETA |
 | --- | --- | --- | --- |
 | L1 | decay only, the paired baseline: DONE, 0.4560 / 0.3852 | ranks/incite-4g-decay(-last) | done |
-| G1 | unary channel (`model.unary`), warm start, unary head fresh | ranks/incite-4g-unary(-last) | 20:30 |
+| G1 | unary channel: DONE, 0.4571 / 0.3874 | ranks/incite-4g-unary(-last) | done |
 | M2 | masking dose 2 (answer only, in-degree cap 10, p 0.5) | ranks/incite-4g-mask2(-last) | 01:15, 3 Sep |
 | P1 | synthetic rules-prior 100 percent pilot, 10k steps | ranks/incite-synth100-pilot | 03:30, 3 Sep |
 | L2 | floor (3-graph) decay continuation, the matched-diet row | ranks/incite-decay(-last) | 08:00, 3 Sep |
