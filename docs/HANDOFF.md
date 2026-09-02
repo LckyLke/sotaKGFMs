@@ -37,7 +37,8 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE floor (3g, 20k steps) | 0.4553 | 0.3740 | DEV10-best checkpoint |
 | INCITE floor-family soup | 0.4571 | 0.3775 | average of four floor descendants |
 | INCITE 4g (20k) DEV10-best | 0.4542 | 0.3791 | |
-| **INCITE 4g (20k) last** | **0.4534** | **0.3825** | the current reference; beats ULTRA-4g by +0.008 / +0.036 and TRIX by −0.003 / +0.015, graph-bootstrap intervals exclude zero on ind_er |
+| INCITE 4g (20k) last | 0.4534 | 0.3825 | beats ULTRA-4g by +0.008 / +0.036; TRIX by −0.003 / +0.015 (ind_er interval excludes zero) |
+| **INCITE 4g + 10k decay (L1), last** | **0.4560** | **0.3852** | THE REFERENCE (2026-09-02, `checkpoints/incite-4g-decay-last-step30k.pth`): ties TRIX on ind_e, +0.017 on ind_er [+0.005, +0.036], 18 of 23 graphs; see results/incite/DECAY_RESULT.md |
 | INCITE 4g + masked continuation (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
 
@@ -74,7 +75,10 @@ margin), `scripts/halflink_report.py --labels
    targets with at most 10 query-relation edges, p 0.5) is queued (M2).
    The paired decay-only baseline (L1) went UP at its first validation
    (DEV10 scalar 0.4233 to 0.4288), so the optimizer restart is not the
-   cause.
+   cause. L1's per-scenario table shows plain continued training already
+   drifts toward seen-answer candidates (SQSA/UQSA up, SQUA/UQUA down);
+   masking amplified that drift. Read every continuation lever against
+   the L1 row (results/incite/DECAY_RESULT.md).
 4. **Checkpoint selection on DEV10 buys nothing** (E1): the unselected
    last checkpoint equals or beats the selected one. Report LAST
    checkpoints. DEV10 is diagnostic only.
@@ -104,7 +108,7 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 
 | stage | what | output (incite worktree) | ETA |
 | --- | --- | --- | --- |
-| L1 | decay only, the paired baseline (training now, step 25k) | ranks/incite-4g-decay(-last) | 15:30, 2 Sep |
+| L1 | decay only, the paired baseline: DONE, 0.4560 / 0.3852 | ranks/incite-4g-decay(-last) | done |
 | G1 | unary channel (`model.unary`), warm start, unary head fresh | ranks/incite-4g-unary(-last) | 20:30 |
 | M2 | masking dose 2 (answer only, in-degree cap 10, p 0.5) | ranks/incite-4g-mask2(-last) | 01:15, 3 Sep |
 | P1 | synthetic rules-prior 100 percent pilot, 10k steps | ranks/incite-synth100-pilot | 03:30, 3 Sep |
