@@ -92,8 +92,17 @@ for link in "$ROOT/data/roots" "$ROOT/output"; do
   fi
 done
 
+# KGFM_GPU_ARGS (2026-09-02): how the GPU is handed to the container.
+# Default is the --gpus form every run so far used. On the second machine
+# the daemon runs the nvidia toolkit in CDI mode and `--gpus` leaves torch
+# with "CUDA unknown error" (nvidia-smi works, torch.cuda does not); the
+# legacy runtime works there:
+#   KGFM_GPU_ARGS='--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=0'
+GPUARGS=(--gpus '"device=0"')
+[ -n "${KGFM_GPU_ARGS:-}" ] && read -r -a GPUARGS <<< "$KGFM_GPU_ARGS"
+
 exec docker run --rm \
-  --gpus '"device=0"' \
+  "${GPUARGS[@]}" \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
   "${ENVARGS[@]}" \
   -v "$ROOT:/kgfm-src" \

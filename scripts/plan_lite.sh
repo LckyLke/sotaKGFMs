@@ -108,7 +108,7 @@ if ! skip B0; then
      docker build -f containers/incite/Dockerfile.cu128 -t "$IMG" . >> "$ORC/B0.build.log" 2>&1; then
     # the architecture check the build cannot do: this GPU must be in the
     # wheel's compiled list, or every kernel launch fails at run time
-    if docker run --rm --gpus '"device=0"' "$IMG" python -c "\
+    if docker run --rm ${KGFM_GPU_ARGS:---gpus device=0} "$IMG" python -c "\
 import torch; a = torch.cuda.get_arch_list(); n = torch.cuda.get_device_name(0); cap = torch.cuda.get_device_capability(0); \
 print('runtime:', n, cap, a); assert 'sm_%d%d' % cap in a, (cap, a)" >> "$ORC/B0.build.log" 2>&1; then
       done_mark B0
