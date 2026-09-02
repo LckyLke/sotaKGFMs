@@ -23,6 +23,9 @@ while :; do
     [ -n "$st" ] || continue
     [ -e "$ORC/snapshot-$st.done" ] && continue
     if [ -e "$ORC/$st.done" ]; then
+      # never start an eval beside a training run: wait for GPU memory
+      # below 8 GB (training holds about 13 GB; evals 1 to 3 GB)
+      while [ "$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1)" -gt 8000 ]; do sleep 120; done
       say "$st finished; building the last-5 snapshot soup of $suffix"
       if scripts/snapshot_soup.sh "$suffix" "$cfg" 5 >> "$LOG" 2>&1; then
         touch "$ORC/snapshot-$st.done"; say "snapshot-$st DONE"
