@@ -20,3 +20,4 @@ architecture (`incite/run.py::build_model`).
 Later checkpoints (decay, unary, mask dose 2, seed repeats) are added as
 the plan on the first machine finishes them; see docs/HANDOFF.md on the
 baseline branch for the schedule.
+| incite-4g-decay-last-step30k.pth | configs/incite_phase1.yaml | 4-graph backbone + 10k-step linear decay continuation (L1), last: THE NEW REFERENCE (2026-09-02) | 0.4560 / 0.3852 |
