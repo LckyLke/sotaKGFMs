@@ -106,7 +106,15 @@ IMG="kgfm/incite:$(python3 -c "import json;print(json.load(open('repos/PINS.json
 if ! skip B0; then
   if docker image inspect "$IMG" > /dev/null 2>&1 || \
      docker build -f containers/incite/Dockerfile.cu128 -t "$IMG" . >> "$ORC/B0.build.log" 2>&1; then
-    done_mark B0
+    # the architecture check the build cannot do: this GPU must be in the
+    # wheel's compiled list, or every kernel launch fails at run time
+    if docker run --rm --gpus '"device=0"' "$IMG" python -c "\
+import torch; a = torch.cuda.get_arch_list(); n = torch.cuda.get_device_name(0); cap = torch.cuda.get_device_capability(0); \
+print('runtime:', n, cap, a); assert 'sm_%d%d' % cap in a, (cap, a)" >> "$ORC/B0.build.log" 2>&1; then
+      done_mark B0
+    else
+      fail_mark B0
+    fi
   else
     fail_mark B0
   fi

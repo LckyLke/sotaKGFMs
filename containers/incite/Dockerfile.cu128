@@ -70,13 +70,15 @@ RUN python3.12 -m pip install --no-cache-dir 'matplotlib==3.9.4'
 # Added by this project: the rank dump writes parquet; tests run in-image.
 RUN python3.12 -m pip install --no-cache-dir 'pyarrow==21.0.0' 'pytest==8.3.4'
 
-# Fail the build, not the run.
+# Fail the build, not the run. The wheel's own CUDA version is checkable
+# here; the compiled architecture list is NOT (no GPU is visible during
+# `docker build`, torch.cuda.get_arch_list() is empty), so scripts/plan_lite.sh
+# checks sm_120 at run time, right after the build, with --gpus.
 RUN python3.12 -c "\
 import numpy, torch, pyarrow, torch_geometric, torch_scatter, torch_sparse, matplotlib, yaml, easydict, pytest, jinja2; \
 assert torch.__version__.startswith('2.8.0'), torch.__version__; \
 assert torch.version.cuda == '12.8', torch.version.cuda; \
-assert '12.0' in torch.cuda.get_arch_list() or 'sm_120' in torch.cuda.get_arch_list(), torch.cuda.get_arch_list(); \
-print('stack ok:', 'numpy', numpy.__version__, '| torch', torch.__version__, '| cuda', torch.version.cuda, '| archs', torch.cuda.get_arch_list(), '| pyarrow', pyarrow.__version__)"
+print('stack ok:', 'numpy', numpy.__version__, '| torch', torch.__version__, '| cuda', torch.version.cuda, '| pyarrow', pyarrow.__version__)"
 
 WORKDIR /kgfm
 
