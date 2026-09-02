@@ -60,6 +60,11 @@
 #   KGPFN_BATCH_SIZE     eval batch size (default 64, upstream's)
 #   KGPFN_NUM_POS / KGPFN_NUM_NEG   context budget (default 20/80, upstream's)
 #   KGPFN_EXTRA_ARGS     appended last, so flags there win
+#   KGPFN_RANKS          rank dump dir (default ranks/kgpfn; K3 runs use their own)
+#   KGPFN_LABEL_CORRECTION True|False  upstream's encoder relabeling of context
+#                        negatives (default True, upstream's)
+#   KGPFN_SHUFFLE_LABELS True|False  permute each query's context labels
+#                        (patches/kgpfn/0006; the K3 "shuffled" condition)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GROUP="${1:?usage: run_kgpfn.sh <ind_e|ind_er|transductive> [gpus] [python]}"
@@ -70,7 +75,9 @@ WORKDIR="${KGPFN_WORKDIR:-/kgfm/repos/kgpfn}"
 CKPT="${KGPFN_CKPT:-/kgfm-src/data/raw/kgpfn/cache/kgpfn_icl.pth}"
 TABICL_CONFIG="${KGPFN_TABICL_CONFIG:-/kgfm-src/data/raw/kgpfn/tabicl.yaml}"
 DATA_ROOT="${KGPFN_DATA:-$ROOT/data/roots/kgpfn}"
-RANKS="$ROOT/ranks/kgpfn"
+# KGPFN_RANKS (2026-09-02): the K3 context-ablation runs dump beside the
+# reference dump, never over it -- one directory per condition.
+RANKS="${KGPFN_RANKS:-$ROOT/ranks/kgpfn}"
 RESULTS="${KGPFN_RESULTS:-$ROOT/results/kgpfn}"
 OUT="$ROOT/output/kgpfn/${KGPFN_SHARD:-all}"
 CONFIG="$WORKDIR/config/script/eval_zero_shot.yaml"
@@ -131,12 +138,16 @@ prov["checkpoint_sha256"] = digest.hexdigest()
 prov["checkpoint_bytes"] = os.path.getsize(ckpt)
 # The in-context budget is part of the measurement, not a nuisance parameter.
 prov["context_num_pos"] = int(num_pos)
+prov["context_label_correction"] = os.environ.get("KGPFN_LABEL_CORRECTION", "True")
+prov["context_shuffle_labels"] = os.environ.get("KGPFN_SHUFFLE_LABELS", "False")
 prov["context_num_neg"] = int(num_neg)
 json.dump(prov, open(path, "w"), indent=2, sort_keys=True)
 print("checkpoint sha256:", prov["checkpoint_sha256"])
 PROVPY
 
-CLAIMS="$ROOT/ranks/.claims-kgpfn"
+# one claims dir per ranks dir: a K3 condition run must not inherit the
+# reference run's claims (every graph would count as taken)
+CLAIMS="$(dirname "$RANKS")/.claims-$(basename "$RANKS")"
 mkdir -p "$CLAIMS"
 # sys.path[0] is the script's directory here (script/), but datasets, configs
 # and the working-directory bookkeeping resolve against the tree; running from
@@ -170,6 +181,8 @@ for d in ${DATASETS//,/ }; do
       --batch_size "${KGPFN_BATCH_SIZE:-64}" \
       --num_pos "${KGPFN_NUM_POS:-20}" \
       --num_neg "${KGPFN_NUM_NEG:-80}" \
+      --context_label_correction "${KGPFN_LABEL_CORRECTION:-True}" \
+      --context_shuffle_labels "${KGPFN_SHUFFLE_LABELS:-False}" \
       ${KGPFN_EXTRA_ARGS:-}; then
     status=ok; ran=$((ran+1))
   else

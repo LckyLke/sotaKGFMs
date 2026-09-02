@@ -1,0 +1,41 @@
+Reason: the external plan's K3 context ablation on the released KGPFN (2026-09-02): expose context_label_correction as a flag (upstream default True; off, the transformer sees exactly the sampled labels) and add context_shuffle_labels, which permutes each query's context labels among its rows with a seeded generator right before the context cache is built. Applies after 0001-0005 (0003 creates the config it edits). Default values leave the run byte-identical to before.
+
+diff --git a/config/script/eval_zero_shot.yaml b/config/script/eval_zero_shot.yaml
+--- a/config/script/eval_zero_shot.yaml	2026-09-02 11:43:44.520819774 +0200
++++ b/config/script/eval_zero_shot.yaml	2026-09-02 11:43:44.542060633 +0200
+@@ -68,7 +68,15 @@
+   num_neg: {{ num_neg }}
+   loss_weights: [1.0, 1.0]
+   label_smoothing: 0.1
+-  context_label_correction: True
++  # K3 knobs (this project, 2026-09-02): the external plan's context
++  # ablation on the released model. context_label_correction is upstream's
++  # default True (the encoder relabels context negatives it scores above the
++  # weakest positive); off, the labels the transformer sees are exactly the
++  # sampled ones. context_shuffle_labels permutes each query's context labels
++  # among its rows (same rows, same counts, no row-label correspondence)
++  # right before the context cache is built -- the "shuffled" condition.
++  context_label_correction: {{ context_label_correction }}
++  context_shuffle_labels: {{ context_shuffle_labels }}
+ 
+ # Never constructed at num_epoch 0 (train_and_validate returns first); kept
+ # for shape parity with test.yaml.
+diff --git a/script/test_kgpfn.py b/script/test_kgpfn.py
+--- a/script/test_kgpfn.py	2026-09-02 11:43:44.523793758 +0200
++++ b/script/test_kgpfn.py	2026-09-02 11:43:44.542742263 +0200
+@@ -831,6 +831,15 @@
+                 continue
+             shared_context_x = [t.to(device) for t in shared_context_x]
+             shared_context_y = [y.to(device) for y in shared_context_y]
++            if bool(cfg.task.get("context_shuffle_labels", False)):
++                # K3 "shuffled" condition (this project): permute each row's
++                # labels among its context rows with a seeded generator, so
++                # the run is reproducible and the row set is untouched.
++                _shuffle_gen = torch.Generator().manual_seed(
++                    int(getattr(cfg, "seed", 1024)) * 1000003 + int(graph_idx) * 7919 + len(rankings))
++                shared_context_y = [
++                    y[torch.randperm(y.numel(), generator=_shuffle_gen).to(y.device)]
++                    for y in shared_context_y]
+ 
+             # 3) 预计算上下文 embedding cache，同时获取（可能修正的）标签
+             context_cache, shared_context_y = model.get_context_embeddings_cache(
