@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-# SUPERSEDED by scripts/research_plan_v5.sh (masking dose corrected). Do not relaunch.
+# Research plan v5 (2026-09-02, 10:40): v4 with the masking dose corrected.
+# M1 (p 0.3/0.3, hubs included) was net-negative and inverted
+# (results/incite/MASKING_RESULT.md). MG1 (masking + unary at that dose)
+# is replaced by M2: answer-only masking at p 0.5 for targets with at most
+# 10 incoming query-relation edges (--mask_answer_maxdeg 10). Order after
+# L1: G1 M2, then the seed stages pick the winner among L1/M1/G1/M2.
+# Restart: nohup scripts/research_plan_v5.sh >> output/research-plan/nohup.log 2>&1 & disown
+#
+# ---- v4 header follows ----
 # Research plan v4 (2026-09-02, 04:45): v3 with IDEMPOTENT stage directories.
 # v3 cleared output/incite-pretrain at the top of every pretrain stage,
 # before the completion check, so a relaunch of the plan wiped the finished
@@ -140,7 +148,7 @@ seed_pretrain_dir() {
   return 0
 }
 
-say "=== research plan v4 start (pid $$) ==="
+say "=== research plan v5 start (pid $$) ==="
 
 # ---- takeover from v1: let it finish E6, then stop it -------------------
 if pgrep -f '^bash scripts/research_plan.sh' > /dev/null; then
@@ -279,21 +287,20 @@ if ! skip G1; then
   fi
 fi
 
-# ---- MG1: masking + unary together, from the same checkpoint -------------
-if ! skip MG1; then
-  seed_pretrain_dir MG1
-  if PLAN_INIT_FROM=/kgfm-src/output/incite-pretrain-4g/incite_last.pth \
-     incite_pretrain MG1 /kgfm-src/configs/incite_phase1_4g_unary.yaml 4g-maskunary 10000 \
+# ---- M2: answer-only masking with the in-degree cap, paired against L1 ----
+if ! skip M2; then
+  seed_pretrain_dir M2 "$INC/output/incite-pretrain-4g/incite_last.pth"
+  if incite_pretrain M2 /kgfm-src/configs/incite_phase1_4g.yaml 4g-mask2 30000 \
        INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
-       INCITE_TRAIN_EXTRA_ARGS="$UDECAY --mask_answer_p 0.3 --mask_query_p 0.3"; then
+       INCITE_TRAIN_EXTRA_ARGS="$DECAY --mask_answer_p 0.5 --mask_query_p 0 --mask_answer_maxdeg 10"; then
     ok=1
-    incite_eval /kgfm-src/output/incite-pretrain-4g-maskunary/incite_last.pth \
-      /kgfm-src/configs/incite_phase1_4g_unary.yaml incite-4g-maskunary-last || ok=0
-    incite_eval /kgfm-src/output/incite-pretrain-4g-maskunary/incite_best.pth \
-      /kgfm-src/configs/incite_phase1_4g_unary.yaml incite-4g-maskunary || ok=0
-    [ "$ok" -eq 1 ] && done_mark MG1 || fail_mark MG1
+    incite_eval /kgfm-src/output/incite-pretrain-4g-mask2/incite_last.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-mask2-last || ok=0
+    incite_eval /kgfm-src/output/incite-pretrain-4g-mask2/incite_best.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-mask2 || ok=0
+    [ "$ok" -eq 1 ] && done_mark M2 || fail_mark M2
   else
-    fail_mark MG1
+    fail_mark M2
   fi
 fi
 
@@ -319,7 +326,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[1]), "..", "sotaKGFMs",
 sys.path.insert(0, "/home/lukef/Dokumente/GitHub/sotaKGFMs/shared")
 import metrics, suite
 cands = {"L1": "incite-4g-decay-last", "M1": "incite-4g-mask-last",
-         "G1": "incite-4g-unary-last", "MG1": "incite-4g-maskunary-last"}
+         "G1": "incite-4g-unary-last", "M2": "incite-4g-mask2-last"}
 best, best_v = None, -1.0
 for name, d in cands.items():
     p = os.path.join(sys.argv[1], d)
@@ -340,7 +347,7 @@ case "$WIN" in
   L1)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY";  WMODE=resume ;;
   M1)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY --mask_answer_p 0.3 --mask_query_p 0.3"; WMODE=resume ;;
   G1)  WCFG=/kgfm-src/configs/incite_phase1_4g_unary.yaml; WFLAGS="$UDECAY"; WMODE=init ;;
-  MG1) WCFG=/kgfm-src/configs/incite_phase1_4g_unary.yaml; WFLAGS="$UDECAY --mask_answer_p 0.3 --mask_query_p 0.3"; WMODE=init ;;
+  M2)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY --mask_answer_p 0.5 --mask_query_p 0 --mask_answer_maxdeg 10"; WMODE=resume ;;
   *)   WCFG=""; ;;
 esac
 
