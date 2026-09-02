@@ -49,8 +49,13 @@ def main():
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--gpus", default="null")
     ap.add_argument("--eval_instances", type=int, default=None)
+    ap.add_argument("--withhold", type=float, default=None,
+                    help="evaluate on this withhold share (default: the config's; "
+                         "match the run the checkpoint came from)")
     args = ap.parse_args()
     cfg = EasyDict(yaml.safe_load(open(args.config)))
+    if args.withhold is not None:
+        cfg.context.withhold = float(args.withhold)
     state = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     model = D.ContextModel(cfg, state.get("mode", "floor"))
     model.load_state_dict(state["model"])
@@ -93,6 +98,7 @@ def main():
                          "hits@10": float((r <= 10).double().mean()), "n": int(r.numel())}
     out["ckpt"] = args.ckpt
     out["mode"] = state.get("mode")
+    out["withhold"] = float(cfg.context.withhold)
     print(json.dumps(out, indent=1))
 
 
