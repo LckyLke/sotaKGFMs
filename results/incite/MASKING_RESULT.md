@@ -65,3 +65,49 @@ at most 5 (`--mask_answer_maxdeg`), at p 0.5 among eligible rows, so the
 synthetic unseen-answer rows look like the real ones and the graph loses
 at most a handful of edges per row. The unary channel (G1) is independent
 of this result.
+
+# Dose 2 (M2): answer only, in-degree cap 10, p 0.5 -- NEGATIVE again
+
+Date: 2026-09-03. Same continuation as L1 (10k steps, linear decay),
+masking only targets with at most 10 incoming query-relation edges, no
+query masking. Paired against the decay-only reference (L1).
+
+| checkpoint | ind_e MRR | ind_er MRR |
+| --- | --- | --- |
+| L1 decay last (reference) | 0.4560 | 0.3852 |
+| M2 last (30k) | 0.4384 | 0.3629 |
+| M2 DEV10 best (21k, after 1,000 masked steps) | 0.4481 | 0.3811 |
+
+M2 last minus reference: −0.0175 [−0.026, −0.009] / −0.0223 [−0.036,
+−0.011]; 4 of 18 and 2 of 23 graphs. The degree cap did not change the
+outcome, so hub stripping was not the whole story.
+
+## The trajectory says what the lever is
+
+| ind_er | SQSA | SQUA | UQSA | UQUA |
+| --- | --- | --- | --- | --- |
+| reference | 0.4079 | 0.1724 | 0.5896 | 0.2032 |
+| M2 after 1,000 masked steps (21k) | 0.3720 | 0.2061 | 0.5757 | 0.2428 |
+| M2 after 10,000 masked steps (30k) | 0.4175 | 0.1045 | 0.5863 | 0.1508 |
+
+After 1,000 masked steps the model moved exactly where the design
+wanted: unseen-answer cells +0.034 / +0.040, at a cost of −0.036 on SQSA
+(ind_e the same: SQUA +0.022, UQUA +0.038, SQSA −0.035). Net MRR still
+below the reference (−0.008 / −0.004). With more masked steps the model
+inverted to the M1 pattern. Two readings, both bad for the lever:
+
+* Seen-answer reliance and unseen-answer competence trade against each
+  other in this trunk; masking moves the operating point along that
+  trade-off, and the test mix (60 to 70 percent seen-answer queries)
+  rewards the reliance. The shortcut is rational for the metric.
+* Continued masked training at high lr drifts to a worse optimum
+  (popularity-like), which the cap did not prevent.
+
+## Verdict
+
+DEAD as a net lever, at both doses. Recorded, not tuned around. What
+survives is a diagnostic: half-link masking is a scenario knob that
+exposes the trade-off, worth a figure, not a method. Unseen-answer
+capability has to come from elsewhere: the unary channel moved those
+cells at no SQSA cost (UNARY_RESULT.md), and scenario-targeted synthetic
+supervision remains untested.
