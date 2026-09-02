@@ -21,3 +21,4 @@ Later checkpoints (decay, unary, mask dose 2, seed repeats) are added as
 the plan on the first machine finishes them; see docs/HANDOFF.md on the
 baseline branch for the schedule.
 | incite-4g-decay-last-step30k.pth | configs/incite_phase1.yaml | 4-graph backbone + 10k-step linear decay continuation (L1), last: THE NEW REFERENCE (2026-09-02) | 0.4560 / 0.3852 |
+| incite-4g-unary-last-step10k.pth | configs/incite_phase1_4g_unary.yaml | 4g last + unary channel, warm start, 10k decay (G1), last: best single model so far | 0.4571 / 0.3874 |
