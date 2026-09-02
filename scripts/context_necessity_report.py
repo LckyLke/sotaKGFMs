@@ -26,6 +26,8 @@ for path in sorted(glob.glob(os.path.join(base, "*", "result.json"))):
     if not r.get("final"):
         continue
     variant = "detached rows" if p.get("scorer", {}).get("detach_rows") else ""
+    if int(p["steps"]) != 2000:
+        variant = (variant + ", " if variant else "") + "%d steps" % int(p["steps"])
     runs.append(dict(name=os.path.basename(os.path.dirname(path)), mode=p["mode"],
                      withhold=float(p["withhold"]), seed=int(p["seed"]), variant=variant,
                      steps=int(p["steps"]), device=p.get("device"), final=r["final"],
