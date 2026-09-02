@@ -229,3 +229,44 @@ the day it happens. Stop rules are honored: dead levers get a result
 file, not tuning. Re-ranked and ensembled rows state k, weight, member
 count and eval cost. Compare 4-graph rows against ULTRA-4g, 3-graph rows
 against the 3-graph baselines, never across.
+
+## Second machine, branch `claude/plan-lite` (2026-09-02, laptop)
+
+Read `docs/PLAN_REVIEW.md` first: it is the verdict on the external plan
+`docs/KGFM_PLAN.md` and the reason this branch exists. The branch is
+`incite` with the baseline branch merged in, so one worktree holds the
+harness, the baselines and the model; `data/roots` and `output` are real
+directories here, not the sibling-worktree symlinks of the workstation.
+
+* Machine: RTX 5070 Laptop, 8 GB, Blackwell (sm_120), driver 610 / CUDA
+  13.3, 28 cores, 31 GB. The pinned CUDA 11.8 images cannot run on it.
+  `containers/incite/Dockerfile.cu128` is the same recipe on torch
+  2.8.0+cu128 with PyG at TRIX's 2.4.0 pin; select it with
+  `KGFM_STACK=cu128`. This daemon runs the nvidia toolkit in CDI mode and
+  `--gpus` leaves torch without a device: pass
+  `KGFM_GPU_ARGS='--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=0'`. Docker
+  group membership was added mid-session, so commands run as
+  `sg docker -c '...'` until a new login. Dumps from this stack use the
+  `-bw` suffix and never share a directory with cu118 dumps
+  (`results/incite/stack_identity_cu128.md`: Metafam identical, NELL v1
+  97.3 percent of ranks identical).
+* torch 2.6+ refuses our checkpoints and TRIX's dataset caches by default:
+  `weights_only=False` in our loaders and in `patches/trix/0005` (neutral on
+  the pinned torch 2.1; rebuild the trix/incite images when convenient).
+* Context-necessity diagnostic: `diagnostics/context_necessity.py`,
+  `configs/context_necessity.yaml`, results under
+  `output/context-necessity/<run>/`, table via
+  `scripts/context_necessity_report.py`, verdict in
+  `results/incite/CONTEXT_NECESSITY.md`. `diagnostics/context_knn.py` is
+  the parameter-free control. CPU is enough: about 0.3 s per step in
+  aggregate.
+* Queue: `scripts/plan_lite.sh` (markers in `output/plan-lite/`), CPU with
+  `PLAN_LITE_PY=<venv python>` (python3.13 venv: torch 2.8 cpu, the pt28cpu
+  torch-scatter/torch-sparse wheels, torch_geometric 2.6.1 on the host is
+  fine, easydict pyyaml pytest pyarrow scipy).
+* KGPFN K3 test (`patches/kgpfn/0006`, knobs `KGPFN_SHUFFLE_LABELS`,
+  `KGPFN_LABEL_CORRECTION`, `KGPFN_RANKS`) is written but belongs on the
+  workstation: the KGPFN image is CUDA 12.1 and needs a flash-attn wheel
+  this GPU does not have.
+* Leak split and paired tests over the committed dumps:
+  `scripts/leak_split.py` -> `results/leak_split.md`.
