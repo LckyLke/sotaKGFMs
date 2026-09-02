@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-# SUPERSEDED by scripts/research_plan_v4.sh (idempotent stage dirs). Do not relaunch.
+# Research plan v4 (2026-09-02, 04:45): v3 with IDEMPOTENT stage directories.
+# v3 cleared output/incite-pretrain at the top of every pretrain stage,
+# before the completion check, so a relaunch of the plan wiped the finished
+# M1 run (4.8 GPU hours) and restarted it. Now seed_pretrain_dir keeps a
+# directory that belongs to the current stage (tag file STAGE, or an
+# untagged run from v3) and clears only foreign ones.
+# Restart: nohup scripts/research_plan_v4.sh >> output/research-plan/nohup.log 2>&1 & disown
+#
+# ---- v3 header follows ----
 # Research plan v3 (2026-09-01, 23:15). Same markers as v1/v2. Fastest path
 # to a three-seed headline table, in this order after E1-E3:
 #   M1 L1 G1 MG1        the lever runs, all paired from the 4g last checkpoint
@@ -110,7 +118,28 @@ incite_pretrain() {
   done
 }
 
-say "=== research plan v3 start (pid $$) ==="
+
+# Seed output/incite-pretrain for a stage, idempotently. A directory with a
+# train.log that carries this stage's tag (or no tag: a v3-era run) is kept
+# for incite_pretrain to resume or move; a foreign stage's leftovers are
+# cleared. $1 stage  $2 checkpoint to copy in as incite_last.pth (optional)
+seed_pretrain_dir() {
+  local stage="$1" src="${2:-}" d="$INC/output/incite-pretrain"
+  if [ -f "$d/train.log" ]; then
+    if [ ! -f "$d/STAGE" ] || [ "$(cat "$d/STAGE")" = "$stage" ]; then
+      say "$stage: keeping the existing run directory"
+      return 0
+    fi
+    say "$stage: clearing leftovers of stage $(cat "$d/STAGE")"
+  fi
+  rm -rf "$d"
+  mkdir -p "$d"
+  echo "$stage" > "$d/STAGE"
+  [ -n "$src" ] && cp "$src" "$d/incite_last.pth"
+  return 0
+}
+
+say "=== research plan v4 start (pid $$) ==="
 
 # ---- takeover from v1: let it finish E6, then stop it -------------------
 if pgrep -f '^bash scripts/research_plan.sh' > /dev/null; then
@@ -200,9 +229,7 @@ fi
 
 # ---- M1: half-link masking, paired against L1 (same start, same decay) ---
 if ! skip M1; then
-  rm -rf "$INC/output/incite-pretrain"
-  mkdir -p "$INC/output/incite-pretrain"
-  cp "$INC/output/incite-pretrain-4g/incite_last.pth" "$INC/output/incite-pretrain/incite_last.pth"
+  seed_pretrain_dir M1 "$INC/output/incite-pretrain-4g/incite_last.pth"
   if incite_pretrain M1 /kgfm-src/configs/incite_phase1_4g.yaml 4g-mask 30000 \
        INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
        INCITE_TRAIN_EXTRA_ARGS="$DECAY --mask_answer_p 0.3 --mask_query_p 0.3"; then
@@ -219,9 +246,7 @@ fi
 
 # ---- L1: 4g decay continuation (the paired baseline) -----------------------------
 if ! skip L1; then
-  rm -rf "$INC/output/incite-pretrain"
-  mkdir -p "$INC/output/incite-pretrain"
-  cp "$INC/output/incite-pretrain-4g/incite_last.pth" "$INC/output/incite-pretrain/incite_last.pth"
+  seed_pretrain_dir L1 "$INC/output/incite-pretrain-4g/incite_last.pth"
   if incite_pretrain L1 /kgfm-src/configs/incite_phase1_4g.yaml 4g-decay 30000 \
        INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
        INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
@@ -237,7 +262,7 @@ if ! skip L1; then
 fi
 # ---- G1: the unary channel, warm start from the 4g last checkpoint ---------
 if ! skip G1; then
-  rm -rf "$INC/output/incite-pretrain"
+  seed_pretrain_dir G1
   if PLAN_INIT_FROM=/kgfm-src/output/incite-pretrain-4g/incite_last.pth \
      incite_pretrain G1 /kgfm-src/configs/incite_phase1_4g_unary.yaml 4g-unary 10000 \
        INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
@@ -255,7 +280,7 @@ fi
 
 # ---- MG1: masking + unary together, from the same checkpoint -------------
 if ! skip MG1; then
-  rm -rf "$INC/output/incite-pretrain"
+  seed_pretrain_dir MG1
   if PLAN_INIT_FROM=/kgfm-src/output/incite-pretrain-4g/incite_last.pth \
      incite_pretrain MG1 /kgfm-src/configs/incite_phase1_4g_unary.yaml 4g-maskunary 10000 \
        INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
@@ -275,7 +300,7 @@ fi
 for pair in "B2 1337" "B3 7"; do
   set -- $pair; st="$1"; seed="$2"
   if skip "$st"; then continue; fi
-  rm -rf "$INC/output/incite-pretrain"
+  seed_pretrain_dir "$st"
   if incite_pretrain "$st" /kgfm-src/configs/incite_phase1_4g.yaml "4g-seed$seed" 20000 \
        INCITE_SEED="$seed" INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
        INCITE_TRAIN_EXTRA_ARGS="--keep_every 1000"; then
@@ -326,12 +351,11 @@ for pair in "C2 1337 B2" "C3 7 B3"; do
     say "$st: no winner or backbone $dep missing"; fail_mark "$st"; continue
   fi
   src="$INC/output/incite-pretrain-4g-seed$seed/incite_last.pth"
-  rm -rf "$INC/output/incite-pretrain"
   if [ "$WMODE" = resume ]; then
-    mkdir -p "$INC/output/incite-pretrain"
-    cp "$src" "$INC/output/incite-pretrain/incite_last.pth"
+    seed_pretrain_dir "$st" "$src"
     total=30000; initenv=""
   else
+    seed_pretrain_dir "$st"
     total=10000; initenv="/kgfm-src/output/incite-pretrain-4g-seed$seed/incite_last.pth"
   fi
   if PLAN_INIT_FROM="$initenv" incite_pretrain "$st" "$WCFG" "$WIN-seed$seed" "$total" \
@@ -376,9 +400,7 @@ fi
 
 # ---- L2: floor continuation -------------------------------------------
 if ! skip L2; then
-  rm -rf "$INC/output/incite-pretrain"
-  mkdir -p "$INC/output/incite-pretrain"
-  cp "$INC/output/incite-pretrain-phase1/incite_last.pth" "$INC/output/incite-pretrain/incite_last.pth"
+  seed_pretrain_dir L2 "$INC/output/incite-pretrain-phase1/incite_last.pth"
   if incite_pretrain L2 /kgfm-src/configs/incite_phase1.yaml decay 30000 \
        INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
     ok=1
@@ -437,7 +459,7 @@ fi
 
 # ---- P1: synthetic-prior 100% pilot, 10k steps ----------------------------
 if ! skip P1; then
-  rm -rf "$INC/output/incite-pretrain"
+  seed_pretrain_dir P1
   if incite_pretrain P1 /kgfm-src/configs/incite_synthsweep_100.yaml synth100-pilot 10000 \
        INCITE_TRAIN_EXTRA_ARGS="--keep_every 1000"; then
     if incite_eval /kgfm-src/output/incite-pretrain-synth100-pilot/incite_best.pth \
