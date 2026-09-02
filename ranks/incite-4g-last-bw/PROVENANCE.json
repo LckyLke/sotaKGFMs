@@ -1,0 +1,16 @@
+{
+  "checkpoint": "incite-4g-last-step20k.pth",
+  "config": "incite_phase1.yaml",
+  "cpu_count": 28,
+  "cuda": "12.8",
+  "device": "gpu",
+  "gpu": "NVIDIA GeForce RTX 5070 Laptop GPU, 610.43.03",
+  "host": "Linux-7.1.4-1-cachyos-x86_64-with-glibc2.35",
+  "image": "kgfm/incite:incite01-cu128",
+  "protocol": "filtered",
+  "random_weights": false,
+  "seed": 1024,
+  "support": "skip",
+  "task": "entity",
+  "torch": "2.8.0+cu128"
+}

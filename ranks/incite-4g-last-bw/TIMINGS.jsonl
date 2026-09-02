@@ -1,0 +1,10 @@
+{"dataset": "NELLInductive_v1", "device": "gpu", "index": 1, "model": "incite", "run_id": "NELLInductive:v1", "seconds": 6.572, "started": "2026-09-02T11:21:38Z", "status": "failed"}
+{"dataset": "Metafam", "device": "gpu", "index": 2, "model": "incite", "run_id": "Metafam:Metafam", "seconds": 15.857, "started": "2026-09-02T11:21:45Z", "status": "failed"}
+{"dataset": "NELLInductive_v1", "device": "gpu", "index": 1, "model": "incite", "run_id": "NELLInductive:v1", "seconds": 4.802, "started": "2026-09-02T11:22:03Z", "status": "failed"}
+{"dataset": "Metafam", "device": "gpu", "index": 2, "model": "incite", "run_id": "Metafam:Metafam", "seconds": 4.397, "started": "2026-09-02T11:22:08Z", "status": "failed"}
+{"dataset": "NELLInductive_v1", "device": "gpu", "index": 1, "model": "incite", "run_id": "NELLInductive:v1", "seconds": 4.352, "started": "2026-09-02T11:23:05Z", "status": "failed"}
+{"dataset": "Metafam", "device": "gpu", "index": 2, "model": "incite", "run_id": "Metafam:Metafam", "seconds": 3.362, "started": "2026-09-02T11:23:09Z", "status": "failed"}
+{"dataset": "NELLInductive_v1", "device": "gpu", "index": 1, "model": "incite", "run_id": "NELLInductive:v1", "seconds": 4.355, "started": "2026-09-02T11:23:15Z", "status": "failed"}
+{"dataset": "Metafam", "device": "gpu", "index": 2, "model": "incite", "run_id": "Metafam:Metafam", "seconds": 4.63, "started": "2026-09-02T11:23:19Z", "status": "failed"}
+{"dataset": "NELLInductive_v1", "device": "gpu", "index": 1, "model": "incite", "run_id": "NELLInductive:v1", "seconds": 85.48, "started": "2026-09-02T11:24:12Z", "status": "ok"}
+{"dataset": "Metafam", "device": "gpu", "index": 2, "model": "incite", "run_id": "Metafam:Metafam", "seconds": 8.224, "started": "2026-09-02T11:25:37Z", "status": "ok"}
