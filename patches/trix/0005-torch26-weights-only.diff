@@ -1,0 +1,151 @@
+Reason: torch 2.6 changed torch.load's default to weights_only=True, which refuses the PyG Data objects in TRIX's processed dataset caches (datasets.py) and the config dicts in its checkpoints (run_*.py, pretrain_*.py). Every torch.load in the pinned tree gets weights_only=False explicitly: the value that WAS the default on the pinned torch 2.1, so the cu118 image is unchanged in behaviour and the cu128 image (containers/incite/Dockerfile.cu128) can load the caches at all. Added 2026-09-02 for the second machine.
+
+diff --git a/src/pretrain_entity.py b/src/pretrain_entity.py
+--- a/src/pretrain_entity.py	2026-09-02 13:24:08.359080716 +0200
++++ b/src/pretrain_entity.py	2026-09-02 13:24:08.380059850 +0200
+@@ -131,7 +131,7 @@
+ 
+     if rank == 0:
+         logger.warning("Load checkpoint from model_epoch_%d.pth" % best_epoch)
+-    state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device)
++    state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device, weights_only=False)
+     model.load_state_dict(state["model"])
+     util.synchronize()
+ 
+@@ -260,7 +260,7 @@
+     )
+ 
+     if "checkpoint" in cfg:
+-        state = torch.load(cfg.checkpoint, map_location="cpu")
++        state = torch.load(cfg.checkpoint, map_location="cpu", weights_only=False)
+         model.load_state_dict(state["model"])
+ 
+     model = model.to(device)
+diff --git a/src/pretrain_relation.py b/src/pretrain_relation.py
+--- a/src/pretrain_relation.py	2026-09-02 13:24:08.359109556 +0200
++++ b/src/pretrain_relation.py	2026-09-02 13:24:08.380205209 +0200
+@@ -133,7 +133,7 @@
+ 
+     if rank == 0:
+         logger.warning("Load checkpoint from model_epoch_%d.pth" % best_epoch)
+-    state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device)
++    state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device, weights_only=False)
+     model.load_state_dict(state["model"])
+     util.synchronize()
+ 
+@@ -256,7 +256,7 @@
+     )
+ 
+     if "checkpoint" in cfg:
+-        state = torch.load(cfg.checkpoint, map_location="cpu")
++        state = torch.load(cfg.checkpoint, map_location="cpu", weights_only=False)
+         model.load_state_dict(state["model"])
+ 
+     model = model.to(device)
+diff --git a/src/run_entity.py b/src/run_entity.py
+--- a/src/run_entity.py	2026-09-02 13:24:08.366202282 +0200
++++ b/src/run_entity.py	2026-09-02 13:24:08.379050519 +0200
+@@ -118,10 +118,10 @@
+     if rank == 0:
+         logger.warning("Load checkpoint from model_epoch_%d.pth" % best_epoch)
+     if best_epoch != -1:
+-        state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device)
++        state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device, weights_only=False)
+         model.load_state_dict(state["model"])
+     else:
+-        state = torch.load("model_epoch_1.pth", map_location=device)
++        state = torch.load("model_epoch_1.pth", map_location=device, weights_only=False)
+         model.load_state_dict(state["model"])
+     util.synchronize()
+     return best_epoch
+@@ -311,7 +311,7 @@
+     )
+ 
+     if "checkpoint" in cfg and cfg.checkpoint is not None:
+-        state = torch.load(cfg.checkpoint, map_location="cpu")
++        state = torch.load(cfg.checkpoint, map_location="cpu", weights_only=False)
+         model.load_state_dict(state["model"])
+ 
+     model = model.to(device)
+@@ -348,7 +348,7 @@
+     
+     best_epoch = train_and_validate(cfg, model, train_data, valid_data if "fast_test" not in cfg.train else short_valid, filtered_data=val_filtered_data, device=device, batch_per_epoch=cfg.train.batch_per_epoch, logger=logger)
+     if best_epoch == -1:
+-        state = torch.load(cfg.checkpoint, map_location=device)
++        state = torch.load(cfg.checkpoint, map_location=device, weights_only=False)
+         model.load_state_dict(state["model"])
+ 
+     if util.get_rank() == 0:
+diff --git a/src/run_relation.py b/src/run_relation.py
+--- a/src/run_relation.py	2026-09-02 13:24:08.367301038 +0200
++++ b/src/run_relation.py	2026-09-02 13:24:08.379884071 +0200
+@@ -117,10 +117,10 @@
+     if rank == 0:
+         logger.warning("Load checkpoint from model_epoch_%d.pth" % best_epoch)
+     if best_epoch != -1:
+-        state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device)
++        state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device, weights_only=False)
+         model.load_state_dict(state["model"])
+     else:
+-        state = torch.load("model_epoch_1.pth", map_location=device)
++        state = torch.load("model_epoch_1.pth", map_location=device, weights_only=False)
+         model.load_state_dict(state["model"])
+     util.synchronize()
+     return best_epoch
+@@ -249,7 +249,7 @@
+     )
+ 
+     if "checkpoint" in cfg and cfg.checkpoint is not None:
+-        state = torch.load(cfg.checkpoint, map_location="cpu")
++        state = torch.load(cfg.checkpoint, map_location="cpu", weights_only=False)
+         model.load_state_dict(state["model"])
+ 
+     model = model.to(device)
+@@ -286,7 +286,7 @@
+     
+     best_epoch = train_and_validate(cfg, model, train_data, valid_data if "fast_test" not in cfg.train else short_valid, filtered_data=val_filtered_data, device=device, batch_per_epoch=cfg.train.batch_per_epoch, logger=logger)
+     if best_epoch == -1:
+-        state = torch.load(cfg.checkpoint, map_location=device)
++        state = torch.load(cfg.checkpoint, map_location=device, weights_only=False)
+         model.load_state_dict(state["model"])
+     if util.get_rank() == 0:
+         logger.warning(separator)
+diff --git a/src/trix/datasets.py b/src/trix/datasets.py
+--- a/src/trix/datasets.py	2026-09-02 13:24:08.359202288 +0200
++++ b/src/trix/datasets.py	2026-09-02 13:24:08.375174607 +0200
+@@ -20,7 +20,7 @@
+         # you'll need to delete the processed datasets then and re-run to cache a new dataset
+         self.merge_valid_test = merge_valid_test
+         super().__init__(root, transform, pre_transform)
+-        self.data, self.slices = torch.load(self.processed_paths[0])
++        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+ 
+     @property
+     def num_relations(self):
+@@ -244,7 +244,7 @@
+     def __init__(self, root, transform=None, pre_transform=build_relation_graph, **kwargs):
+ 
+         super().__init__(root, transform, pre_transform)
+-        self.data, self.slices = torch.load(self.processed_paths[0])
++        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+ 
+     @property
+     def raw_file_names(self):
+@@ -607,7 +607,7 @@
+ 
+         self.version = str(version)
+         super().__init__(root, transform, pre_transform)
+-        self.data, self.slices = torch.load(self.processed_paths[0])
++        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+ 
+     def download(self):
+         for url, path in zip(self.urls, self.raw_paths):
+@@ -1067,7 +1067,7 @@
+         self.graphs = [self.datasets_map[ds](root=root) for ds in graphs]
+         self.num_graphs = len(graphs)
+         super().__init__(root, transform, pre_transform)
+-        self.data = torch.load(self.processed_paths[0])
++        self.data = torch.load(self.processed_paths[0], weights_only=False)
+ 
+     @property
+     def raw_dir(self):
