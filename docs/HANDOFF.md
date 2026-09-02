@@ -40,7 +40,8 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g (20k) last | 0.4534 | 0.3825 | beats ULTRA-4g by +0.008 / +0.036; TRIX by −0.003 / +0.015 (ind_er interval excludes zero) |
 | **INCITE 4g + 10k decay (L1), last** | **0.4560** | **0.3852** | THE REFERENCE (2026-09-02, `checkpoints/incite-4g-decay-last-step30k.pth`): ties TRIX on ind_e, +0.017 on ind_er [+0.005, +0.036], 18 of 23 graphs; see results/incite/DECAY_RESULT.md |
 | **INCITE 4g + unary channel (G1), last** | **0.4571** | **0.3874** | best single model (2026-09-02, `checkpoints/incite-4g-unary-last-step10k.pth`): +0.001 / +0.002 over L1, gains in the unseen-answer cells; results/incite/UNARY_RESULT.md |
-| INCITE 4g + masked continuation (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
+| INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
+| INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
 
 Relation task (unfiltered protocol): TRIX 0.7564 / 0.8415, INCITE joint
@@ -79,7 +80,11 @@ margin), `scripts/halflink_report.py --labels
    cause. L1's per-scenario table shows plain continued training already
    drifts toward seen-answer candidates (SQSA/UQSA up, SQUA/UQUA down);
    masking amplified that drift. Read every continuation lever against
-   the L1 row (results/incite/DECAY_RESULT.md).
+   the L1 row (results/incite/DECAY_RESULT.md). Dose 2 (cap 10, answer
+   only) is negative too: −0.018 / −0.022. Its 1,000-step checkpoint shows
+   the lever is a scenario KNOB: unseen-answer cells up 0.03 to 0.04,
+   SQSA down 0.035, net negative under the test mix. Masking is dead as a
+   net lever at both doses; keep it as a diagnostic figure.
 4. **Checkpoint selection on DEV10 buys nothing** (E1): the unselected
    last checkpoint equals or beats the selected one. Report LAST
    checkpoints. DEV10 is diagnostic only.
@@ -111,7 +116,7 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | --- | --- | --- | --- |
 | L1 | decay only, the paired baseline: DONE, 0.4560 / 0.3852 | ranks/incite-4g-decay(-last) | done |
 | G1 | unary channel: DONE, 0.4571 / 0.3874 | ranks/incite-4g-unary(-last) | done |
-| M2 | masking dose 2 (answer only, in-degree cap 10, p 0.5) | ranks/incite-4g-mask2(-last) | 01:15, 3 Sep |
+| M2 | masking dose 2: DONE, negative (0.4384 / 0.3629) | ranks/incite-4g-mask2(-last) | done |
 | P1 | synthetic rules-prior 100 percent pilot, 10k steps | ranks/incite-synth100-pilot | 03:30, 3 Sep |
 | L2 | floor (3-graph) decay continuation, the matched-diet row | ranks/incite-decay(-last) | 08:00, 3 Sep |
 | X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 15:00, 3 Sep |
