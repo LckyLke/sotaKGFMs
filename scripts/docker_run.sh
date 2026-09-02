@@ -25,6 +25,12 @@ sha = info if isinstance(info, str) else (info.get("commit") or info.get("sha"))
 print(sha[:8])
 PY
 )"
+# KGFM_STACK (2026-09-02): select an alternative image built from
+# containers/<model>/Dockerfile.<stack> for a GPU the pinned stack cannot
+# drive (Blackwell needs CUDA 12.8; the cu118 images have no kernels for
+# it). The tag stays derived from the pin, with the stack suffixed, so a
+# repin invalidates every image of that model at once.
+[ -n "${KGFM_STACK:-}" ] && TAG="${TAG}-${KGFM_STACK}"
 IMAGE="kgfm/${MODEL}:${TAG}"
 docker image inspect "$IMAGE" >/dev/null 2>&1 || {
   echo "no such image: $IMAGE" >&2
@@ -69,6 +75,9 @@ done
 for name in PYTORCH_CUDA_ALLOC_CONF OMP_NUM_THREADS; do
   [ -n "${!name:-}" ] && ENVARGS+=(-e "${name}=${!name}")
 done
+# The image that runs, for PROVENANCE.json: two stacks of one model exist
+# now, and a dump must say which produced it.
+ENVARGS+=(-e "KGFM_IMAGE=${IMAGE}")
 
 # Worktrees share bulk artifacts via absolute symlinks (data/roots and
 # output point into the main worktree). An absolute symlink dangles inside

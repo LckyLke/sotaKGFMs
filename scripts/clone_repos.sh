@@ -11,6 +11,8 @@ python3 - "$PINS" <<'PY' | while IFS=$'\t' read -r dir url sha; do
 import json, sys
 pins = json.load(open(sys.argv[1]))
 for d, e in pins["repos"].items():
+    if not e.get("url") or not e.get("sha"):
+        continue  # our own models (incite) wrap no upstream: nothing to clone
     print(f'{d}\t{e["url"]}\t{e["sha"]}')
 PY
   dest="$ROOT/repos/$dir"

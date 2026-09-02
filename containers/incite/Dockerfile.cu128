@@ -1,0 +1,119 @@
+# INCITE container, CUDA 12.8 stack -- for GPUs the pinned stack cannot drive.
+#
+# Build context is the workspace root, not this directory:
+#     scripts/clone_repos.sh
+#     docker build -f containers/incite/Dockerfile.cu128 -t kgfm/incite:incite01-cu128 .
+#     KGFM_STACK=cu128 scripts/docker_run.sh incite ...     # selects this image
+#
+# WHY A SECOND STACK (2026-09-02). containers/incite/Dockerfile is the TRIX
+# stack: CUDA 11.8, torch 2.1.0, Python 3.9, rspmm compiled for sm_89. That
+# toolkit predates Blackwell (sm_120, RTX 50 series): its cuBLAS carries no
+# kernels for it and torch 2.1 ships no SASS or PTX it could JIT, so the
+# image cannot run on the second machine (RTX 5070 Laptop, 8 GB). This file
+# is the same recipe on the first stack that supports sm_120: CUDA 12.8,
+# torch 2.8.0+cu128, PyG 2.6.1 with the matching torch-scatter/torch-sparse
+# wheels, Python 3.12.
+#
+# RULES.
+#   * Ranks from this image never share a directory with ranks from the
+#     cu118 image (float32 kernels differ in low-order bits; the device
+#     provenance rule of scripts/run_incite.sh). Use a distinct ranks name
+#     (the plan-lite queue suffixes "-bw") and PROVENANCE.json records the
+#     image, torch and CUDA versions.
+#   * The tag is the pin's first 8 chars plus "-cu128" (docker_run.sh's
+#     KGFM_STACK rule), so a repin invalidates both images together.
+#   * Nothing about the model, the loss, the recipe or the data differs.
+#     Whether the two stacks agree is MEASURED, not assumed: the plan-lite
+#     queue evaluates the committed 4g-last checkpoint on a DEV10 graph in
+#     this image and compares against the committed cu118 dump.
+#   * The extension cache directory is separate from the cu118 image's:
+#     both mount /kgfm/output, and a compiled object of one toolkit must
+#     never be loaded by the other.
+FROM nvidia/cuda:12.8.1-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    CUDA_HOME=/usr/local/cuda-12.8/ \
+    PATH=/usr/local/cuda-12.8/bin:$PATH
+
+# Python 3.12 from deadsnakes (ubuntu22.04 ships 3.10; the KGPFN image uses
+# the same route). 3.12 has no distutils; the generic get-pip handles it.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common ca-certificates gnupg curl \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 python3.12-dev python3.12-venv \
+        build-essential git patch \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.12 -m pip install --no-cache-dir setuptools wheel
+
+# numpy 2.x: torch 2.8, the pt28 PyG wheels and pyarrow 21 are all built
+# against it (the cu118 image had to pin 1.x for the opposite reason).
+RUN python3.12 -m pip install --no-cache-dir 'numpy==2.2.6'
+
+RUN python3.12 -m pip install --no-cache-dir \
+        torch==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+RUN python3.12 -m pip install --no-cache-dir \
+        torch-scatter==2.1.2 torch-sparse==0.6.18 \
+        -f https://data.pyg.org/whl/torch-2.8.0+cu128.html
+RUN python3.12 -m pip install --no-cache-dir 'torch-geometric==2.6.1'
+RUN python3.12 -m pip install --no-cache-dir ninja easydict pyyaml jinja2
+
+# matplotlib: src/run_entity.py imports it at module scope (same reason as
+# the cu118 image); a 3.9-series release runs on 3.12.
+RUN python3.12 -m pip install --no-cache-dir 'matplotlib==3.9.4'
+
+# Added by this project: the rank dump writes parquet; tests run in-image.
+RUN python3.12 -m pip install --no-cache-dir 'pyarrow==21.0.0' 'pytest==8.3.4'
+
+# Fail the build, not the run.
+RUN python3.12 -c "\
+import numpy, torch, pyarrow, torch_geometric, torch_scatter, torch_sparse, matplotlib, yaml, easydict, pytest, jinja2; \
+assert torch.__version__.startswith('2.8.0'), torch.__version__; \
+assert torch.version.cuda == '12.8', torch.version.cuda; \
+assert '12.0' in torch.cuda.get_arch_list() or 'sm_120' in torch.cuda.get_arch_list(), torch.cuda.get_arch_list(); \
+print('stack ok:', 'numpy', numpy.__version__, '| torch', torch.__version__, '| cuda', torch.version.cuda, '| archs', torch.cuda.get_arch_list(), '| pyarrow', pyarrow.__version__)"
+
+WORKDIR /kgfm
+
+# Separate from the cu118 image's cache (see RULES above).
+ENV TORCH_EXTENSIONS_DIR=/kgfm/output/.torch_extensions-incite-cu128
+
+COPY shared/ /kgfm/shared/
+ENV PYTHONPATH=/kgfm:/kgfm/shared
+
+COPY repos/trix/ /kgfm/repos/trix/
+COPY patches/trix/ /kgfm/patches/trix/
+RUN cd /kgfm/repos/trix \
+    && for p in /kgfm/patches/trix/*.diff; do \
+         echo "applying $p"; patch -p1 --batch --forward < "$p" || exit 1; \
+       done
+
+COPY incite/ /kgfm/incite/
+COPY configs/ /kgfm/configs/
+
+# Compile rspmm at build time (same two obstacles as the cu118 image: no GPU
+# is visible during the build, and without a device torch cannot detect an
+# architecture). 12.0 is Blackwell consumer (RTX 50 series); pass a
+# different TORCH_CUDA_ARCH_LIST at build AND run time for another GPU.
+ENV TORCH_CUDA_ARCH_LIST=12.0
+RUN python3.12 -c "\
+from torch.utils import cpp_extension; \
+src = '/kgfm/repos/trix/src/trix/rspmm/source'; \
+cpp_extension.load('rspmm', [src + '/rspmm.cpp', src + '/rspmm.cu'], \
+    extra_cflags=['-Ofast', '-fopenmp', '-DAT_PARALLEL_OPENMP', '-DCUDA_OP'], \
+    extra_cuda_cflags=['-O3']); \
+print('rspmm compiled at build time')"
+
+RUN mkdir -p /kgfm/data/roots/incite/support /kgfm/data/raw /kgfm/ranks/incite \
+             /kgfm/output /kgfm/output/.torch_extensions-incite-cu128
+VOLUME ["/kgfm/data", "/kgfm/ranks", "/kgfm/output"]
+
+ENV TRIX_ROOT=/kgfm/repos/trix
+WORKDIR /kgfm
+
+CMD ["python3.12", "-m", "incite.run", "--help"]

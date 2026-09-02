@@ -1,0 +1,48 @@
+# Context-necessity diagnostic (2026-09-02): does a from-scratch in-context
+# scorer use its context when the context is the only place the query
+# relation's facts exist? Driver: diagnostics/context_necessity.py.
+# Result file: results/incite/CONTEXT_NECESSITY.md.
+#
+# The trunk is the phase-1 INCITE core (dim 32, 6 rounds, both channels),
+# from scratch. `mode` selects the scorer: floor (the trunk's own MLP),
+# context_only (the PFN-style scorer is the ONLY scorer), residual (MLP plus
+# scorer -- the design that died twice). One config, three runs.
+model:
+  dim: 32
+  rounds: 6
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes
+  num_mlp_layer: 2
+
+context:
+  k_pos: 8               # context positives per instance
+  k_neg: 4               # context negatives per positive (same head)
+  num_negative: 32       # training negatives per query
+  withhold: 1.0          # 1.0: the query relation has no edge in the message graph
+  eval_cap: 255          # eval candidates beyond the answer
+  tries_per_world: 4
+  hard_neg_hops: 3       # negatives preferred from the head's 3-hop ball
+  hard_neg_frac: 0.5     # half of every negative draw, when the ball has them
+
+scorer:
+  width: 64
+  depth: 2
+  heads: 4
+  detach_rows: no        # yes reproduces the old regime (rows as data)
+
+synth:                   # overrides of incite.synth.RULES_RANGES for the pilot
+  entities: [100, 800]
+
+train:
+  lr: 5.0e-4
+  steps: 2000
+  instances_per_step: 4
+  adversarial_temperature: 1
+  checkpoint_activations: yes
+  eval_every: 250
+  eval_instances: 100
+  eval_seed: 4096        # held-out worlds; never the training stream's seed
+  train_seed: 2048
+
+seed: 1024

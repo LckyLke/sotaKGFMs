@@ -94,6 +94,15 @@ prov = {"device": device, "host": platform.platform(), "cpu_count": os.cpu_count
         "graphs": graphs or "config mix",
         "resume": os.path.basename(resume) if resume else None,
         "checkpoint_selection": "zero-shot DEV10, one mean per suite group"}
+# which stack produced this (2026-09-02: a CUDA 12.8 image exists beside
+# the cu118 one; dumps from the two must never be confused)
+prov["image"] = os.environ.get("KGFM_IMAGE")
+try:
+    import torch
+    prov["torch"] = torch.__version__
+    prov["cuda"] = torch.version.cuda
+except Exception:
+    prov["torch"] = prov["cuda"] = None
 try:
     prov["gpu"] = subprocess.check_output(
         ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"],

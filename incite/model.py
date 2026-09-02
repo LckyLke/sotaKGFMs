@@ -453,13 +453,20 @@ class INCITE(nn.Module):
         return score
 
     # -- support-module encoder protocol ------------------------------------
-    def encode_queries(self, graph, heads: torch.Tensor, rels: torch.Tensor):
+    def encode_queries(self, graph, heads: torch.Tensor, rels: torch.Tensor,
+                       pairs_graph=None):
         """(x [m, V, d], z_q [m, d], s0 [m, V]) for queries (u, r, ?).
 
         The support builder's view; runs whatever mode (train/eval) the
         module is in -- builders call it under no_grad and eval().
+
+        ``pairs_graph`` (2026-09-02, the context-necessity diagnostic):
+        the graph the relation-level incidence pairs are built from, when
+        it differs from the message graph the entity steps run on -- the
+        same split ``forward`` makes between the full graph and the
+        easy-edge-removed message graph. None means both are ``graph``.
         """
-        pairs = self._pairs(graph)
+        pairs = self._pairs(graph if pairs_graph is None else pairs_graph)
         x, z = self._trunk(graph, pairs, heads, rels, None, TASK_ENTITY)
         m, d = x.shape[0], self.dim
         z_q = z.gather(1, rels.view(m, 1, 1).expand(m, 1, d)).squeeze(1)

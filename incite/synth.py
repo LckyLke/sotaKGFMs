@@ -115,7 +115,8 @@ except ImportError:  # pragma: no cover - flat invocation
 __all__ = ["generate_instances", "union_batch", "synth_loss", "synth_config",
            "is_synth_step", "synth_step_loss", "SYNTH_DEFAULTS",
            "RULES_RANGES", "sample_rule_system", "forward_chain",
-           "create_rules_instance"]
+           "create_rules_instance", "CONTEXT_DEFAULTS", "context_config",
+           "create_context_instance", "context_batch"]
 
 #: Defaults for the ``synth:`` config block. ``enabled`` absent or false is
 #: the zero-behavior-change path: nothing in this module runs.
@@ -515,10 +516,13 @@ def forward_chain(facts, rules: Sequence[tuple],
     return known
 
 
-def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
-                        rng: dict):
-    """One attempt at a rules instance; None when the draw yields no usable
-    query (retried by ``create_rules_instance``, generator advancing)."""
+def _sample_world(generator: torch.Generator, rng: dict):
+    """The shared first half of a rules-family draw: schema, rule system,
+    typed entities, skewed base facts, noisy closure, incompleteness, and the
+    two closures the labels come from. Returns None when the base draw is too
+    small (fewer than 8 facts). Factored out of ``_try_rules_instance`` on
+    2026-09-02 for the context-necessity instances; the sequence of generator
+    draws is byte-identical to before (a golden test pins it)."""
     lo_e, hi_e = rng["entities"]
     E = int(round(math.exp(_rand_range(math.log(lo_e), math.log(hi_e),
                                        generator))))
@@ -579,6 +583,25 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
     # labels: what the bounded chainer still derives from the OBSERVED graph
     label_closure = forward_chain(graph_set, rules)
     full_closure = forward_chain(base, rules)
+    return dict(E=E, R=R, T=T, rules=rules, head_types=head_types,
+                tail_types=tail_types, entity_type=entity_type, base=base,
+                kept=kept, derived=derived, graph_set=graph_set,
+                label_closure=label_closure, full_closure=full_closure)
+
+
+def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
+                        rng: dict):
+    """One attempt at a rules instance; None when the draw yields no usable
+    query (retried by ``create_rules_instance``, generator advancing)."""
+    world = _sample_world(generator, rng)
+    if world is None:
+        return None
+    R, rules = world["R"], world["rules"]
+    tail_types, entity_type = world["tail_types"], world["entity_type"]
+    base, kept, derived = world["base"], world["kept"], world["derived"]
+    graph_set = world["graph_set"]
+    label_closure, full_closure = world["label_closure"], world["full_closure"]
+    head_types = world["head_types"]
     query_pool = sorted(label_closure - graph_set)
     if not query_pool:
         return None
@@ -683,6 +706,264 @@ def generate_instances(cfg, generator: torch.Generator,
         tail_len = 1 + _rand_int(4, generator)     # 1..4
         out.append(create_instance(colourings, cycle_size, tail_len, generator))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Context-necessity instances (2026-09-02, diagnostics/context_necessity.py)
+# ---------------------------------------------------------------------------
+#: Defaults of the ``context:`` block the diagnostic reads.
+CONTEXT_DEFAULTS = {
+    "k_pos": 8,            # context positives per instance (one trunk pass each)
+    "k_neg": 4,            # context negatives per positive, same head
+    "num_negative": 32,    # training negatives per query
+    "withhold": 1.0,       # share of the query relation's OBSERVED facts removed
+                           # from the message graph (1.0: the relation has no
+                           # edge; its facts exist only in the context)
+    "eval_cap": 255,       # eval candidates per query beyond the answer
+    "tries_per_world": 4,  # query relations tried before a new world is drawn
+    "hard_neg_hops": 3,    # negatives preferred from the head's k-hop ball in
+                           # the message graph (the external plan's "structural
+                           # corruption"): reachable, type-consistent, not
+                           # derivable -- what a path prior alone cannot reject
+    "hard_neg_frac": 0.5,  # share of every negative draw taken from that ball
+}
+
+
+def _khop(adj: dict, source: int, hops: int) -> set:
+    """Undirected k-hop ball around ``source`` (source excluded)."""
+    seen, frontier = {source}, {source}
+    for _ in range(int(hops)):
+        nxt = set()
+        for u in frontier:
+            nxt.update(adj.get(u, ()))
+        frontier = nxt - seen
+        seen |= frontier
+        if not frontier:
+            break
+    seen.discard(source)
+    return seen
+
+
+def _try_context_instance(generator: torch.Generator, ccfg: dict, rng: dict):
+    """One attempt at a context instance; None when no relation qualifies."""
+    world = _sample_world(generator, rng)
+    if world is None:
+        return None
+    R, rules = world["R"], world["rules"]
+    tail_types, entity_type = world["tail_types"], world["entity_type"]
+    graph_set = world["graph_set"]
+    label_closure, full_closure = world["label_closure"], world["full_closure"]
+    k_pos, k_neg = int(ccfg["k_pos"]), int(ccfg["k_neg"])
+    num_negative, eval_cap = int(ccfg["num_negative"]), int(ccfg["eval_cap"])
+    withhold = float(ccfg["withhold"])
+
+    participating = sorted({e for h, r, t in graph_set for e in (h, t)})
+    part_by_type = {}
+    for e in participating:
+        part_by_type.setdefault(int(entity_type[e]), []).append(e)
+    observed_by_rel, derivable_by_rel = {}, {}
+    for f in graph_set:
+        observed_by_rel.setdefault(f[1], []).append(f)
+    for f in label_closure - graph_set:
+        derivable_by_rel.setdefault(f[1], []).append(f)
+    # a query relation needs derivable-but-absent facts (certain labels) and
+    # enough true facts overall to fill the context beside the query
+    cands = sorted(r for r in derivable_by_rel
+                   if len(derivable_by_rel[r]) + len(observed_by_rel.get(r, ()))
+                   >= k_pos + 1)
+    if not cands:
+        return None
+    order = torch.randperm(len(cands), generator=generator).tolist()
+    for idx in order[:int(ccfg["tries_per_world"])]:
+        r = cands[idx]
+        obs_r = sorted(observed_by_rel.get(r, ()))
+        if withhold >= 1.0:
+            removed = list(obs_r)
+        elif withhold <= 0.0 or not obs_r:
+            removed = []
+        else:
+            coins = torch.rand(len(obs_r), generator=generator).tolist()
+            removed = [f for f, c in zip(obs_r, coins) if c < withhold]
+        g_w = graph_set - set(removed)
+        closure_w = forward_chain(g_w, rules)
+        d_r = sorted(f for f in closure_w - g_w if f[1] == r)
+        if not d_r:
+            continue
+        pos_pool = sorted(set(d_r) | set(removed))       # true, absent from g_w
+        if len(pos_pool) < k_pos + 1:
+            continue
+        q = d_r[_rand_int(len(d_r), generator)]
+        others = [f for f in pos_pool if f != q]
+        perm = torch.randperm(len(others), generator=generator)[:k_pos].tolist()
+        ctx_pos = [others[i] for i in perm]
+        forbidden = closure_w | full_closure | label_closure
+
+        adj = {}
+        for hh, _rr, tt_ in g_w:
+            adj.setdefault(hh, set()).add(tt_)
+            adj.setdefault(tt_, set()).add(hh)
+        hops, frac = int(ccfg["hard_neg_hops"]), float(ccfg["hard_neg_frac"])
+
+        def neg_pool(head):
+            """(hard, easy): type-consistent, participating, not derivable;
+            hard = inside the head's k-hop ball of the message graph."""
+            ball = _khop(adj, head, hops) if hops > 0 else set()
+            hard, easy = [], []
+            for ty in sorted(tail_types[r]):
+                for e in part_by_type.get(ty, ()):
+                    if e != head and (head, r, e) not in forbidden:
+                        (hard if e in ball else easy).append(e)
+            return hard, easy
+
+        def draw(pool, n):
+            if not pool:
+                return []
+            if len(pool) >= n:
+                return [pool[i] for i in
+                        torch.randperm(len(pool), generator=generator)[:n].tolist()]
+            return [pool[i] for i in
+                    torch.randint(len(pool), (n,), generator=generator).tolist()]
+
+        def draw_mixed(hard, easy, n):
+            """``frac`` of ``n`` from the hard pool (as far as it reaches),
+            the rest from the easy pool; with replacement only when short."""
+            n_hard = min(len(hard), int(round(frac * n))) if hard else 0
+            if not easy:
+                n_hard = n
+            out = draw(hard, n_hard) + draw(easy, n - n_hard)
+            return out[:n]
+
+        q_hard, q_easy = neg_pool(q[0])
+        if len(q_hard) + len(q_easy) < 4:
+            continue
+        ctx_neg, ok = [], True
+        for u, _r, _v in ctx_pos:
+            hard, easy = neg_pool(u)
+            if not hard and not easy:
+                ok = False
+                break
+            ctx_neg.append(draw_mixed(hard, easy, k_neg))
+        if not ok:
+            continue
+        q_negs = draw_mixed(q_hard, q_easy, num_negative)
+        qpool = q_hard + q_easy
+        if len(qpool) <= eval_cap:
+            eval_cands = qpool
+        else:
+            # the eval pool keeps every hard candidate it can (up to the cap)
+            n_hard = min(len(q_hard), eval_cap)
+            eval_cands = draw(q_hard, n_hard) + draw(q_easy, eval_cap - n_hard)
+
+        old2new = {e: i for i, e in enumerate(participating)}
+        graph = sorted(g_w)
+        edge_index = torch.tensor(
+            [[old2new[hh] for hh, _r, _t in graph],
+             [old2new[tt_] for _h, _r, tt_ in graph]], dtype=torch.long)
+        edge_type = torch.tensor([rr for _h, rr, _t in graph], dtype=torch.long)
+        return _make(
+            edge_index=edge_index, edge_type=edge_type,
+            num_nodes=len(participating), num_relations=R, family="context",
+            rel=int(r), withheld=float(withhold),
+            q_h=old2new[q[0]], q_t=old2new[q[2]],
+            q_negs=torch.tensor([old2new[e] for e in q_negs], dtype=torch.long),
+            eval_cands=torch.tensor(sorted(old2new[e] for e in eval_cands),
+                                    dtype=torch.long),
+            ctx_h=torch.tensor([old2new[u] for u, _r, _v in ctx_pos], dtype=torch.long),
+            ctx_v=torch.tensor([old2new[v] for _u, _r, v in ctx_pos], dtype=torch.long),
+            ctx_neg=torch.tensor([[old2new[e] for e in row] for row in ctx_neg],
+                                 dtype=torch.long),
+            num_obs_r=len(obs_r), num_removed=len(removed),
+            num_derivable_r=len(d_r), num_eval_pool=len(qpool),
+            num_eval_hard=len(q_hard),
+        )
+    return None
+
+
+def context_config(block: Optional[dict] = None) -> dict:
+    out = dict(CONTEXT_DEFAULTS)
+    if block:
+        unknown = set(block) - set(CONTEXT_DEFAULTS)
+        assert not unknown, "unknown context config keys: %s" % sorted(unknown)
+        out.update(block)
+    return out
+
+
+def create_context_instance(generator: torch.Generator, ccfg: Optional[dict] = None,
+                            ranges: Optional[dict] = None):
+    """One context-necessity instance (see incite/context.py for why).
+
+    A rules-family world, one query relation ``r``, and a message graph from
+    which a ``withhold`` share of r's observed facts is removed. Everything
+    with certain labels: the query ``(q_h, r, q_t)`` is derivable by the
+    bounded chainer from the message graph yet absent from it; the ``k_pos``
+    context positives ``(ctx_h, r, ctx_v)`` are true facts absent from the
+    message graph (removed observed facts or derivable ones); every negative
+    tail is type-consistent, participating, and not derivable from the
+    message graph, the observed graph or the full base closure. At withhold
+    1.0 the message graph has NO edge of r at all: the relation's facts
+    exist only in the context, which is what makes context necessary by
+    construction. A pure function of the generator state; the rare
+    unusable world is retried with the generator advancing.
+    """
+    ccfg = context_config(ccfg)
+    rng = dict(RULES_RANGES)
+    if ranges:
+        rng.update(ranges)
+    for _attempt in range(16):
+        inst = _try_context_instance(generator, ccfg, rng)
+        if inst is not None:
+            return inst
+    raise AssertionError("context instance generation failed 16 worlds in a "
+                         "row; the ranges or the context block are mis-tuned")
+
+
+def context_batch(instances: Sequence, num_negative: Optional[int] = None):
+    """Disjoint union of context instances plus offset query/context tensors.
+
+    Returns ``(union, batch)``. ``batch`` holds, node ids offset per instance:
+    ``q_h [k]``, ``q_r [k]`` (direct relation ids over the shared vocabulary),
+    ``cands [k, 1 + N]`` (column 0 the answer; training negatives when
+    ``num_negative`` is given, else the eval pool padded with the answer's id
+    and masked out by ``cand_mask``), ``ctx_h [k, P]``, ``ctx_v [k, P]``,
+    ``ctx_neg [k, P, Nn]``. Inverses are materialized as in ``union_batch``.
+    """
+    k = len(instances)
+    assert k > 0
+    num_direct = max(int(inst.num_relations) for inst in instances)
+    eis, ets, offset = [], [], 0
+    q_h, q_r, cands, masks, ctx_h, ctx_v, ctx_neg = [], [], [], [], [], [], []
+    if num_negative is None:
+        width = max(int(inst.eval_cands.numel()) for inst in instances)
+    for inst in instances:
+        eis.append(inst.edge_index + offset)
+        ets.append(inst.edge_type)
+        q_h.append(int(inst.q_h) + offset)
+        q_r.append(int(inst.rel))
+        if num_negative is not None:
+            row = [int(inst.q_t)] + inst.q_negs[:num_negative].tolist()
+            cands.append(torch.tensor(row, dtype=torch.long) + offset)
+            masks.append(torch.ones(len(row), dtype=torch.bool))
+        else:
+            pool = inst.eval_cands.tolist()
+            row = [int(inst.q_t)] + pool + [int(inst.q_t)] * (width - len(pool))
+            cands.append(torch.tensor(row, dtype=torch.long) + offset)
+            m = torch.zeros(len(row), dtype=torch.bool)
+            m[:1 + len(pool)] = True
+            masks.append(m)
+        ctx_h.append(inst.ctx_h + offset)
+        ctx_v.append(inst.ctx_v + offset)
+        ctx_neg.append(inst.ctx_neg + offset)
+        offset += int(inst.num_nodes)
+    ei = torch.cat(eis, dim=1)
+    et = torch.cat(ets)
+    union = _make(edge_index=torch.cat([ei, ei.flip(0)], dim=1),
+                  edge_type=torch.cat([et, et + num_direct]),
+                  num_nodes=offset, num_relations=2 * num_direct)
+    batch = dict(q_h=torch.tensor(q_h), q_r=torch.tensor(q_r),
+                 cands=torch.stack(cands), cand_mask=torch.stack(masks),
+                 ctx_h=torch.stack(ctx_h), ctx_v=torch.stack(ctx_v),
+                 ctx_neg=torch.stack(ctx_neg))
+    return union, batch
 
 
 # ---------------------------------------------------------------------------
