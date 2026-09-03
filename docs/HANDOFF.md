@@ -258,7 +258,7 @@ phase only):
 | MXG1 | synthetic mix 30 percent + unary channel: DONE, 0.4593 / 0.3852, the unary channel adds nothing on top of the mix (results/incite/UNARY_SYNTH_RESULT.md); the DEV10-best dump finishes under v11 | ranks/incite-4g-unary-synth30(-last) | done |
 | MX2 | MX1 plus the generator-side bundle: DONE, NEGATIVE (0.4512 / 0.3717; results/incite/SYNTH_V2_RESULT.md) | ranks/incite-4g-synth30v2-last | done |
 | PG2 | MX1 plus the proof-guided propagation gate: DONE, inert (0.4588 / 0.3869, MX1 within noise; results/incite/GATE_RESULT.md) | ranks/incite-4g-synth30-gate-last | done |
-| PG2P | the gate's pruning curve on DEV10 valid splits with the realized kept fraction and a random-pruning control | results/incite/gate_prune.json | 00:30, 4 Sep |
+| PG2P | the gate's pruning curve: DONE. The gate ranks edges far above chance at the same realized kept fraction, but every fraction costs accuracy (ind_e −0.002 at 93 percent kept, −0.023 at 53); at inference every gate product is 1.00; the sparse-propagation direction is closed (results/incite/GATE_RESULT.md) | results/incite/gate_prune.json | done |
 | D0 | dev-suite numbers of L1, MX1, G1, L2 | results/incite/dev/{L1,MX1,G1,L2}.json | 01:00, 4 Sep |
 | SC1 | MX1 plus the scenario-conditioned readout (`configs/incite_phase1_4g_synth30_scenario.yaml`); dev suite, then 41 graphs; paired against MX1 | results/incite/dev/SC1.json, ranks/incite-4g-synth30-scenario-last | 06:30, 4 Sep |
 | FMX | the 3-graph floor plus the mix (`configs/incite_phase1_synth30.yaml`), the matched-diet test; paired against L2 and TRIX | ranks/incite-synth30-last | 12:00, 4 Sep |
