@@ -1,0 +1,56 @@
+# MX2a (2026-09-03): MX1's recipe with ONE of MX2's changes, the isolated
+# relation blocks in the union batch (each instance owns its relation ids).
+# First step of the bisection of the MX2 bundle, and the base of RR2 (rule
+# recovery needs the blocks). Paired against MX1.
+model:
+  dim: 32
+  rounds: 6
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes      # both channels stay: they are section A, not a lever
+  num_mlp_layer: 2
+
+walks:
+  enabled: no             # phase 2.1 lever
+  num_walks: 32
+  walk_length: 8
+  seed: 1024
+
+support:
+  enabled: no             # phase 2.2 lever
+  num_positive: 16
+  per_relation_cap: 64
+  neg_per_pos: 4
+  prototype_k: 16
+  hops: 3
+  ball_cap: 1024
+  class_prior: 0.1
+  build_batch_size: 16
+
+relation:
+  lambda: 0.0             # phase 2.3 lever
+
+synth:
+  prior: rules            # the latent rule-system prior (RULES_PRIOR.md)
+  enabled: yes
+  fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
+  instances_per_step: 16
+  seed: 2048
+  isolate_relations: yes  # MX2a: per-instance relation blocks in the union
+
+train:
+  batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)
+  accum_steps: 2          # effective 32; memory-forced for the 4-graph mix
+  checkpoint_activations: yes
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  lr: 5.0e-4
+  steps: 20000
+  val_interval: 1000
+  refresh_interval: 500
+  cost_gate: 0.20
+  val_samples: 500
+  graphs: [FB15k237, WN18RR, CoDExMedium]
+
+seed: 1024
