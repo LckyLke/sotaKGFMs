@@ -15,7 +15,8 @@ JOBS="L1:4g-decay:/kgfm-src/configs/incite_phase1.yaml
 M1:4g-mask:/kgfm-src/configs/incite_phase1.yaml
 G1:4g-unary:/kgfm-src/configs/incite_phase1_4g_unary.yaml
 M2:4g-mask2:/kgfm-src/configs/incite_phase1.yaml
-L2:decay:/kgfm-src/configs/incite_phase1.yaml"
+L2:decay:/kgfm-src/configs/incite_phase1.yaml
+MX1:4g-synth30:/kgfm-src/configs/incite_phase1.yaml"
 say "=== snapshot watcher start (pid $$) ==="
 while :; do
   pending=0

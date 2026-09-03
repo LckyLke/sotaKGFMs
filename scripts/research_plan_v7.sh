@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# SUPERSEDED by scripts/research_plan_v7.sh (adds MX1). Do not relaunch.
+# Research plan v7 (2026-09-03, 02:40): adds MX1 right after L2 -- the
+# 4-graph continuation with 30 percent synthetic rules-prior steps, paired
+# against L1 (results/incite/SYNTH_PILOT_RESULT.md motivates it: the
+# synthetic-only model's scenario profile complements real data).
+# Restart: nohup scripts/research_plan_v7.sh >> output/research-plan/nohup.log 2>&1 & disown
+#
+# ---- v6 header follows ----
 # Research plan v6 (2026-09-02, 12:50): seed repeats deferred (user decision:
 # run them once the paper model is known). Order after L1:
 #   G1 M2 P1 L2 X1 X2 E4 E5 E6 F0, then B2 B3 C2 C3 ONLY if the sentinel
@@ -156,7 +162,7 @@ seed_pretrain_dir() {
   return 0
 }
 
-say "=== research plan v6 start (pid $$) ==="
+say "=== research plan v7 start (pid $$) ==="
 
 # ---- takeover from v1: let it finish E6, then stop it -------------------
 if pgrep -f '^bash scripts/research_plan.sh' > /dev/null; then
@@ -344,6 +350,23 @@ if ! skip L2; then
   fi
 fi
 
+# ---- MX1: 4g continuation with 30% synthetic rules-prior steps (vs L1) ---
+if ! skip MX1; then
+  seed_pretrain_dir MX1 "$INC/output/incite-pretrain-4g/incite_last.pth"
+  if incite_pretrain MX1 /kgfm-src/configs/incite_phase1_4g_synth30.yaml 4g-synth30 30000 \
+       INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
+    ok=1
+    incite_eval /kgfm-src/output/incite-pretrain-4g-synth30/incite_last.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-synth30-last || ok=0
+    incite_eval /kgfm-src/output/incite-pretrain-4g-synth30/incite_best.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-synth30 || ok=0
+    [ "$ok" -eq 1 ] && done_mark MX1 || fail_mark MX1
+  else
+    fail_mark MX1
+  fi
+fi
+
 # ---- X1: TRIX@20k matched-budget pretrain (output_dir FIXED) --------------
 if ! skip X1; then
   mkdir -p "$ROOT/output/trix-20k" "$ROOT/data/roots/trix-20k"
@@ -441,7 +464,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[1]), "..", "sotaKGFMs",
 sys.path.insert(0, "/home/lukef/Dokumente/GitHub/sotaKGFMs/shared")
 import metrics, suite
 cands = {"L1": "incite-4g-decay-last", "M1": "incite-4g-mask-last",
-         "G1": "incite-4g-unary-last", "M2": "incite-4g-mask2-last"}
+         "G1": "incite-4g-unary-last", "M2": "incite-4g-mask2-last",
+         "MX1": "incite-4g-synth30-last"}
 best, best_v = None, -1.0
 for name, d in cands.items():
     p = os.path.join(sys.argv[1], d)
@@ -463,6 +487,7 @@ case "$WIN" in
   M1)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY --mask_answer_p 0.3 --mask_query_p 0.3"; WMODE=resume ;;
   G1)  WCFG=/kgfm-src/configs/incite_phase1_4g_unary.yaml; WFLAGS="$UDECAY"; WMODE=init ;;
   M2)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY --mask_answer_p 0.5 --mask_query_p 0 --mask_answer_maxdeg 10"; WMODE=resume ;;
+  MX1) WCFG=/kgfm-src/configs/incite_phase1_4g_synth30.yaml; WFLAGS="$DECAY"; WMODE=resume ;;
   *)   WCFG=""; ;;
 esac
 
