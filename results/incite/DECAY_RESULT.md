@@ -36,3 +36,25 @@ continuation must be read against THIS row, not against the 20k start.
 
 The reference model for every comparison from now on. Single seed.
 Reference checkpoint: checkpoints/incite-4g-decay-last-step30k.pth.
+
+# Floor (3-graph) decay continuation (L2): no gain at matched diet
+
+Date: 2026-09-03. Same recipe as L1 on the 3-graph floor's last
+checkpoint (step 20k): 10k steps, linear decay, warmup 500, batch 32.
+
+| model | ind_e MRR | ind_er MRR |
+| --- | --- | --- |
+| floor, DEV10 best (17k) | 0.4553 | 0.3740 |
+| floor decay, last (30k) | 0.4510 | 0.3745 |
+| floor decay, DEV10 best (27k) | 0.4537 | 0.3753 |
+| floor-family soup | 0.4571 | 0.3775 |
+| TRIX | 0.4562 | 0.3679 |
+
+Decay last minus floor best: ind_e −0.0043 [−0.011, +0.002], ind_er
++0.0006 [−0.012, +0.015]. Versus TRIX: ind_e −0.0051 [−0.011, +0.001],
+ind_er +0.0067 [−0.006, +0.024]. The DEV10 scalar moved 0.4110 to 0.4123.
+So the decay lift is a 4-graph effect here, or noise at both diets;
+single seed either way. The best matched-diet (3-graph) row stays the
+floor-family soup, co-SOTA with TRIX on ind_e and +0.010 on ind_er.
+The floor's own LAST checkpoint (the proper pair for L2) is queued for
+evaluation as ranks/incite-floor-last.
