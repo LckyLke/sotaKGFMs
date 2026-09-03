@@ -57,3 +57,19 @@ cells that realistic unseen-answer supervision helps more. The paper
 recipe is the MX1 family; MX2 (the generator-side fixes) decides its
 synthetic steps next. MXG1 remains a candidate in the plan's automatic
 winner pick, where it loses to MX1 on the mean group MRR.
+
+## The diagnostic dump (DEV10-best checkpoint, step 9,000 of 10,000)
+
+| checkpoint | ind_e MRR | ind_er MRR |
+| --- | --- | --- |
+| last (10k) | 0.4593 | 0.3852 |
+| DEV10-best (9k) | 0.4610 | 0.3870 |
+
+Best minus last: ind_e +0.0017 [+0.0007, +0.0026], 14 of 18 graphs;
+ind_er +0.0018 [+0.0005, +0.0034], 19 of 23. Two neighboring
+checkpoints at the end of a decay to zero are nearly the same model, so
+the paired differences are small and consistent, and the interval is
+tight for that reason. Against MX1's last checkpoint the best one is
++0.0004 / +0.0019: inside noise. The protocol reports LAST (E1: DEV10
+selection bought nothing on average); this run puts the checkpoint-level
+noise floor at the end of a decay at about 0.002. The verdict stands.
