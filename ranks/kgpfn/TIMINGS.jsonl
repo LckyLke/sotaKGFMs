@@ -36,3 +36,13 @@
 {"dataset": "WikiTopicsMT2_sci", "device": "gpu", "index": 17, "model": "kgpfn", "run_id": "WikiTopicsMT2:sci", "seconds": 4502.353, "started": "2026-09-02T03:56:10Z", "status": "ok"}
 {"dataset": "WikiTopicsMT3_art", "device": "gpu", "index": 18, "model": "kgpfn", "run_id": "WikiTopicsMT3:art", "seconds": 6267.354, "started": "2026-09-02T05:11:12Z", "status": "ok"}
 {"dataset": "WikiTopicsMT3_infra", "device": "gpu", "index": 19, "model": "kgpfn", "run_id": "WikiTopicsMT3:infra", "seconds": 4858.976, "started": "2026-09-02T06:55:40Z", "status": "ok"}
+{"dataset": "WikiTopicsMT4_sci", "device": "gpu", "index": 20, "model": "kgpfn", "run_id": "WikiTopicsMT4:sci", "seconds": 3921.273, "started": "2026-09-02T08:16:39Z", "status": "ok"}
+{"dataset": "WikiTopicsMT4_health", "device": "gpu", "index": 21, "model": "kgpfn", "run_id": "WikiTopicsMT4:health", "seconds": 3247.093, "started": "2026-09-02T09:22:00Z", "status": "ok"}
+{"dataset": "FBNELL", "device": "gpu", "index": 22, "model": "kgpfn", "run_id": "FBNELL:FBNELL_v1", "seconds": 4.061, "started": "2026-09-02T10:16:07Z", "status": "failed"}
+{"dataset": "FB15k237Inductive_v1", "device": "gpu", "index": 1, "model": "kgpfn", "run_id": "FB15k237Inductive:v1", "seconds": 3.969, "started": "2026-09-02T10:25:57Z", "status": "failed"}
+{"dataset": "FB15k237Inductive_v2", "device": "gpu", "index": 2, "model": "kgpfn", "run_id": "FB15k237Inductive:v2", "seconds": 3.759, "started": "2026-09-02T10:26:01Z", "status": "failed"}
+{"dataset": "FB15k237Inductive_v3", "device": "gpu", "index": 3, "model": "kgpfn", "run_id": "FB15k237Inductive:v3", "seconds": 3.762, "started": "2026-09-02T10:26:05Z", "status": "failed"}
+{"dataset": "FB15k237Inductive_v4", "device": "gpu", "index": 4, "model": "kgpfn", "run_id": "FB15k237Inductive:v4", "seconds": 3.774, "started": "2026-09-02T10:26:09Z", "status": "failed"}
+{"dataset": "HM_1k", "device": "gpu", "index": 5, "model": "kgpfn", "run_id": "HM:1k", "seconds": 605.935, "started": "2026-09-02T10:26:12Z", "status": "ok"}
+{"dataset": "HM_3k", "device": "gpu", "index": 6, "model": "kgpfn", "run_id": "HM:3k", "seconds": 3407.695, "started": "2026-09-02T10:36:18Z", "status": "ok"}
+{"dataset": "HM_5k", "device": "gpu", "index": 7, "model": "kgpfn", "run_id": "HM:5k", "seconds": 31.645, "started": "2026-09-02T11:33:06Z", "status": "failed"}

@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
-# SUPERSEDED by scripts/research_plan_v8.sh. Do not relaunch.
+# Research plan v9 (2026-09-03, 12:10): adds MX2 -- MX1 plus the
+# generator-side fixes of the rules prior (certified negatives, many of
+# them and half of them hard; per-instance relation blocks; full-closure
+# positives; configs/incite_phase1_4g_synth30_v2.yaml) -- right after
+# MXG1 and BEFORE MX15, because the paper recipe depends on it and MX15 is
+# a fraction ablation. Takes over from v8 at the MXG1 stage boundary: waits
+# for v8's MXG1 marker, stops v8 and the MX15 container it has just
+# started (identified by output/incite-pretrain/STAGE = MX15), then runs
+# the marker-based stage list, which skips everything already done.
+# Everything else is v8 verbatim (its header follows).
+#
+# Research plan v8 (2026-09-03, 09:40): MX1 is the first lever that moves
+# ind_e (results/incite/SYNTH_MIX_RESULT.md). Adds, right after MX1 and
+# before the chores: MXG1 (synthetic mix 30% + unary channel, warm start)
+# and MX15 (mix at 15%). Takeover also stops kgfm/trix containers.
+# Restart: nohup scripts/research_plan_v8.sh >> output/research-plan/nohup.log 2>&1 & disown
+#
+# ---- v7 header follows ----
 # Research plan v7 (2026-09-03, 02:40): adds MX1 right after L2 -- the
 # 4-graph continuation with 30 percent synthetic rules-prior steps, paired
 # against L1 (results/incite/SYNTH_PILOT_RESULT.md motivates it: the
@@ -163,23 +180,38 @@ seed_pretrain_dir() {
   return 0
 }
 
-say "=== research plan v7 start (pid $$) ==="
+say "=== research plan v9 start (pid $$) ==="
 
-# ---- takeover from v1: let it finish E6, then stop it -------------------
-if pgrep -f '^bash scripts/research_plan.sh' > /dev/null; then
-  say "v1 running; waiting for its E3 marker"
-  until [ -e "$ORC/E3.done" ] || [ -e "$ORC/E3.failed" ] || ! pgrep -f '^bash scripts/research_plan.sh' > /dev/null; do
-    sleep 60
+# ---- takeover from v8 at the MXG1 boundary ---------------------------------
+# v8 marks MXG1 after its two evals, seeds output/incite-pretrain for MX15
+# and starts the MX15 container within seconds. Wait for the marker, stop
+# v8, then stop an incite container ONLY if the run directory says MX15
+# (a crashed v8 would leave MXG1's container running: that one is kept and
+# resumed by the MXG1 stage below). Any trix/flock container is v8's too.
+if pgrep -f '^bash scripts/research_plan_v8.sh' > /dev/null; then
+  say "v8 running; waiting for its MXG1 marker"
+  until [ -e "$ORC/MXG1.done" ] || [ -e "$ORC/MXG1.failed" ] || ! pgrep -f '^bash scripts/research_plan_v8.sh' > /dev/null; do
+    sleep 15
   done
-  pkill -f '^bash scripts/research_plan.sh' && say "v1 stopped"
+  pkill -f '^bash scripts/research_plan_v8.sh' && say "v8 stopped"
   sleep 2
-  for img in kgfm/incite kgfm/flock; do
+  if [ "$(cat "$INC/output/incite-pretrain/STAGE" 2>/dev/null)" = MX15 ]; then
+    for c in $(docker ps --format '{{.ID}} {{.Image}}' | grep " kgfm/incite:" | cut -d' ' -f1); do
+      docker stop "$c" > /dev/null && say "stopped container $c (kgfm/incite, v8's MX15 start)"
+    done
+  fi
+  for img in kgfm/flock kgfm/trix; do
     for c in $(docker ps --format '{{.ID}} {{.Image}}' | grep " $img:" | cut -d' ' -f1); do
       docker stop "$c" > /dev/null && say "stopped container $c ($img)"
     done
   done
 fi
-while docker ps --format '{{.Image}}' | grep -qE '^kgfm/(incite|flock):'; do sleep 30; done
+for img in kgfm/trix; do
+  for c in $(docker ps --format '{{.ID}} {{.Image}}' | grep " $img:" | cut -d' ' -f1); do
+    docker stop "$c" > /dev/null && say "stopped container $c ($img, left by a predecessor)"
+  done
+done
+while docker ps --format '{{.Image}}' | grep -qE '^kgfm/(incite|flock|trix):'; do sleep 30; done
 
 # The killed seed-1024-under-a-1337-label run left output/incite-pretrain
 # behind; keep it for the record, out of the way.
@@ -368,6 +400,54 @@ if ! skip MX1; then
   fi
 fi
 
+# ---- MXG1: synthetic mix 30% + unary channel (warm start, 10k decay) ------
+if ! skip MXG1; then
+  seed_pretrain_dir MXG1
+  if PLAN_INIT_FROM=/kgfm-src/output/incite-pretrain-4g/incite_last.pth \
+     incite_pretrain MXG1 /kgfm-src/configs/incite_phase1_4g_unary_synth30.yaml 4g-unary-synth30 10000 \
+       INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="$UDECAY"; then
+    ok=1
+    incite_eval /kgfm-src/output/incite-pretrain-4g-unary-synth30/incite_last.pth \
+      /kgfm-src/configs/incite_phase1_4g_unary_synth30.yaml incite-4g-unary-synth30-last || ok=0
+    incite_eval /kgfm-src/output/incite-pretrain-4g-unary-synth30/incite_best.pth \
+      /kgfm-src/configs/incite_phase1_4g_unary_synth30.yaml incite-4g-unary-synth30 || ok=0
+    [ "$ok" -eq 1 ] && done_mark MXG1 || fail_mark MXG1
+  else
+    fail_mark MXG1
+  fi
+fi
+
+# ---- MX2: MX1 plus the generator-side fixes (vs MX1 and L1) ---------------
+if ! skip MX2; then
+  seed_pretrain_dir MX2 "$INC/output/incite-pretrain-4g/incite_last.pth"
+  if incite_pretrain MX2 /kgfm-src/configs/incite_phase1_4g_synth30_v2.yaml 4g-synth30v2 30000 \
+       INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
+    ok=1
+    incite_eval /kgfm-src/output/incite-pretrain-4g-synth30v2/incite_last.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-synth30v2-last || ok=0
+    [ "$ok" -eq 1 ] && done_mark MX2 || fail_mark MX2
+  else
+    fail_mark MX2
+  fi
+fi
+
+# ---- MX15: synthetic mix at 15% (vs L1 and MX1) ----------------------------
+if ! skip MX15; then
+  seed_pretrain_dir MX15 "$INC/output/incite-pretrain-4g/incite_last.pth"
+  if incite_pretrain MX15 /kgfm-src/configs/incite_phase1_4g_synth15.yaml 4g-synth15 30000 \
+       INCITE_TRAIN_GRAPHS=FB15k237,WN18RR,CoDExMedium,NELL995 \
+       INCITE_TRAIN_EXTRA_ARGS="$DECAY"; then
+    ok=1
+    incite_eval /kgfm-src/output/incite-pretrain-4g-synth15/incite_last.pth \
+      /kgfm-src/configs/incite_phase1.yaml incite-4g-synth15-last || ok=0
+    [ "$ok" -eq 1 ] && done_mark MX15 || fail_mark MX15
+  else
+    fail_mark MX15
+  fi
+fi
+
 # ---- X1: TRIX@20k matched-budget pretrain (output_dir FIXED) --------------
 if ! skip X1; then
   mkdir -p "$ROOT/output/trix-20k" "$ROOT/data/roots/trix-20k"
@@ -466,7 +546,8 @@ sys.path.insert(0, "/home/lukef/Dokumente/GitHub/sotaKGFMs/shared")
 import metrics, suite
 cands = {"L1": "incite-4g-decay-last", "M1": "incite-4g-mask-last",
          "G1": "incite-4g-unary-last", "M2": "incite-4g-mask2-last",
-         "MX1": "incite-4g-synth30-last"}
+         "MX1": "incite-4g-synth30-last", "MXG1": "incite-4g-unary-synth30-last",
+         "MX15": "incite-4g-synth15-last", "MX2": "incite-4g-synth30v2-last"}
 best, best_v = None, -1.0
 for name, d in cands.items():
     p = os.path.join(sys.argv[1], d)
@@ -489,6 +570,9 @@ case "$WIN" in
   G1)  WCFG=/kgfm-src/configs/incite_phase1_4g_unary.yaml; WFLAGS="$UDECAY"; WMODE=init ;;
   M2)  WCFG=/kgfm-src/configs/incite_phase1_4g.yaml;       WFLAGS="$DECAY --mask_answer_p 0.5 --mask_query_p 0 --mask_answer_maxdeg 10"; WMODE=resume ;;
   MX1) WCFG=/kgfm-src/configs/incite_phase1_4g_synth30.yaml; WFLAGS="$DECAY"; WMODE=resume ;;
+  MXG1) WCFG=/kgfm-src/configs/incite_phase1_4g_unary_synth30.yaml; WFLAGS="$UDECAY"; WMODE=init ;;
+  MX15) WCFG=/kgfm-src/configs/incite_phase1_4g_synth15.yaml; WFLAGS="$DECAY"; WMODE=resume ;;
+  MX2) WCFG=/kgfm-src/configs/incite_phase1_4g_synth30_v2.yaml; WFLAGS="$DECAY"; WMODE=resume ;;
   *)   WCFG=""; ;;
 esac
 
