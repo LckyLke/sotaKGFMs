@@ -33,8 +33,8 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   prior adds +0.0046 on ind_e. The defensible paper is about what a
   synthetic structural prior teaches a KGFM.
 * **What runs (unattended, verified):** `scripts/research_plan_v15.sh`,
-  launched 21:00, waits for the running gate stage PG2 (v12, since 18:55)
-  to finish, then takes over at that boundary. A second independent
+  launched 21:00, took over from v12 at PG2's boundary (22:11, "predecessor
+  stopped (boundary=1)" in the log). A second independent
   verifier read v15, the code and the configs end to end, ran the CPU
   suite and the dev-suite call, and APPROVED the run after its fixes
   (blocking ones: the dev-suite call used `$ALLOC` as a command, and MX15
@@ -115,6 +115,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | **INCITE 4g + 30 percent synthetic mix (MX1), last** | **0.4606** | **0.3851** | best single model (2026-09-03): ind_e +0.0046 over L1 with interval [+0.0002, +0.0092]; both-unseen cell +0.065 on both groups; results/incite/SYNTH_MIX_RESULT.md |
 | INCITE 4g + synthetic mix + unary channel (MXG1), last | 0.4593 | 0.3852 | the unary channel is redundant with the mix: −0.0013 [−0.0025, +0.0001] / +0.0002 versus MX1, the same scenario profile cell for cell; the DEV10-best checkpoint (9k of 10k) scores 0.4610 / 0.3870, +0.002 on both groups over last, the checkpoint-level noise at the end of the decay; results/incite/UNARY_SYNTH_RESULT.md |
 | INCITE 4g + synthetic mix with the generator-side bundle (MX2), last | 0.4512 | 0.3717 | NEGATIVE: −0.0094 [−0.0134, −0.0056] / −0.0134 [−0.0219, −0.0059] versus MX1, every scenario cell down; the synthetic-step loss doubled (0.14 to 0.27), the dose rose; bisection MX2a/MX2b queued; results/incite/SYNTH_V2_RESULT.md |
+| INCITE 4g + synthetic mix + proof-guided gate (PG2), last | 0.4588 | 0.3869 | inert, as the review predicted: −0.0018 [−0.0033, −0.0005] / +0.0018 [−0.0019, +0.0073] versus MX1, the same scenario profile cell for cell, no gate bias moved by more than 0.11; results/incite/GATE_RESULT.md |
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
@@ -256,7 +257,7 @@ phase only):
 | MX1 | 4g continuation with 30 percent synthetic steps: DONE, 0.4606 / 0.3851 | ranks/incite-4g-synth30(-last) | done |
 | MXG1 | synthetic mix 30 percent + unary channel: DONE, 0.4593 / 0.3852, the unary channel adds nothing on top of the mix (results/incite/UNARY_SYNTH_RESULT.md); the DEV10-best dump finishes under v11 | ranks/incite-4g-unary-synth30(-last) | done |
 | MX2 | MX1 plus the generator-side bundle: DONE, NEGATIVE (0.4512 / 0.3717; results/incite/SYNTH_V2_RESULT.md) | ranks/incite-4g-synth30v2-last | done |
-| PG2 | MX1 plus the proof-guided propagation gate (`configs/incite_phase1_4g_synth30_gate.yaml`); paired against MX1; TRAINING since 18:55. The review expects it inert (gate saturated at init, no closing pressure) | ranks/incite-4g-synth30-gate-last | 23:45, 3 Sep |
+| PG2 | MX1 plus the proof-guided propagation gate: DONE, inert (0.4588 / 0.3869, MX1 within noise; results/incite/GATE_RESULT.md) | ranks/incite-4g-synth30-gate-last | done |
 | PG2P | the gate's pruning curve on DEV10 valid splits with the realized kept fraction and a random-pruning control | results/incite/gate_prune.json | 00:30, 4 Sep |
 | D0 | dev-suite numbers of L1, MX1, G1, L2 | results/incite/dev/{L1,MX1,G1,L2}.json | 01:00, 4 Sep |
 | SC1 | MX1 plus the scenario-conditioned readout (`configs/incite_phase1_4g_synth30_scenario.yaml`); dev suite, then 41 graphs; paired against MX1 | results/incite/dev/SC1.json, ranks/incite-4g-synth30-scenario-last | 06:30, 4 Sep |
@@ -399,6 +400,16 @@ uncapped half-link masking, DEV10 checkpoint selection.
   retrain the stage** (the run directory was already moved, so the stage
   seeded a fresh one). Plan v10's `trained <suffix>` guard skips the
   training when the moved directory carries "checkpoint reload OK".
+
+* **A warm start counts its steps from 1, a resumed continuation from
+  20001, and the synthetic coin and the instance seed are functions of
+  the step number.** PG2 (warm start) and MX1 (resumed) saw different
+  data orders: 152 of 200 logged positions show a different graph, so a
+  warm-started lever's difference to MX1 carried data-order noise. Since
+  2026-09-03 the knob `synth.step_offset` (20000 in SC1's and RR2's
+  configs) gives a warm start MX1's exact stream
+  (`incite/tests/test_step_offset.py`). The resumed levers (MX15, MX45,
+  MXS9, MX2a, MX2H, FMX) never had the problem.
 
 * Never edit a bash script while an instance runs, not even a comment
   line: bash reads by byte offset. Write a new file and relaunch.
