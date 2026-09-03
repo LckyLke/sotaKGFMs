@@ -1,0 +1,58 @@
+# R1 variant (2026-09-03): the recipe at dose 0.15, used if MX15 is the accepted modification.
+# R1 (2026-09-03): the paper recipe as ONE from-scratch run: MX1's recipe
+# with the synthetic mix restricted to the decay phase (synth.start_step
+# 20001), which is what the validated continuation did. Steps 1..20000 run
+# at the constant base lr with no synthetic step; 20001..30000 warm up and
+# decay linearly with 30 percent synthetic steps (--schedule_start 20001).
+model:
+  dim: 32
+  rounds: 6
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes      # both channels stay: they are section A, not a lever
+  num_mlp_layer: 2
+
+walks:
+  enabled: no             # phase 2.1 lever
+  num_walks: 32
+  walk_length: 8
+  seed: 1024
+
+support:
+  enabled: no             # phase 2.2 lever
+  num_positive: 16
+  per_relation_cap: 64
+  neg_per_pos: 4
+  prototype_k: 16
+  hops: 3
+  ball_cap: 1024
+  class_prior: 0.1
+  build_batch_size: 16
+
+relation:
+  lambda: 0.0             # phase 2.3 lever
+
+synth:
+  prior: rules            # the latent rule-system prior (RULES_PRIOR.md)
+  enabled: yes
+  fraction: 0.15           # the dose accepted by the recipe rule
+  instances_per_step: 16
+  seed: 2048
+  start_step: 20001       # the mix in the decay phase only (MX1's recipe)
+
+train:
+  batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)
+  accum_steps: 2          # effective 32; memory-forced for the 4-graph mix
+  checkpoint_activations: yes
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  lr: 5.0e-4
+  steps: 20000
+  val_interval: 1000
+  refresh_interval: 500
+  cost_gate: 0.20
+  val_samples: 500
+  graphs: [FB15k237, WN18RR, CoDExMedium]
+
+seed: 1024
