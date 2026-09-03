@@ -43,6 +43,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
+| **INCITE trained on the synthetic rules prior ONLY** (P1, 10k steps, 41 min) | **0.3593** | **0.2795** | no real KG seen; 86 / 82 percent of ULTRA-3g; strong on unseen-answer cells, weak on seen-answer ones; results/incite/SYNTH_PILOT_RESULT.md |
 
 Relation task (unfiltered protocol): TRIX 0.7564 / 0.8415, INCITE joint
 0.7286 / 0.8222, v1 composite ind_er 0.8484. PETALS: v1 94.6 / 98.6
@@ -99,11 +100,18 @@ margin), `scripts/halflink_report.py --labels
    bolt-on (KGPFN itself sits at TRIX level here on 13 graphs).
 8. **Hard negatives are published** (KMAS, arXiv 2605.27023, +0.005 to
    +0.009 for every KGFM): a citation, not a contribution.
-9. **Seed spread is the missing number.** Same-architecture runs swing by
+9. **The synthetic rules prior transfers** (P1): a model trained on no
+   real KG reaches 0.3593 / 0.2795 on the 41 real graphs, at one seventh
+   of the per-step cost, and its scenario profile complements real data
+   (matches or beats ULTRA-3g on the unseen-answer cells, trails by 0.08
+   to 0.13 on seen-answer cells). The mixing run MX1 tests whether that
+   complement adds to the reference; the full 25/75/100 sweep waits for
+   it. This is the most promising open thread for the paper.
+10. **Seed spread is the missing number.** Same-architecture runs swing by
    up to 0.10 MRR on single graphs; the only statistics we have are
    graph-level bootstraps. Three seeds of the winner are in the plan.
 
-## Running on this machine: `scripts/research_plan_v6.sh` (markers in output/research-plan/)
+## Running on this machine: `scripts/research_plan_v7.sh` (markers in output/research-plan/)
 
 Stages are idempotent (v4 fixed a relaunch that wiped a finished run).
 `./RESTART.sh` relaunches everything after a pause. Seed repeats are
@@ -117,8 +125,9 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | L1 | decay only, the paired baseline: DONE, 0.4560 / 0.3852 | ranks/incite-4g-decay(-last) | done |
 | G1 | unary channel: DONE, 0.4571 / 0.3874 | ranks/incite-4g-unary(-last) | done |
 | M2 | masking dose 2: DONE, negative (0.4384 / 0.3629) | ranks/incite-4g-mask2(-last) | done |
-| P1 | synthetic rules-prior 100 percent pilot, 10k steps | ranks/incite-synth100-pilot | 03:30, 3 Sep |
-| L2 | floor (3-graph) decay continuation, the matched-diet row | ranks/incite-decay(-last) | 08:00, 3 Sep |
+| P1 | synthetic rules-prior 100 percent pilot: DONE, 0.3593 / 0.2795 | ranks/incite-synth100-pilot | done |
+| L2 | floor (3-graph) decay continuation, the matched-diet row (training now) | ranks/incite-decay(-last) | 07:00, 3 Sep |
+| MX1 | 4g continuation with 30 percent synthetic rules-prior steps, paired against L1 (`configs/incite_phase1_4g_synth30.yaml`) | ranks/incite-4g-synth30(-last) | 12:30, 3 Sep |
 | X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 15:00, 3 Sep |
 | E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 19:00, 3 Sep |
 | F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 | 21:00, 3 Sep |
