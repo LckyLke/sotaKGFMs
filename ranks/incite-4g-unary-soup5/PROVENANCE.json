@@ -1,0 +1,13 @@
+{
+  "checkpoint": "soup-4g-unary-last5.pth",
+  "config": "incite_phase1_4g_unary.yaml",
+  "cpu_count": 16,
+  "device": "gpu",
+  "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER, 610.57.04",
+  "host": "Linux-7.1.9-arch1-2-x86_64-with-glibc2.35",
+  "protocol": "filtered",
+  "random_weights": false,
+  "seed": 1024,
+  "support": "skip",
+  "task": "entity"
+}

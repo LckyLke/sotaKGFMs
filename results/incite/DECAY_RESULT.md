@@ -58,3 +58,9 @@ single seed either way. The best matched-diet (3-graph) row stays the
 floor-family soup, co-SOTA with TRIX on ind_e and +0.010 on ind_er.
 The floor's own LAST checkpoint (the proper pair for L2) is queued for
 evaluation as ranks/incite-floor-last.
+
+Floor last (20k) evaluated 2026-09-03 (ranks/incite-floor-last): 0.4533 /
+0.3749, equal to the DEV10-best within noise (−0.002 / +0.001), the same
+verdict E1 gave for the 4-graph run. Floor decay last minus floor last:
+−0.0023 [−0.008, +0.002] / −0.0003 [−0.008, +0.008]. No decay gain at
+three graphs, on the proper pair.

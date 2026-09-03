@@ -58,3 +58,18 @@ above it.
 
 E4/E5 (re-ranked 41-graph dumps) and E6 (score ensemble of four trunks)
 run after the lever and seed stages of plan v3.
+
+## Snapshot soups of the decay runs (2026-09-03)
+
+Average of the last five kept checkpoints (26k to 30k) of each decay
+continuation, evaluated with the run's config.
+
+| run | last | last-5 soup | delta |
+| --- | --- | --- | --- |
+| L1 (4g decay) | 0.4560 / 0.3852 | 0.4566 / 0.3858 | +0.0006 / +0.0006 |
+| G1 (4g unary) | 0.4571 / 0.3874 | 0.4562 / 0.3882 | −0.0009 / +0.0008 |
+
+Nothing: a linear decay to zero already averages the trajectory. The
+floor-family soup's +0.002 / +0.0035 came from averaging DIFFERENT
+constant-lr runs, not from snapshots of one decayed run. Keep the
+watcher for completeness; expect no gain from it.
