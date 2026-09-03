@@ -213,6 +213,34 @@ def test_prune_frac_drops_edges_at_eval_only():
     thr = prod.kthvalue(E - keep + 1, dim=1, keepdim=True).values
     kept = int((prod >= thr).sum())
     assert keep <= kept <= keep + 2
+    # the realized kept fraction is recorded per pruned round
+    model.prune_kept = []
+    model.prune_frac = 0.5
+    with torch.no_grad():
+        model(g, batch)
+    assert len(model.prune_kept) == model.rounds
+    # round 0 ties (every node state is zero, so the node gate is constant
+    # and only the query relation's gate differs): nothing is pruned there
+    # and the record says 1.0; later rounds keep the requested share
+    assert all(0.5 <= f <= 0.6 for f in model.prune_kept[1:]), model.prune_kept
+    # the random control keeps the requested share too, and differs from
+    # the gate curve
+    model.prune_random = True
+    model.prune_kept = []
+    with torch.no_grad():
+        rnd = model(g, batch)
+    assert all(0.5 <= f <= 0.6 for f in model.prune_kept)
+    assert not torch.equal(rnd, half)
+    model.prune_random = False
+    # a saturated (fresh) gate ties everywhere: nothing is pruned, and the
+    # record says so
+    fresh = make_model(support=False, gate=True, rounds=2).eval()
+    fresh.prune_frac = 0.5
+    fresh.prune_kept = []
+    with torch.no_grad():
+        fresh(g, batch)
+    assert all(f == 1.0 for f in fresh.prune_kept), fresh.prune_kept
+    model.prune_frac = 0.0
     # training mode never prunes
     model.train()
     model.prune_frac = 0.5

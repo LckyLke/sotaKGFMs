@@ -347,6 +347,15 @@ class INCITE(nn.Module):
         self.gates = nn.ModuleList(
             [EdgeGate(dim) for _ in range(self.rounds)]) if gate else None
         self.prune_frac = 0.0
+        # pruning bookkeeping (measurement only): the realized kept fraction
+        # of every pruned round is appended to ``prune_kept`` (ties at the
+        # threshold keep MORE than 1 - prune_frac; a saturated gate keeps
+        # everything, and the record makes that visible); ``prune_random``
+        # replaces the gate products by seeded uniform noise, the control
+        # curve any gate curve must beat.
+        self.prune_kept = []
+        self.prune_random = False
+        self.prune_seed = 0
         # Rule recovery (2026-09-03, RR1): a head on the relation states,
         # trained on synthetic steps only (the rules are known there).
         self.rule_head = RuleHead(dim) if rule_head else None
@@ -482,12 +491,18 @@ class INCITE(nn.Module):
                         + torch.log(gr[rows, typ] + 1e-6)).mean()
             if not self.training and self.prune_frac > 0:
                 g = gn[:, edge_index[0]] * gr[:, edge_type]            # [b, E]
+                if self.prune_random:
+                    gen = torch.Generator(device=g.device)
+                    gen.manual_seed(int(self.prune_seed) * 1009 + k)
+                    g = torch.rand(g.shape, generator=gen, device=g.device,
+                                   dtype=g.dtype)
                 num_edges = g.shape[1]
                 keep = max(1, int(round((1.0 - float(self.prune_frac))
                                         * num_edges)))
                 thr = g.kthvalue(num_edges - keep + 1, dim=1,
                                  keepdim=True).values
                 edge_weight = (g >= thr).to(x.dtype)
+                self.prune_kept.append(float(edge_weight.mean()))
         hidden = self.entity_steps[k](x, z, boundary_x, edge_index, edge_type,
                                       node_scale, rel_scale, edge_weight)
         x = hidden + x if self.short_cut else hidden

@@ -13,7 +13,11 @@ their own kernels) is worth building: flat to 60 or 80 percent means yes.
           [--batch_size 4] [--gpus "[0]"] [--out results/incite/gate_prune.json]
 
 Also reports, per graph at x = 0, the share of raw gate products below 0.5
-after the last round (how far the gates moved from their open start).
+after the last round (how far the gates moved from their open start), the
+REALIZED kept fraction of every cell (ties keep more; a saturated gate
+keeps everything), and a random-pruning control curve at every fraction.
+A gate curve is evidence only where it sits above the random curve at
+the same realized kept fraction.
 """
 import argparse
 import json
@@ -120,22 +124,36 @@ def main():
     groups = suite.dev10_by_group()
     cells = []
     stats = {}
+    # every fraction twice: the gate curve and the random-pruning control
+    # (seeded uniform scores in place of the gate products). ``kept`` is
+    # the realized kept fraction; ties at the threshold keep more than
+    # 1 - x, and a gate that never left its open start keeps everything,
+    # which would make a "flat curve" mean "nothing was pruned".
     for frac in [float(x) for x in args.fracs.split(",")]:
-        model.prune_frac = frac
-        t0 = time.perf_counter()
-        per = {}
-        for gid, vg, fg in dev:
-            per[gid] = round(validate_graph(model, vg, fg, args.batch_size,
-                                            args.val_samples, args.seed), 4)
-            if frac == 0.0:
-                stats[gid] = gate_stats(model, vg, args.seed)
-        gm = {g: round(sum(per[x] for x in ids if x in per) / len(ids), 4)
-              for g, ids in groups.items()}
-        cell = {"prune_frac": frac, "dev10": per, "dev10_groups": gm,
-                "seconds": round(time.perf_counter() - t0, 1)}
-        print(json.dumps(cell))
-        cells.append(cell)
+        for random_control in ((False, True) if frac > 0 else (False,)):
+            model.prune_frac = frac
+            model.prune_random = random_control
+            model.prune_seed = args.seed
+            t0 = time.perf_counter()
+            per, kept = {}, {}
+            for gid, vg, fg in dev:
+                model.prune_kept = []
+                per[gid] = round(validate_graph(model, vg, fg, args.batch_size,
+                                                args.val_samples, args.seed), 4)
+                kept[gid] = round(sum(model.prune_kept) / len(model.prune_kept), 4) \
+                    if model.prune_kept else 1.0
+                if frac == 0.0:
+                    stats[gid] = gate_stats(model, vg, args.seed)
+            gm = {g: round(sum(per[x] for x in ids if x in per) / len(ids), 4)
+                  for g, ids in groups.items()}
+            cell = {"prune_frac": frac, "random_control": random_control,
+                    "dev10": per, "dev10_groups": gm, "kept": kept,
+                    "kept_mean": round(sum(kept.values()) / len(kept), 4),
+                    "seconds": round(time.perf_counter() - t0, 1)}
+            print(json.dumps(cell))
+            cells.append(cell)
     model.prune_frac = 0.0
+    model.prune_random = False
     result = {"config": os.path.basename(args.config), "ckpt": args.ckpt,
               "hashes": hashes, "val_samples": args.val_samples,
               "gate_stats_at_0": stats, "cells": cells}
