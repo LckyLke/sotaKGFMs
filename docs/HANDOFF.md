@@ -32,7 +32,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 * **Best matched-diet (3-graph) model:** the floor-family soup,
   0.4571 / 0.3775. No 3-graph lever beat it (decay adds nothing there).
 * **Everything is queued (13:10 update, the user's instruction: "queue
-  everything such that we can just wait and see"):** plan v10 runs, in
+  everything such that we can just wait and see"):** plan v11 runs, in
   this order, each INCITE stage a 10k continuation from the 4-graph last
   checkpoint unless stated: MX2 (MX1's recipe with the generator-side
   fixes of the rules prior: 64 certified negatives per row, half of them
@@ -65,8 +65,8 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   worktree; the remote push URL is SSH). The reference for every
   continuation lever is L1 (`ranks/incite-4g-decay-last`), never the 20k
   start.
-* **Watchers alive on this machine:** `scripts/research_plan_v10.sh`
-  (the queue; it took over from v8/v9 at a stage boundary; a Monitor on
+* **Watchers alive on this machine:** `scripts/research_plan_v11.sh`
+  (the queue; v11 replaced v10 after a misfired takeover; no snapshot watcher and no KGPFN container run any more; a Monitor on
   `output/research-plan/log.txt` wakes the session on DONE/FAILED lines),
   `scripts/snapshot_watcher.sh` (last-5 snapshot soups; v2 with a double
   memory check is armed to replace it after the current soup), the KGPFN
@@ -181,7 +181,7 @@ margin), `scripts/halflink_report.py --labels
    up to 0.10 MRR on single graphs; the only statistics we have are
    graph-level bootstraps. Three seeds of the winner are in the plan.
 
-## Running on this machine: `scripts/research_plan_v10.sh` (markers in output/research-plan/)
+## Running on this machine: `scripts/research_plan_v11.sh` (markers in output/research-plan/)
 
 Stages are idempotent (v4 fixed a relaunch that wiped a finished run).
 `./RESTART.sh` relaunches everything after a pause. Seed repeats are
@@ -301,7 +301,7 @@ uncapped half-link masking, DEV10 checkpoint selection.
 6. Train: `scripts/train_incite.sh` through `docker_run.sh` with
    `INCITE_CONFIG`, `INCITE_SEED`, `INCITE_TRAIN_GRAPHS`, `INCITE_RESUME` or
    `INCITE_INIT_FROM`, `INCITE_TRAIN_STEPS`, `INCITE_TRAIN_EXTRA_ARGS`
-   (lr schedule, masking, keep_every). See `scripts/research_plan_v10.sh`
+   (lr schedule, masking, keep_every). See `scripts/research_plan_v11.sh`
    for every exact invocation. 16 GB fits batch 32x1 on the 3-graph mix
    and 16x2 on the 4-graph mix with activation checkpointing.
 7. Every rank dump goes into its own `ranks/<name>/` with a
@@ -314,6 +314,11 @@ uncapped half-link masking, DEV10 checkpoint selection.
   Fixed on 2026-09-03: steps before the start run at the base lr
   (`incite/pretrain.py::make_lr_schedule`, `test_lr_schedule.py`). The
   recipe runs R1/R2/R3 rely on it.
+* **A boundary detector that counts every marker fires on the snapshot
+  watcher's markers.** v10 waited for "a new marker" while MXG1's evals
+  ran; `snapshot-MX1.done` arrived, v10 stopped the eval container and
+  started MXG1 from scratch. Killed after one minute, the finished run
+  was intact, v11 ignores `snapshot-*` markers and guards every stage.
 * **A takeover between a finished training and its marker used to
   retrain the stage** (the run directory was already moved, so the stage
   seeded a fresh one). Plan v10's `trained <suffix>` guard skips the

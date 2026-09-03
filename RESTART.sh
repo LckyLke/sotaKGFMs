@@ -9,18 +9,18 @@
 # research_plan.sh (v1) is superseded by v8 (same markers).
 # The old queues (baseline_orchestrator.sh R3/R4, retry_watcher.sh,
 # queued_research.sh, research_chain2.sh) are superseded: see
-# scripts/research_plan_v10.sh's header for why. Do not relaunch them.
+# scripts/research_plan_v11.sh's header for why. Do not relaunch them.
 #
 #   cd ~/Dokumente/GitHub/sotaKGFMs && ./RESTART.sh
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 mkdir -p output/research-plan
-if pgrep -f '^bash scripts/research_plan_v10.sh' > /dev/null; then
-  echo "research_plan_v10.sh already running"
+if pgrep -f '^bash scripts/research_plan_v11.sh' > /dev/null; then
+  echo "research_plan_v11.sh already running"
 else
-  nohup scripts/research_plan_v10.sh >> output/research-plan/nohup.log 2>&1 & disown
-  echo "research_plan_v10.sh launched"
+  nohup scripts/research_plan_v11.sh >> output/research-plan/nohup.log 2>&1 & disown
+  echo "research_plan_v11.sh launched"
 fi
 if pgrep -f '^bash scripts/kgpfn_small_retry.sh' > /dev/null; then
   echo "kgpfn_small_retry.sh already running"
