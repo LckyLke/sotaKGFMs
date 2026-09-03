@@ -11,10 +11,12 @@ above: transductive valid queries are almost all "answer half seen"
 only 61 / 66 percent such queries. A dev number that is to predict the
 benchmark must weight the four scenarios the way the benchmark does. So
 every graph now samples up to ``--per_cell`` queries per (direction,
-scenario) cell, and the graph's dev number is the cell MRRs combined with
-the benchmark's scenario weights (``BENCH_WEIGHTS``). The graph's own mix
-is reported beside it (``natural``, the quantity the uniform sample
-measured).
+scenario) cell, and the graph's dev number is the eight cell MRRs
+combined with the benchmark's (direction, scenario) weights
+(``BENCH_WEIGHTS``; a tail-only graph uses the tail weights, renormalized).
+The graph's own mix is reported beside it (``natural``, the quantity the
+uniform sample measured), and every cell's MRR and count is in the file,
+so any other weighting is recomputable after the fact.
 
 CONTAINER-ONLY (imports the pinned TRIX loaders through incite.pretrain).
 
@@ -28,8 +30,9 @@ Default graphs (DEV8T): YAGO310, CoDExSmall, CoDExLarge, Hetionet,
 ConceptNet100k, DBpedia100k, AristoV4, WDsinger (NELL23k derives from a
 diet graph and is left out). Tail-only graphs score tail queries only, as
 the suite does. Output per graph: the weighted dev number (``graphs``),
-the natural-mix number (``graphs_natural``), the four cell MRRs with
-their counts (``cells``) and the graph's scenario shares (``share``);
+the natural-mix number (``graphs_natural``), the eight (direction,
+scenario) cell MRRs with their counts (``cells``), the same pooled over
+directions (``cells4``) and the graph's scenario shares (``share``);
 null for a graph that failed, with the error. ``mean`` is the unweighted
 mean of ``graphs`` over the graphs that succeeded; ``complete`` says
 whether every graph did. ``--val_samples`` is accepted and ignored (the
@@ -62,16 +65,21 @@ from halflink import SCEN, scenarios  # noqa: E402
 DEV8T = ["YAGO310", "CoDExSmall", "CoDExLarge", "Hetionet", "ConceptNet100k",
          "DBpedia100k", "AristoV4", "WDsinger"]
 
-#: The 41-graph suite's scenario mix: the mean over graphs of the per-graph
-#: shares (tail and head queries together), averaged over the two groups
-#: (ind_e .325 / .288 / .288 / .098, ind_er .381 / .280 / .280 / .059; from
-#: results/incite/halflink_labels.json, 2026-09-03). Sums to 1.
-BENCH_WEIGHTS = {"SQSA": 0.353, "SQUA": 0.284, "UQSA": 0.284, "UQUA": 0.079}
+#: The 41-graph suite's (direction, scenario) mix: the mean over graphs of
+#: the per-graph shares, averaged over the two groups (ind_e tail
+#: .163 / .109 / .179 / .049, ind_er tail .191 / .068 / .212 / .030; the head
+#: direction mirrors SQUA and UQSA; from results/incite/halflink_labels.json,
+#: 2026-09-03). Sums to 1; pooled over directions: SQSA .353, SQUA .284,
+#: UQSA .284, UQUA .079.
+BENCH_WEIGHTS = {"tail": {"SQSA": 0.177, "SQUA": 0.088, "UQSA": 0.196, "UQUA": 0.039},
+                 "head": {"SQSA": 0.177, "SQUA": 0.196, "UQSA": 0.088, "UQUA": 0.039}}
 #: A cell with fewer scored queries than this is left out of both
-#: combinations (the weights are renormalized over the cells present): a
-#: transductive valid split can have a UQUA cell of thirty queries, and a
-#: cell mean over fewer would move the graph's number by its own noise.
-MIN_CELL = 30
+#: combinations (the weights are renormalized over the cells present).
+#: Ten is low on purpose: the small cells are the UQUA ones, whose weight
+#: is 0.039 per direction, so a noisy small cell moves the graph's number
+#: by about 0.002 while dropping it would bias the number against the
+#: levers that gain exactly there (the verifier's point, 2026-09-03).
+MIN_CELL = 10
 PROTOCOL = "stratified_v2"
 
 
@@ -107,13 +115,15 @@ def stratified_indices(labels, per_cell, gen):
 
 
 def combine(cells, weights):
-    """Weighted mean of the cell MRRs over the cells with enough queries;
-    None when no cell qualifies."""
-    present = [s for s in SCEN if cells[s]["n"] >= MIN_CELL and weights.get(s, 0) > 0]
-    wsum = sum(weights[s] for s in present)
+    """Weighted mean of the (direction, scenario) cell MRRs over the cells
+    with enough queries, the weights renormalized over them; None when no
+    cell qualifies. ``cells`` and ``weights``: {direction: {scenario: ..}}."""
+    present = [(d, s) for d in cells for s in SCEN
+               if cells[d][s]["n"] >= MIN_CELL and weights.get(d, {}).get(s, 0) > 0]
+    wsum = sum(weights[d][s] for d, s in present)
     if not present or wsum <= 0:
         return None
-    return round(sum(weights[s] * cells[s]["mrr"] for s in present) / wsum, 4)
+    return round(sum(weights[d][s] * cells[d][s]["mrr"] for d, s in present) / wsum, 4)
 
 
 def eval_graph(model, valid, filt, per_cell, batch_size, seed, tail_only):
@@ -121,29 +131,38 @@ def eval_graph(model, valid, filt, per_cell, batch_size, seed, tail_only):
     triplets = torch.cat(
         [valid.target_edge_index, valid.target_edge_type.unsqueeze(0)]).t()
     gen = torch.Generator().manual_seed(int(seed))
-    rr = {s: [] for s in SCEN}
-    counts = {s: 0 for s in SCEN}
-    for direction in (["tail"] if tail_only else ["tail", "head"]):
+    directions = ["tail"] if tail_only else ["tail", "head"]
+    total = sum(len(labels[d]) for d in directions)
+    cells, share, rr = {}, {}, {}
+    for direction in directions:
         lab = labels[direction]
-        for s in SCEN:
-            counts[s] += sum(1 for x in lab if x == s)
         picked = stratified_indices(lab, per_cell, gen)
+        cells[direction], share[direction] = {}, {}
         for s in SCEN:
             idx = picked[s]
-            if idx.numel() == 0:
-                continue
-            ranks = rank_queries(model, valid, filt,
-                                 triplets[idx.to(triplets.device)],
-                                 direction, batch_size)
-            rr[s].extend((1.0 / ranks).tolist())
-    total = sum(counts.values())
-    cells = {s: {"mrr": round(sum(v) / len(v), 4) if v else None, "n": len(v)}
-             for s, v in rr.items()}
-    share = {s: round(counts[s] / total, 4) for s in SCEN}
+            vals = []
+            if idx.numel() > 0:
+                ranks = rank_queries(model, valid, filt,
+                                     triplets[idx.to(triplets.device)],
+                                     direction, batch_size)
+                vals = (1.0 / ranks).tolist()
+            rr[(direction, s)] = vals
+            cells[direction][s] = {"mrr": round(sum(vals) / len(vals), 4) if vals else None,
+                                   "n": len(vals)}
+            # the graph's own mix: this cell's share of ALL its queries
+            # (both directions), so the natural combination estimates the
+            # uniform-sample MRR
+            share[direction][s] = round(sum(1 for x in lab if x == s) / total, 4)
+    # the four scenarios pooled over directions, for reading
+    cells4 = {}
+    for s in SCEN:
+        vals = sum((rr[(d, s)] for d in directions), [])
+        cells4[s] = {"mrr": round(sum(vals) / len(vals), 4) if vals else None,
+                     "n": len(vals)}
     return {"weighted": combine(cells, BENCH_WEIGHTS),
             "natural": combine(cells, share),
-            "cells": cells, "share": share,
-            "queries": sum(c["n"] for c in cells.values())}
+            "cells": cells, "cells4": cells4, "share": share,
+            "queries": sum(c["n"] for c in cells4.values())}
 
 
 def main():
@@ -168,7 +187,7 @@ def main():
     model, hashes = load_members(cfg, [p for p in args.ckpt.split(",") if p])
     model = model.to(device).eval()
 
-    per, natural, cells, share, counts, failed = {}, {}, {}, {}, {}, {}
+    per, natural, cells, cells4, share, counts, failed = {}, {}, {}, {}, {}, {}, {}
     t0 = time.perf_counter()
 
     def run(gid, retry):
@@ -179,10 +198,11 @@ def main():
                        args.batch_size, args.seed,
                        bool(getattr(info, "tail_only", False)))
         per[gid], natural[gid] = r["weighted"], r["natural"]
-        cells[gid], share[gid], counts[gid] = r["cells"], r["share"], r["queries"]
+        cells[gid], cells4[gid] = r["cells"], r["cells4"]
+        share[gid], counts[gid] = r["share"], r["queries"]
         failed.pop(gid, None)
         line = {"graph": gid, "dev": r["weighted"], "natural": r["natural"],
-                "cells": {s: [c["mrr"], c["n"]] for s, c in r["cells"].items()},
+                "cells4": {s: [c["mrr"], c["n"]] for s, c in r["cells4"].items()},
                 "queries": r["queries"]}
         if retry:
             line["retry"] = True
@@ -199,7 +219,7 @@ def main():
             try:
                 run(gid, retry)
             except Exception as exc:  # noqa: BLE001 - recorded, not hidden
-                per[gid] = None
+                per[gid] = natural[gid] = None
                 failed[gid] = "%s: %s" % (type(exc).__name__, str(exc)[:200])
                 print(json.dumps({"graph": gid, "dev": None, "error": failed[gid]}),
                       flush=True)
@@ -211,7 +231,8 @@ def main():
               "hashes": hashes, "protocol": PROTOCOL, "per_cell": args.per_cell,
               "weights": BENCH_WEIGHTS, "min_cell": MIN_CELL,
               "graphs": per, "graphs_natural": natural, "cells": cells,
-              "share": share, "queries": counts, "failed": failed,
+              "cells4": cells4, "share": share, "queries": counts,
+              "failed": failed,
               "complete": not failed, "graphs_ok": len(ok),
               "mean": round(sum(ok.values()) / len(ok), 4) if ok else None,
               "mean_natural": round(sum(nat.values()) / len(nat), 4) if nat else None,

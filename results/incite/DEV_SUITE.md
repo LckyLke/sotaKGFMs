@@ -63,21 +63,42 @@ rejected the best model cannot choose its successor.
 
 `diagnostics/dev_eval.py` now labels every valid query with its scenario
 (`diagnostics/halflink.py`, the same definition as the test-suite
-tables), samples up to 300 queries per (direction, cell) with a fixed
-seed (the same queries for every model, so graphs are paired), scores
-them, and combines the four cell MRRs with the benchmark's scenario
-weights: SQSA 0.353, SQUA 0.284, UQSA 0.284, UQUA 0.079 (the mean over
-the 41 test graphs of the per-graph shares, averaged over the two
-groups; from `results/incite/halflink_labels.json`). A cell under 30
-queries is left out and the weights are renormalized. The graph's own
-mix is reported beside (`graphs_natural`, `mean_natural`: the quantity
-the uniform sample measured), and the cell MRRs with their counts are in
-the file. The plan's recipe decision (v16) refuses any file that is not
-`stratified_v2`, so a uniform number is never compared with a stratified
-one; stage D0W recomputes the four references.
+tables), samples up to 300 queries per (direction, scenario) cell with a
+fixed seed (the same queries for every model, so graphs are paired),
+scores them, and combines the eight cell MRRs with the benchmark's
+(direction, scenario) weights: tail SQSA 0.177, SQUA 0.088, UQSA 0.196,
+UQUA 0.039, and the head direction with SQUA and UQSA mirrored (the mean
+over the 41 test graphs of the per-graph shares, averaged over the two
+groups; from `results/incite/halflink_labels.json`; pooled over
+directions SQSA 0.353, SQUA 0.284, UQSA 0.284, UQUA 0.079). A cell under
+10 queries is left out and the weights are renormalized; a tail-only
+graph (WDsinger) uses the tail weights. The graph's own mix is reported
+beside (`graphs_natural`, `mean_natural`: the quantity the uniform
+sample measured), and every cell's MRR and count is in the file, so any
+other weighting is recomputable after the fact. The plan's recipe
+decision (v16) refuses any file that is not `stratified_v2`, so a
+uniform number is never compared with a stratified one; stage D0W
+recomputes the four references.
 
-What it does not fix: the dev graphs are transductive, so their
-unseen-answer cells are small (tens of queries on CoDExSmall) and noisy;
-the weighted number's resolution is about ±0.004 paired over the eight
-graphs, the same order as the uniform number's. The test-set bootstrap
+Resolution (the verifier's estimate from the paired test dumps, where
+the per-query spread of rank-reciprocal differences is about 0.13 per
+cell): the standard error of a graph's paired weighted difference is
+about 0.003 at 600 queries per pooled cell, and about 0.001 for the
+eight-graph mean, so the rule's 0.003 is about three standard errors.
+The unquantified part is the transfer of cell effects from transductive
+valid splits to the 41 inductive test graphs. The test-set bootstrap
 remains the second gate of the recipe rule.
+
+## The expectation for D0W, written before it lands
+
+Applying the benchmark weights to MX1's cell effects on the benchmark
+itself gives MX1 − L1 of about +0.001 to +0.003 (the groups' own weights:
++0.0033 on ind_e, −0.0013 on ind_er; the averaged weights: +0.0016 /
++0.0002), against the actual +0.0046 / −0.0002. So under the stratified
+protocol MX1 is expected to sit within ±0.002 of L1 on the dev suite,
+not above it by the rule's margin, even with perfect transfer of the
+cell effects. Consequences: MX1 itself would not clear the 0.003 bar
+against L1, which is consistent with the review (the prior's gain is
+small); a candidate must beat MX1, not L1; and if D0W puts MX1 more than
+about 0.003 below L1 again, the proxy still disagrees with the benchmark
+and the first gate is suspect.
