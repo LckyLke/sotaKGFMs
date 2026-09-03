@@ -41,6 +41,8 @@ synth:
   fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
   instances_per_step: 16
   seed: 2048
+  step_offset: 20000      # a warm start counts from step 1; MX1 (resumed)
+                          # counted from 20001: same coin, same instances
 
 train:
   batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)

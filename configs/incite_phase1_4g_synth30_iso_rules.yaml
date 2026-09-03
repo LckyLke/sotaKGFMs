@@ -37,6 +37,8 @@ synth:
   fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
   instances_per_step: 16
   seed: 2048
+  step_offset: 20000      # a warm start counts from step 1; MX2a and MX1
+                          # (resumed) count from 20001: the same stream
   isolate_relations: yes  # needed by the rule head
   rule_targets: yes       # RR2: evidenced rules as labeled hypotheses
   rule_neg_per_pos: 4     # RR2: sampled non-rules per evidenced rule

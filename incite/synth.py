@@ -144,6 +144,12 @@ SYNTH_DEFAULTS = {
     "start_step": 0,              # no synthetic step before this step (the
                                   # from-scratch recipe mixes in the decay
                                   # phase only, as the validated MX1 did)
+    "step_offset": 0,             # added to the step number for the coin and
+                                  # the instance seed only (2026-09-03): a
+                                  # warm start counts its steps from 1, a
+                                  # resumed continuation from 20001, so a
+                                  # warm-started lever paired against MX1
+                                  # sets 20000 to see MX1's exact stream
 }
 
 #: Salt keeping the per-step coin stream disjoint from the per-step instance
@@ -1171,6 +1177,8 @@ def synth_config(cfg, force: bool = False) -> Optional[dict]:
     out["rule_neg_per_pos"] = int(out["rule_neg_per_pos"])
     out["start_step"] = int(out["start_step"])
     assert out["start_step"] >= 0, "synth.start_step must be >= 0"
+    out["step_offset"] = int(out["step_offset"])
+    assert out["step_offset"] >= 0, "synth.step_offset must be >= 0"
     out["rule_weight"] = float(out["rule_weight"])
     assert out["rule_neg_per_pos"] >= 1 and out["rule_weight"] >= 0.0
     for key in ("instances_per_step", "seed", "pool_size", "palette",
@@ -1203,11 +1211,19 @@ def is_synth_step(step: int, scfg: dict) -> bool:
     draw sequence -- that already restarts fresh on resume (pretrain.py's
     documented behavior), and skipping a real step also means ``pick_gen``
     advances once less than it would in a synth-off run.
+
+    ``synth.step_offset`` is added to ``step`` first (coin, ``start_step``
+    and the instance seed alike): a warm start (``--init_from``) counts its
+    steps from 1 while a resumed continuation counts from 20001, so without
+    the offset the two see different coin sequences and different instances
+    at the same position, and a lever paired against MX1 carries data-order
+    noise on top of its effect (PG2 did, 2026-09-03).
     """
     fraction = float(scfg["fraction"])
     if fraction <= 0.0:
         return False
-    if int(step) < int(scfg.get("start_step", 0)):
+    step = int(step) + int(scfg.get("step_offset", 0))
+    if step < int(scfg.get("start_step", 0)):
         return False
     if fraction >= 1.0:
         return True
@@ -1222,8 +1238,9 @@ def synth_step_loss(model, scfg: dict, step: int, device=None,
     """One synthetic step's loss: fresh pool, fresh union batch, one forward.
 
     Instances are drawn from a ``torch.Generator`` seeded ``synth.seed +
-    step``, so a synthetic step's data is a pure function of the step number
-    (resume-stable) and independent of the real-graph generators.
+    step + synth.step_offset``, so a synthetic step's data is a pure function
+    of the (offset) step number (resume-stable) and independent of the
+    real-graph generators.
 
     Synthetic steps IGNORE ``accum``: one union batch of
     ``instances_per_step`` instances is one optimizer step, deliberately --
@@ -1236,7 +1253,8 @@ def synth_step_loss(model, scfg: dict, step: int, device=None,
     double the (non-trivial) generation cost for the same distribution. The
     petals path keeps ``pool_size`` so its draw stream stays byte-identical.
     """
-    gen = torch.Generator().manual_seed(int(scfg["seed"]) + int(step))
+    step = int(step) + int(scfg.get("step_offset", 0))
+    gen = torch.Generator().manual_seed(int(scfg["seed"]) + step)
     k = int(scfg["instances_per_step"])
     count = k if str(scfg.get("prior", "petals")) == "rules" else None
     instances = generate_instances(scfg, gen, count)

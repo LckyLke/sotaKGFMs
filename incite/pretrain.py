@@ -457,10 +457,11 @@ def main(argv=None):
         if scfg["prior"] == "rules":
             print("  rules knobs: neg_per_pos %d, num_positive %d, "
                   "hard_neg_frac %.2f, unseen_answer_share %.2f, "
-                  "isolate_relations %s"
+                  "isolate_relations %s, start_step %d, step_offset %d"
                   % (scfg["neg_per_pos_rules"], scfg["num_positive_rules"],
                      scfg["hard_neg_frac"], scfg["unseen_answer_share"],
-                     scfg["isolate_relations"]))
+                     scfg["isolate_relations"], scfg["start_step"],
+                     scfg["step_offset"]))
 
     model.train()
     best_sel, best_path = float("-inf"), None
@@ -488,7 +489,8 @@ def main(argv=None):
             # already batches them into a single forward). No support store is
             # involved and no refresher is touched -- no real graph was drawn.
             synth_batch_loss, _k = incite_synth.synth_step_loss(
-                model, scfg, step, device=device, walk_offset=step * accum,
+                model, scfg, step, device=device,
+                walk_offset=(step + int(scfg.get("step_offset", 0))) * accum,
                 adversarial_temperature=adv_temperature)
             synth_batch_loss.backward()
             optimizer.step()
