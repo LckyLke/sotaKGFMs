@@ -34,7 +34,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 * **Everything is queued (21:00 update, after the independent review,
   see "The independent review" below):** plan v15 runs (v14 plus the second verifier's fixes). Protocol: every
   lever gets a DEV-SUITE verdict first (`diagnostics/dev_eval.py`: valid
-  splits of nine transductive graphs outside the diet and outside the 41
+  splits of eight transductive graphs outside the diet and outside the 41
   test graphs, `results/incite/dev/<stage>.json`), then its 41-graph
   dump. Every recipe candidate lands BEFORE the recipe decision, and the
   paper-model runs come after all of them (the recipe is fixed once).
