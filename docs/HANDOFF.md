@@ -97,6 +97,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | **INCITE 4g + 10k decay (L1), last** | **0.4560** | **0.3852** | THE REFERENCE (2026-09-02, `checkpoints/incite-4g-decay-last-step30k.pth`): ties TRIX on ind_e, +0.017 on ind_er [+0.005, +0.036], 18 of 23 graphs; see results/incite/DECAY_RESULT.md |
 | INCITE 4g + unary channel (G1), last | 0.4571 | 0.3874 | +0.001 / +0.002 over L1, gains in the unseen-answer cells; results/incite/UNARY_RESULT.md |
 | **INCITE 4g + 30 percent synthetic mix (MX1), last** | **0.4606** | **0.3851** | best single model (2026-09-03): ind_e +0.0046 over L1 with interval [+0.0002, +0.0092]; both-unseen cell +0.065 on both groups; results/incite/SYNTH_MIX_RESULT.md |
+| INCITE 4g + synthetic mix + unary channel (MXG1), last | 0.4593 | 0.3852 | the unary channel is redundant with the mix: −0.0013 [−0.0025, +0.0001] / +0.0002 versus MX1, the same scenario profile cell for cell; results/incite/UNARY_SYNTH_RESULT.md |
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
@@ -167,8 +168,10 @@ margin), `scripts/halflink_report.py --labels
    confirmed it: ind_e +0.0046 [+0.0002, +0.0092] over the reference,
    both-unseen cell +0.065 on both groups, seen-answer cells −0.012 to
    −0.017, ind_er net flat. THE mechanism candidate for the paper:
-   realistic unseen-answer supervision from the prior. Next: mix + unary
-   (MXG1), the generator-side fixes (MX2: MX1's synthetic steps scored
+   realistic unseen-answer supervision from the prior. Mix + unary (MXG1,
+   0.4593 / 0.3852) showed the unary channel is redundant with the mix:
+   the same scenario profile, −0.001 on ind_e versus MX1. Next: the
+   generator-side fixes (MX2: MX1's synthetic steps scored
    one positive against ONE negative while real steps score 512; now 64
    certified negatives, half of them structurally close, per-instance
    relation blocks, full-closure positives), the 15 percent dose (MX15),
@@ -198,7 +201,7 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | P1 | synthetic rules-prior 100 percent pilot: DONE, 0.3593 / 0.2795 | ranks/incite-synth100-pilot | done |
 | L2 | floor (3-graph) decay: DONE, no gain (0.4510 / 0.3745) | ranks/incite-decay(-last) | done |
 | MX1 | 4g continuation with 30 percent synthetic steps: DONE, 0.4606 / 0.3851 | ranks/incite-4g-synth30(-last) | done |
-| MXG1 | synthetic mix 30 percent + unary channel, warm start, 10k decay (`configs/incite_phase1_4g_unary_synth30.yaml`); TRAINING NOW since 09:14 (v8) | ranks/incite-4g-unary-synth30(-last) | 14:00, 3 Sep |
+| MXG1 | synthetic mix 30 percent + unary channel: DONE, 0.4593 / 0.3852, the unary channel adds nothing on top of the mix (results/incite/UNARY_SYNTH_RESULT.md); the DEV10-best dump finishes under v11 | ranks/incite-4g-unary-synth30(-last) | done |
 | MX2 | MX1 plus the generator-side fixes of the rules prior (`configs/incite_phase1_4g_synth30_v2.yaml`); paired against MX1 and L1 | ranks/incite-4g-synth30v2-last | 20:00, 3 Sep |
 | PG1 | MX2 plus the proof-guided propagation gate (`configs/incite_phase1_4g_synth30_v2_gate.yaml`, warm start, 10k decay); paired against MX2 | ranks/incite-4g-synth30v2-gate-last | 01:30, 4 Sep |
 | PG1P | the gate's pruning curve on DEV10 valid splits, x in 0..0.95 | results/incite/gate_prune.json | 02:00, 4 Sep |
