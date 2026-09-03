@@ -1,0 +1,34 @@
+{
+ "config": "incite_phase1.yaml",
+ "ckpt": "/kgfm-src/output/incite-pretrain-decay/incite_last.pth",
+ "hashes": [
+  "c256adcc168fcf38"
+ ],
+ "val_samples": 1000,
+ "graphs": {
+  "YAGO310": 0.4756,
+  "CoDExSmall": 0.4082,
+  "CoDExLarge": 0.3147,
+  "Hetionet": 0.2017,
+  "ConceptNet100k": 0.2199,
+  "DBpedia100k": 0.432,
+  "AristoV4": 0.2027,
+  "WDsinger": 0.4711
+ },
+ "queries": {
+  "YAGO310": 2000,
+  "CoDExSmall": 2000,
+  "CoDExLarge": 2000,
+  "Hetionet": 2000,
+  "ConceptNet100k": 2000,
+  "DBpedia100k": 2000,
+  "AristoV4": 2000,
+  "WDsinger": 1000
+ },
+ "failed": {},
+ "complete": true,
+ "graphs_ok": 8,
+ "mean": 0.3407,
+ "mean_non_nell": 0.3407,
+ "seconds": 379.3
+}
