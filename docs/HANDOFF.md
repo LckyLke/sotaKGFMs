@@ -1,4 +1,4 @@
-# Takeover — 2026-09-03, 13:10 (day 7)
+# Takeover — 2026-09-03, 21:07 (day 7)
 
 Goal: a novel, publishable KGFM that beats TRIX and FLOCK on the 41-graph
 zero-shot inductive suite, with seed spread and matched pretraining data.
@@ -22,68 +22,76 @@ The incite worktree symlinks `output/` and `data/roots` to the main
 worktree's copies. `output/` (training dirs, logs) and `data/` are not in
 git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 
-## Live state right now (2026-09-03, 13:10) and how the session operates
+## Live state right now (2026-09-03, 21:07) and how the session operates
 
-* **Best single model:** the 4-graph backbone continued with 30 percent
-  synthetic rules-prior steps (MX1): 0.4606 / 0.3851, ties or beats
-  TRIX on ind_e (+0.004) and leads on ind_er by +0.017 with a graph
-  bootstrap interval of +0.007 to +0.032. Checkpoint:
-  `checkpoints/incite-4g-synth30-last-step30k.pth`. Single seed.
-* **Best matched-diet (3-graph) model:** the floor-family soup,
-  0.4571 / 0.3775. No 3-graph lever beat it (decay adds nothing there).
-* **Everything is queued (21:00 update, after the independent review,
-  see "The independent review" below):** plan v15 runs (v14 plus the second verifier's fixes). Protocol: every
-  lever gets a DEV-SUITE verdict first (`diagnostics/dev_eval.py`: valid
-  splits of eight transductive graphs outside the diet and outside the 41
-  test graphs, `results/incite/dev/<stage>.json`), then its 41-graph
-  dump. Every recipe candidate lands BEFORE the recipe decision, and the
-  paper-model runs come after all of them (the recipe is fixed once).
-  Order: PG2 (the gate; running) and PG2P (its pruning curve with the
-  realized kept fraction and a random control), D0 (dev numbers of L1,
-  MX1, G1, L2), SC1 (the scenario-conditioned readout), FMX (the 3-graph
-  floor plus the mix: the matched-diet test), MX15 and MX45 (the dose
-  curve), MXS9 (90 percent unseen-answer synthetic queries), MX2a
-  (relation blocks alone), RR2 (rule recovery at weight 0.2 on MX2a),
-  the recipe decision, R0 (from scratch, no mix) and R1 (from scratch,
-  the recipe) at seed 1024, X1/X2 (TRIX at 20k), MX2H (the MX2 bundle at
-  half dose), the seeds 1337 and 7 of R1 and R0, the chores, R1L (the
-  recipe at 60k steps). Expected end: 11 Sep.
-* **The recipe rule (recorded in the plan before any R stage):** MX1's
-  recipe, the mix in the decay phase only, plus AT MOST ONE modification.
-  Among SC1, MX15, MX45, MXS9 and RR2 a candidate is accepted if its
-  dev-suite mean beats MX1's by at least 0.003 AND its paired 41-graph
-  interval against MX1 is above zero on one group with the other group's
-  point estimate above −0.002; the accepted candidate with the largest
+* **Best single model:** MX1, the 4-graph backbone continued with 30
+  percent synthetic rules-prior steps: 0.4606 / 0.3851 (ind_e / ind_er),
+  TRIX 0.4562 / 0.3679. Checkpoint `checkpoints/incite-4g-synth30-last-step30k.pth`.
+  Single seed. The independent review (below, and `docs/REVIEW_2026-09-03.md`)
+  found the SOTA claim does not hold as stated: at matched diet INCITE
+  ties TRIX, the ind_er margin is diet plus decay (L1 has it too), the
+  prior adds +0.0046 on ind_e. The defensible paper is about what a
+  synthetic structural prior teaches a KGFM.
+* **What runs (unattended, verified):** `scripts/research_plan_v15.sh`,
+  launched 21:00, waits for the running gate stage PG2 (v12, since 18:55)
+  to finish, then takes over at that boundary. A second independent
+  verifier read v15, the code and the configs end to end, ran the CPU
+  suite and the dev-suite call, and APPROVED the run after its fixes
+  (blocking ones: the dev-suite call used `$ALLOC` as a command, and MX15
+  had no dev number). Order: PG2, PG2P (pruning curve with the realized
+  kept fraction and a random control), D0 (dev numbers of L1, MX1, G1,
+  L2), SC1 (the scenario-conditioned readout, the review's first
+  direction), FMX (the 3-graph floor plus the mix: matched diet), MX15
+  and MX45 (dose curve), MXS9 (share 0.9), MX2a (relation blocks alone),
+  RR2 (rule recovery at weight 0.2 on MX2a), the recipe decision, R0 and
+  R1 from scratch at seed 1024, X1/X2 (TRIX at 20k), MX2H (the MX2
+  bundle at half dose), the seeds 1337 and 7 of R1 and R0, the chores,
+  R1L (60k). Expected end: 11 Sep. The plan table below has the ETAs.
+* **Protocol:** every lever gets a DEV-SUITE verdict first
+  (`diagnostics/dev_eval.py`: valid splits of eight transductive graphs
+  outside the diet and the 41 test graphs, NELL23k left out as a NELL995
+  derivative; 1,000 queries per graph; `results/incite/dev/<stage>.json`,
+  with `mean`, `graphs`, `complete`), then its 41-graph dump. Every recipe
+  candidate lands before the recipe decision; the paper-model runs come
+  after all of them; the recipe is fixed once.
+* **The recipe rule (recorded in the plan):** MX1's recipe, the mix in
+  the decay phase only (`synth.start_step 20001`), plus AT MOST ONE
+  modification. Among SC1, MX15, MX45, MXS9 and RR2 a candidate is
+  accepted if its dev-suite mean beats MX1's by at least 0.003 on the
+  graphs both have (at least six) AND its paired 41-graph interval
+  against MX1 is above zero on one group with the other group's point
+  estimate above −0.002; the accepted candidate with the largest
   dev-suite gain wins. Never an untested combination (the MX2 lesson).
-  The decision and its reasons are written to `output/research-plan/RECIPE`.
+  The decision and its reasons go to `output/research-plan/RECIPE`.
 * **How to intervene:** `touch output/research-plan/SEEDS_HOLD` holds
   the seed stages R1S2/R0S2/R1S3/R0S3 and R1L (R0 and R1 still run). A
   stage is skipped by its marker in `output/research-plan/`; delete
-  `<stage>.failed` to retry it on a relaunch (`./RESTART.sh`, which now
-  launches only the plan). The recipe decision is written to
-  `output/research-plan/RECIPE` with its reasons and logged as "recipe:";
-  delete that file to redo it.
+  `<stage>.failed` to retry it on a relaunch (`./RESTART.sh` launches
+  only the plan). Delete `output/research-plan/RECIPE` to redo the recipe
+  decision. Never edit a running plan script: write the next version
+  with the boundary takeover and launch it.
 * **Per-stage ritual** (what the session does when a stage lands, in
-  this order): `scripts/paired_bootstrap.py <new-last> <reference>` and
-  versus `ranks/trix`; `scripts/halflink_report.py --labels
-  ../sotaKGFMs-incite/results/incite/halflink_labels.json ...` for the
-  per-scenario table; a result note under `results/incite/`; the
-  checkpoint into `checkpoints/` with a README row; this table; commit
-  and push both branches (`git push origin incite` from the incite
-  worktree; the remote push URL is SSH). The reference for every
-  continuation lever is L1 (`ranks/incite-4g-decay-last`), never the 20k
-  start.
-* **Watchers alive on this machine:** only `scripts/research_plan_v15.sh`
-  (the queue after the review; v12 replaced v11 when MX2 lost; a Monitor on
-  `output/research-plan/log.txt` wakes the session on DONE/FAILED lines).
-  The snapshot watcher finished its list and exited (soups add nothing,
-  finding 5); the KGPFN suite container is gone at 29 of 41 graphs, and
-  nothing is gated on it.
+  this order): read `results/incite/dev/<stage>.json` against its paired
+  reference's dev number FIRST; then `scripts/paired_bootstrap.py
+  <new-last> <reference>` (levers: MX1; FMX: L2 and TRIX; RR2: MX2a and
+  MX1; R1: R0 and TRIX) and versus `ranks/trix`; `scripts/halflink_report.py
+  --labels ../sotaKGFMs-incite/results/incite/halflink_labels.json
+  name=dir ...` for the per-scenario table; a result note under
+  `results/incite/`; a checkpoint into `checkpoints/` with a README row
+  only if it is a recipe candidate that won; the state table and the
+  plan table here; commit and push both branches (`git push origin
+  incite` from the incite worktree; the remote push URL is SSH). For
+  PG2P: a gate curve counts only where it beats the random control at
+  the same realized kept fraction.
+* **Watchers alive on this machine:** only the plan and a Monitor on
+  `output/research-plan/log.txt` that wakes the session on DONE/FAILED
+  lines. The snapshot watcher and the KGPFN suite are gone; nothing is
+  gated on them. Do not start another GPU job.
 * **Memory notes for the session** live in
   `~/.claude/projects/-home-lukef-Dokumente-GitHub-sotaKGFMs/memory/`
   (validate before building; never edit running scripts; idempotent
-  queues; objective fixes get built and queued without a question,
-  hypotheses get a paired experiment).
+  queues; objective fixes get built, hypotheses get a paired run; every
+  recipe candidate before the paper-model runs).
 
 ## The state in one table (41 inductive graphs, test splits, seed 1024, LAST checkpoints unless stated)
 
@@ -373,6 +381,15 @@ uncapped half-link masking, DEV10 checkpoint selection.
   on 2026-09-03. `scripts/in_container.sh` now deletes a lock older than
   ten minutes at every container start; by hand: remove the lock file,
   the waiting process continues on its own.
+* **`$ALLOC scripts/docker_run.sh ...` runs the variable's value as a
+  command** (exit 127, "command not found"): bash decides what is an
+  assignment before expansion. Always `env $ALLOC scripts/docker_run.sh`.
+  Plan v14's dev-suite call had it; the second verifier caught it before
+  a single stage ran.
+* **A warm-start continuation without `--schedule_start` re-anchors its
+  decay on a crash-resume** (a second warmup and a fresh decay from the
+  resumed step). `UDECAY` now carries `--schedule_start 1`. PG2 ran under
+  the old flags: if its train.log shows more than one attempt, record it.
 * **A boundary detector that counts every marker fires on the snapshot
   watcher's markers.** v10 waited for "a new marker" while MXG1's evals
   ran; `snapshot-MX1.done` arrived, v10 stopped the eval container and
