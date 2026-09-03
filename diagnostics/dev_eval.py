@@ -11,10 +11,12 @@ CONTAINER-ONLY (imports the pinned TRIX loaders through incite.pretrain).
           [--graphs YAGO310,CoDExSmall,...] [--val_samples 500] \\
           [--batch_size 16] [--gpus "[0]"] [--out results/incite/dev/<name>.json]
 
-Default graphs (DEV9T): YAGO310, CoDExSmall, CoDExLarge, Hetionet,
-ConceptNet100k, DBpedia100k, AristoV4, WDsinger, NELL23k. Tail-only graphs
-score tail queries only, as the suite does. Reports per-graph MRR, the
-unweighted mean, and the mean over the non-NELL graphs.
+Default graphs (DEV8T): YAGO310, CoDExSmall, CoDExLarge, Hetionet,
+ConceptNet100k, DBpedia100k, AristoV4, WDsinger (NELL23k derives from a
+diet graph and is left out). Tail-only graphs score tail queries only, as
+the suite does. Reports per-graph MRR (null for a graph that failed, with
+the error), the unweighted mean over the graphs that succeeded, and
+``complete``.
 """
 import argparse
 import json
@@ -36,8 +38,10 @@ import suite  # noqa: E402
 from incite.pretrain import load_dev_graph  # noqa: E402
 from incite.run import load_members  # noqa: E402
 
-DEV9T = ["YAGO310", "CoDExSmall", "CoDExLarge", "Hetionet", "ConceptNet100k",
-         "DBpedia100k", "AristoV4", "WDsinger", "NELL23k"]
+# NELL23k is left out: it derives from NELL995, which is in the 4-graph diet.
+DEV8T = ["YAGO310", "CoDExSmall", "CoDExLarge", "Hetionet", "ConceptNet100k",
+         "DBpedia100k", "AristoV4", "WDsinger"]
+DEV9T = DEV8T + ["NELL23k"]
 
 
 @torch.no_grad()
@@ -68,7 +72,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--ckpt", required=True, help="path, or comma list (ensemble)")
-    ap.add_argument("--graphs", default=",".join(DEV9T))
+    ap.add_argument("--graphs", default=",".join(DEV8T))
     ap.add_argument("--val_samples", type=int, default=500)
     ap.add_argument("--batch_size", type=int, default=16)
     ap.add_argument("--dev_root", default="/kgfm-src/data/roots/trix")
@@ -83,23 +87,35 @@ def main():
     model, hashes = load_members(cfg, [p for p in args.ckpt.split(",") if p])
     model = model.to(device).eval()
 
-    per, counts = {}, {}
+    per, counts, failed = {}, {}, {}
     t0 = time.perf_counter()
     for gid in [g for g in args.graphs.split(",") if g]:
-        info = suite.by_id(gid)
-        valid, filt = load_dev_graph(args.dev_root, gid)
-        valid.num_relations = int(valid.num_relations)
-        mrr, n = validate_graph(model, valid.to(device), filt.to(device),
-                                args.batch_size, args.val_samples, args.seed,
-                                bool(getattr(info, "tail_only", False)))
-        per[gid] = round(mrr, 4)
-        counts[gid] = n
-        print(json.dumps({"graph": gid, "mrr": per[gid], "queries": n}))
-    mean = round(sum(per.values()) / len(per), 4)
-    non_nell = [v for g, v in per.items() if "NELL" not in g]
+        # one graph's failure (an OOM beside another job, a loader error)
+        # must not void the whole verdict: record null and carry on; the
+        # recipe rule compares candidates on the graphs both have
+        try:
+            info = suite.by_id(gid)
+            valid, filt = load_dev_graph(args.dev_root, gid)
+            valid.num_relations = int(valid.num_relations)
+            mrr, n = validate_graph(model, valid.to(device), filt.to(device),
+                                    args.batch_size, args.val_samples, args.seed,
+                                    bool(getattr(info, "tail_only", False)))
+            per[gid] = round(mrr, 4)
+            counts[gid] = n
+            print(json.dumps({"graph": gid, "mrr": per[gid], "queries": n}))
+        except Exception as exc:  # noqa: BLE001 - recorded, not hidden
+            per[gid] = None
+            failed[gid] = "%s: %s" % (type(exc).__name__, str(exc)[:200])
+            print(json.dumps({"graph": gid, "mrr": None, "error": failed[gid]}))
+            if device.type == "cuda":
+                torch.cuda.empty_cache()
+    ok = {g: v for g, v in per.items() if v is not None}
+    mean = round(sum(ok.values()) / len(ok), 4) if ok else None
+    non_nell = [v for g, v in ok.items() if "NELL" not in g]
     result = {"config": os.path.basename(args.config), "ckpt": args.ckpt,
               "hashes": hashes, "val_samples": args.val_samples,
-              "graphs": per, "queries": counts, "mean": mean,
+              "graphs": per, "queries": counts, "failed": failed,
+              "complete": not failed, "graphs_ok": len(ok), "mean": mean,
               "mean_non_nell": round(sum(non_nell) / len(non_nell), 4) if non_nell else None,
               "seconds": round(time.perf_counter() - t0, 1)}
     print(json.dumps({"mean": result["mean"], "mean_non_nell": result["mean_non_nell"],

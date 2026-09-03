@@ -291,7 +291,7 @@ def test_shipped_configs_keep_synth_off_except_the_deliberate_ones():
     import glob
 
     yaml = __import__("yaml")
-    synth_on = ("phase21b", "synth", "v1_full")   # "synth": the sweep and the MX mixes
+    synth_on = ("phase21b", "synth", "v1_full", "recipe")   # synth: the sweep and the MX mixes; recipe: the from-scratch recipe
     others = [p for p in sorted(glob.glob(os.path.join(REPO, "configs",
                                                        "incite_*.yaml")))
               if not any(tag in os.path.basename(p) for tag in synth_on)]

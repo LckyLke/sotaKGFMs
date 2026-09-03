@@ -237,6 +237,10 @@ def main(argv=None):
     parser.add_argument("--val_samples", type=int, default=None)
     parser.add_argument("--log_every", type=int, default=50)
     parser.add_argument("--seed", type=int, default=1024)
+    parser.add_argument("--synth_seed", type=int, default=None,
+                        help="override synth.seed (the seed repeats of the recipe "
+                             "pass 2048 + seed - 1024 so their synthetic stream "
+                             "differs too)")
     # learning-rate schedule (2026-09-01; the recipe is constant 5e-4)
     parser.add_argument("--lr_schedule", choices=("constant", "linear", "cosine"),
                         default="constant",
@@ -299,6 +303,8 @@ def main(argv=None):
     # config carries `synth: {enabled: yes, ...}` -- absent or off means not a
     # line of incite/synth.py runs and the loop is byte-for-byte the old one.
     scfg = incite_synth.synth_config(cfg)
+    if scfg is not None and args.synth_seed is not None:
+        scfg["seed"] = int(args.synth_seed)
     mix_names = args.graphs.split(",") if args.graphs else list(tcfg.graphs)
     dev_ids = (args.dev_graphs.split(",") if args.dev_graphs
                else list(suite.DEV10))
