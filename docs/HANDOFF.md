@@ -65,12 +65,12 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   worktree; the remote push URL is SSH). The reference for every
   continuation lever is L1 (`ranks/incite-4g-decay-last`), never the 20k
   start.
-* **Watchers alive on this machine:** `scripts/research_plan_v11.sh`
-  (the queue; v11 replaced v10 after a misfired takeover; no snapshot watcher and no KGPFN container run any more; a Monitor on
-  `output/research-plan/log.txt` wakes the session on DONE/FAILED lines),
-  `scripts/snapshot_watcher.sh` (last-5 snapshot soups; v2 with a double
-  memory check is armed to replace it after the current soup), the KGPFN
-  suite (29 of 41 graphs; the small-graph retry finished).
+* **Watchers alive on this machine:** only `scripts/research_plan_v11.sh`
+  (the queue; v11 replaced v10 after a misfired takeover; a Monitor on
+  `output/research-plan/log.txt` wakes the session on DONE/FAILED lines).
+  The snapshot watcher finished its list and exited (soups add nothing,
+  finding 5); the KGPFN suite container is gone at 29 of 41 graphs, and
+  nothing is gated on it.
 * **Memory notes for the session** live in
   `~/.claude/projects/-home-lukef-Dokumente-GitHub-sotaKGFMs/memory/`
   (validate before building; never edit running scripts; idempotent
