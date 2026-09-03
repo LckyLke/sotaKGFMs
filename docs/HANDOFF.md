@@ -35,7 +35,8 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | FLOCK | 0.4558 | 0.3674 | 40 of 41 graphs (ind_er over 22) |
 | KGPFN | 13 of 41 | | at TRIX level on the graphs done |
 | INCITE floor (3g, 20k steps) | 0.4553 | 0.3740 | DEV10-best checkpoint |
-| INCITE floor-family soup | 0.4571 | 0.3775 | average of four floor descendants |
+| INCITE floor-family soup | 0.4571 | 0.3775 | average of four floor descendants; the best matched-diet (3g) row |
+| INCITE floor + 10k decay (L2), last | 0.4510 | 0.3745 | no gain at 3 graphs (results/incite/DECAY_RESULT.md) |
 | INCITE 4g (20k) DEV10-best | 0.4542 | 0.3791 | |
 | INCITE 4g (20k) last | 0.4534 | 0.3825 | beats ULTRA-4g by +0.008 / +0.036; TRIX by −0.003 / +0.015 (ind_er interval excludes zero) |
 | **INCITE 4g + 10k decay (L1), last** | **0.4560** | **0.3852** | THE REFERENCE (2026-09-02, `checkpoints/incite-4g-decay-last-step30k.pth`): ties TRIX on ind_e, +0.017 on ind_er [+0.005, +0.036], 18 of 23 graphs; see results/incite/DECAY_RESULT.md |
@@ -126,11 +127,11 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | G1 | unary channel: DONE, 0.4571 / 0.3874 | ranks/incite-4g-unary(-last) | done |
 | M2 | masking dose 2: DONE, negative (0.4384 / 0.3629) | ranks/incite-4g-mask2(-last) | done |
 | P1 | synthetic rules-prior 100 percent pilot: DONE, 0.3593 / 0.2795 | ranks/incite-synth100-pilot | done |
-| L2 | floor (3-graph) decay continuation, the matched-diet row (training now) | ranks/incite-decay(-last) | 07:00, 3 Sep |
-| MX1 | 4g continuation with 30 percent synthetic rules-prior steps, paired against L1 (`configs/incite_phase1_4g_synth30.yaml`) | ranks/incite-4g-synth30(-last) | 12:30, 3 Sep |
-| X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 15:00, 3 Sep |
-| E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 19:00, 3 Sep |
-| F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 | 21:00, 3 Sep |
+| L2 | floor (3-graph) decay: DONE, no gain (0.4510 / 0.3745) | ranks/incite-decay(-last) | done |
+| MX1 | 4g continuation with 30 percent synthetic rules-prior steps, paired against L1 (`configs/incite_phase1_4g_synth30.yaml`), training now | ranks/incite-4g-synth30(-last) | 11:00, 3 Sep |
+| X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 19:00, 3 Sep |
+| E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 23:00, 3 Sep |
+| F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 | 01:00, 4 Sep |
 | B2/B3, C2/C3 | backbone seeds 1337 and 7 (20k), then the winner continuation (auto-picked among L1/M1/G1/M2) on each | gated by SEEDS_GO | on release, about 26 h |
 
 Also running: the KGPFN suite in the background (1.7 GB, days), and
