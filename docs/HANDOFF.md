@@ -40,7 +40,8 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g (20k) DEV10-best | 0.4542 | 0.3791 | |
 | INCITE 4g (20k) last | 0.4534 | 0.3825 | beats ULTRA-4g by +0.008 / +0.036; TRIX by −0.003 / +0.015 (ind_er interval excludes zero) |
 | **INCITE 4g + 10k decay (L1), last** | **0.4560** | **0.3852** | THE REFERENCE (2026-09-02, `checkpoints/incite-4g-decay-last-step30k.pth`): ties TRIX on ind_e, +0.017 on ind_er [+0.005, +0.036], 18 of 23 graphs; see results/incite/DECAY_RESULT.md |
-| **INCITE 4g + unary channel (G1), last** | **0.4571** | **0.3874** | best single model (2026-09-02, `checkpoints/incite-4g-unary-last-step10k.pth`): +0.001 / +0.002 over L1, gains in the unseen-answer cells; results/incite/UNARY_RESULT.md |
+| INCITE 4g + unary channel (G1), last | 0.4571 | 0.3874 | +0.001 / +0.002 over L1, gains in the unseen-answer cells; results/incite/UNARY_RESULT.md |
+| **INCITE 4g + 30 percent synthetic mix (MX1), last** | **0.4606** | **0.3851** | best single model (2026-09-03): ind_e +0.0046 over L1 with interval [+0.0002, +0.0092]; both-unseen cell +0.065 on both groups; results/incite/SYNTH_MIX_RESULT.md |
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
@@ -107,12 +108,18 @@ margin), `scripts/halflink_report.py --labels
    (matches or beats ULTRA-3g on the unseen-answer cells, trails by 0.08
    to 0.13 on seen-answer cells). The mixing run MX1 tests whether that
    complement adds to the reference; the full 25/75/100 sweep waits for
-   it. This is the most promising open thread for the paper.
+   it. MX1 (the 4-graph continuation with 30 percent synthetic steps)
+   confirmed it: ind_e +0.0046 [+0.0002, +0.0092] over the reference,
+   both-unseen cell +0.065 on both groups, seen-answer cells −0.012 to
+   −0.017, ind_er net flat. THE mechanism candidate for the paper:
+   realistic unseen-answer supervision from the prior. Next: mix + unary
+   (MXG1), the 15 percent dose (MX15), then a from-scratch run with the
+   mix as the recipe and its seeds.
 10. **Seed spread is the missing number.** Same-architecture runs swing by
    up to 0.10 MRR on single graphs; the only statistics we have are
    graph-level bootstraps. Three seeds of the winner are in the plan.
 
-## Running on this machine: `scripts/research_plan_v7.sh` (markers in output/research-plan/)
+## Running on this machine: `scripts/research_plan_v8.sh` (markers in output/research-plan/)
 
 Stages are idempotent (v4 fixed a relaunch that wiped a finished run).
 `./RESTART.sh` relaunches everything after a pause. Seed repeats are
@@ -128,10 +135,12 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | M2 | masking dose 2: DONE, negative (0.4384 / 0.3629) | ranks/incite-4g-mask2(-last) | done |
 | P1 | synthetic rules-prior 100 percent pilot: DONE, 0.3593 / 0.2795 | ranks/incite-synth100-pilot | done |
 | L2 | floor (3-graph) decay: DONE, no gain (0.4510 / 0.3745) | ranks/incite-decay(-last) | done |
-| MX1 | 4g continuation with 30 percent synthetic rules-prior steps, paired against L1 (`configs/incite_phase1_4g_synth30.yaml`), training now | ranks/incite-4g-synth30(-last) | 11:00, 3 Sep |
-| X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 19:00, 3 Sep |
-| E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 23:00, 3 Sep |
-| F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 | 01:00, 4 Sep |
+| MX1 | 4g continuation with 30 percent synthetic steps: DONE, 0.4606 / 0.3851 | ranks/incite-4g-synth30(-last) | done |
+| MXG1 | synthetic mix 30 percent + unary channel, warm start, 10k decay (`configs/incite_phase1_4g_unary_synth30.yaml`) | ranks/incite-4g-unary-synth30(-last) | 15:00, 3 Sep |
+| MX15 | synthetic mix at 15 percent (`configs/incite_phase1_4g_synth15.yaml`) | ranks/incite-4g-synth15-last | 20:00, 3 Sep |
+| X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 04:00, 4 Sep |
+| E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 08:00, 4 Sep |
+| F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 | 10:00, 4 Sep |
 | B2/B3, C2/C3 | backbone seeds 1337 and 7 (20k), then the winner continuation (auto-picked among L1/M1/G1/M2) on each | gated by SEEDS_GO | on release, about 26 h |
 
 Also running: the KGPFN suite in the background (1.7 GB, days), and
