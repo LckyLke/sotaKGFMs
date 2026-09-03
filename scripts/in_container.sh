@@ -25,5 +25,11 @@ hand_back() {
 }
 trap hand_back EXIT INT TERM
 
+# A container killed mid-build (docker stop) leaves torch's extension build
+# lock behind, and the next container waits on it forever: one hour lost on
+# 2026-09-03. A lock older than ten minutes cannot belong to a live build.
+find /kgfm-src/output -maxdepth 3 -path '*torch_extensions*' -name lock \
+     -mmin +10 -delete 2>/dev/null
+
 # Deliberately not exec: exec replaces this shell and the trap never fires.
 "$@"
