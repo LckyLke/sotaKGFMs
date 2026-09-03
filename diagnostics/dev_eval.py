@@ -109,6 +109,24 @@ def main():
             print(json.dumps({"graph": gid, "mrr": None, "error": failed[gid]}))
             if device.type == "cuda":
                 torch.cuda.empty_cache()
+    # one retry of the graphs that failed (a transient OOM beside another
+    # job), so a candidate is compared on the full suite whenever possible
+    for gid in list(failed):
+        try:
+            info = suite.by_id(gid)
+            valid, filt = load_dev_graph(args.dev_root, gid)
+            valid.num_relations = int(valid.num_relations)
+            mrr, n = validate_graph(model, valid.to(device), filt.to(device),
+                                    args.batch_size, args.val_samples, args.seed,
+                                    bool(getattr(info, "tail_only", False)))
+            per[gid] = round(mrr, 4)
+            counts[gid] = n
+            del failed[gid]
+            print(json.dumps({"graph": gid, "mrr": per[gid], "queries": n, "retry": True}))
+        except Exception as exc:  # noqa: BLE001
+            failed[gid] = "%s: %s" % (type(exc).__name__, str(exc)[:200])
+            if device.type == "cuda":
+                torch.cuda.empty_cache()
     ok = {g: v for g, v in per.items() if v is not None}
     mean = round(sum(ok.values()) / len(ok), 4) if ok else None
     non_nell = [v for g, v in ok.items() if "NELL" not in g]
