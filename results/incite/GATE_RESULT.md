@@ -92,3 +92,59 @@ restarts fresh in both cases). `incite/tests/test_step_offset.py` pins
 this. The resumed levers (MX15, MX45, MXS9, MX2a, MX2H, FMX) never had the
 problem. PG2 is not repeated: the gate's mechanism is settled by the
 parameter drift above and the pruning curve below.
+
+## PG2P: the pruning curve (DEV10 valid splits, 500 queries per graph)
+
+`diagnostics/gate_prune_dev.py` on `incite_last.pth`, batch 4, seed 1024;
+the cells are in `results/incite/gate_prune.json`. At inference every gate
+product is 1.00 to two decimals on all ten graphs (share below 0.5:
+0.000; 10th percentile 1.000): the gate closes nothing on its own.
+
+Pruning keeps, per query and round, the edges whose gate product is at or
+above the (1 − x) quantile; ties at the threshold keep more. The random
+control replaces the products with seeded uniforms. A gate point counts
+only against the random curve at the same REALIZED kept fraction (below:
+linear interpolation between the random points, with the unpruned model
+as the point at kept 1.0).
+
+| requested x | realized kept | gate ind_e | random ind_e | gate ind_er | random ind_er | gate transductive | random transductive |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.000 | 0.5169 | 0.5169 | 0.3774 | 0.3774 | 0.4028 | 0.4028 |
+| 0.2 | 0.934 | 0.5152 | 0.5010 | 0.3776 | 0.3660 | 0.3946 | 0.3942 |
+| 0.4 | 0.845 | 0.5117 | 0.4796 | 0.3701 | 0.3508 | 0.3816 | 0.3827 |
+| 0.6 | 0.726 | 0.5074 | 0.4403 | 0.3802 | 0.3321 | 0.3778 | 0.3673 |
+| 0.8 | 0.529 | 0.4938 | 0.3606 | 0.3561 | 0.2959 | 0.3519 | 0.3370 |
+| 0.9 | 0.394 | 0.4759 | 0.3006 | 0.3304 | 0.2620 | 0.3232 | 0.3099 |
+| 0.95 | 0.307 | 0.4521 | 0.2562 | 0.3057 | 0.2334 | 0.2767 | 0.2855 |
+
+Four readings.
+
+1. The gate's logits rank edges far above chance. At half the edges
+   kept, ind_e loses 0.023 where random pruning at the same fraction
+   loses 0.156. The one-sided proof loss taught the gate which edges
+   matter, although the scales it emits at inference are all 1.
+2. Every pruning step costs accuracy on ind_e and on the transductive
+   graph, monotonically: −0.002 at 93 percent kept, −0.005 at 85, −0.010
+   at 73, −0.023 at 53. ind_er wobbles (+0.003 at 73 percent, inside the
+   noise of 500 queries) and then falls. No fraction is free.
+3. The requested fraction is never realized (0.95 requested, 0.31 kept).
+   Every node the propagation has not reached carries the same state, so
+   its gate logit is the bias plus the query term, shared by all unreached
+   sources of a relation: blocks of tied edges sit at the threshold, and
+   the pruning removes edges from unreached sources first, whose messages
+   carry no path information. A random control does not know that, which
+   inflates the gate's margin over it. The right second control is
+   pruning by reachability (unreached sources first, random among the
+   rest). It was not run, because it cannot change the verdict.
+4. The measurement zeroes edge weights inside the same kernel and saves
+   no time. A speedup needs a per-query compacted edge list, which the
+   fused kernel does not have.
+
+## Verdict for the direction
+
+The gate makes the model neither more accurate (PG2: MX1 within noise)
+nor cheaper at equal accuracy (PG2P: every fraction costs). The
+sparse-propagation direction is closed; the code stays as a measurement
+tool. What the idea did show: the generator's proof edges train an
+edge-importance ranking that beats chance by a wide margin. That is the
+piece to reuse if a compacting kernel ever exists.

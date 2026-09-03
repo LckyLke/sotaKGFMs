@@ -1,0 +1,517 @@
+{
+ "config": "incite_phase1_4g_synth30_gate.yaml",
+ "ckpt": "/kgfm-src/output/incite-pretrain-4g-synth30-gate/incite_last.pth",
+ "hashes": [
+  "3459078c26d8990c"
+ ],
+ "val_samples": 500,
+ "gate_stats_at_0": {
+  "FBIngram:25": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "WKIngram:25": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "NLIngram:0": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "WikiTopicsMT1:tax": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "Metafam": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "FBNELL": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "FB15k237Inductive:v1": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "WN18RRInductive:v1": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "NELLInductive:v1": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  },
+  "CoDExSmall": {
+   "below_0.5": 0.0,
+   "mean": 1.0,
+   "p10": 1.0
+  }
+ },
+ "cells": [
+  {
+   "prune_frac": 0.0,
+   "random_control": false,
+   "dev10": {
+    "FBIngram:25": 0.3645,
+    "WKIngram:25": 0.266,
+    "NLIngram:0": 0.3792,
+    "WikiTopicsMT1:tax": 0.3598,
+    "Metafam": 0.4543,
+    "FBNELL": 0.4407,
+    "FB15k237Inductive:v1": 0.4928,
+    "WN18RRInductive:v1": 0.5551,
+    "NELLInductive:v1": 0.5027,
+    "CoDExSmall": 0.4028
+   },
+   "dev10_groups": {
+    "ind_e": 0.5169,
+    "ind_er": 0.3774,
+    "transductive": 0.4028
+   },
+   "kept": {
+    "FBIngram:25": 1.0,
+    "WKIngram:25": 1.0,
+    "NLIngram:0": 1.0,
+    "WikiTopicsMT1:tax": 1.0,
+    "Metafam": 1.0,
+    "FBNELL": 1.0,
+    "FB15k237Inductive:v1": 1.0,
+    "WN18RRInductive:v1": 1.0,
+    "NELLInductive:v1": 1.0,
+    "CoDExSmall": 1.0
+   },
+   "kept_mean": 1.0,
+   "seconds": 36.8
+  },
+  {
+   "prune_frac": 0.2,
+   "random_control": false,
+   "dev10": {
+    "FBIngram:25": 0.3667,
+    "WKIngram:25": 0.2696,
+    "NLIngram:0": 0.3773,
+    "WikiTopicsMT1:tax": 0.3602,
+    "Metafam": 0.4514,
+    "FBNELL": 0.4401,
+    "FB15k237Inductive:v1": 0.4909,
+    "WN18RRInductive:v1": 0.5533,
+    "NELLInductive:v1": 0.5014,
+    "CoDExSmall": 0.3946
+   },
+   "dev10_groups": {
+    "ind_e": 0.5152,
+    "ind_er": 0.3776,
+    "transductive": 0.3946
+   },
+   "kept": {
+    "FBIngram:25": 0.9223,
+    "WKIngram:25": 0.9476,
+    "NLIngram:0": 0.929,
+    "WikiTopicsMT1:tax": 0.9399,
+    "Metafam": 0.9319,
+    "FBNELL": 0.9359,
+    "FB15k237Inductive:v1": 0.9343,
+    "WN18RRInductive:v1": 0.9479,
+    "NELLInductive:v1": 0.9254,
+    "CoDExSmall": 0.924
+   },
+   "kept_mean": 0.9338,
+   "seconds": 51.6
+  },
+  {
+   "prune_frac": 0.2,
+   "random_control": true,
+   "dev10": {
+    "FBIngram:25": 0.3387,
+    "WKIngram:25": 0.242,
+    "NLIngram:0": 0.3437,
+    "WikiTopicsMT1:tax": 0.2661,
+    "Metafam": 0.4553,
+    "FBNELL": 0.4125,
+    "FB15k237Inductive:v1": 0.4579,
+    "WN18RRInductive:v1": 0.5095,
+    "NELLInductive:v1": 0.4389,
+    "CoDExSmall": 0.3769
+   },
+   "dev10_groups": {
+    "ind_e": 0.4688,
+    "ind_er": 0.3431,
+    "transductive": 0.3769
+   },
+   "kept": {
+    "FBIngram:25": 0.8,
+    "WKIngram:25": 0.8001,
+    "NLIngram:0": 0.8,
+    "WikiTopicsMT1:tax": 0.8,
+    "Metafam": 0.8,
+    "FBNELL": 0.8,
+    "FB15k237Inductive:v1": 0.8,
+    "WN18RRInductive:v1": 0.8,
+    "NELLInductive:v1": 0.8,
+    "CoDExSmall": 0.8
+   },
+   "kept_mean": 0.8,
+   "seconds": 51.4
+  },
+  {
+   "prune_frac": 0.4,
+   "random_control": false,
+   "dev10": {
+    "FBIngram:25": 0.3575,
+    "WKIngram:25": 0.2629,
+    "NLIngram:0": 0.3764,
+    "WikiTopicsMT1:tax": 0.3368,
+    "Metafam": 0.4518,
+    "FBNELL": 0.4354,
+    "FB15k237Inductive:v1": 0.4885,
+    "WN18RRInductive:v1": 0.5512,
+    "NELLInductive:v1": 0.4955,
+    "CoDExSmall": 0.3816
+   },
+   "dev10_groups": {
+    "ind_e": 0.5117,
+    "ind_er": 0.3701,
+    "transductive": 0.3816
+   },
+   "kept": {
+    "FBIngram:25": 0.8363,
+    "WKIngram:25": 0.8737,
+    "NLIngram:0": 0.8549,
+    "WikiTopicsMT1:tax": 0.8608,
+    "Metafam": 0.848,
+    "FBNELL": 0.874,
+    "FB15k237Inductive:v1": 0.8368,
+    "WN18RRInductive:v1": 0.8648,
+    "NELLInductive:v1": 0.8097,
+    "CoDExSmall": 0.7907
+   },
+   "kept_mean": 0.845,
+   "seconds": 51.4
+  },
+  {
+   "prune_frac": 0.4,
+   "random_control": true,
+   "dev10": {
+    "FBIngram:25": 0.3112,
+    "WKIngram:25": 0.2131,
+    "NLIngram:0": 0.3007,
+    "WikiTopicsMT1:tax": 0.2464,
+    "Metafam": 0.4263,
+    "FBNELL": 0.3825,
+    "FB15k237Inductive:v1": 0.4211,
+    "WN18RRInductive:v1": 0.3754,
+    "NELLInductive:v1": 0.3792,
+    "CoDExSmall": 0.3509
+   },
+   "dev10_groups": {
+    "ind_e": 0.3919,
+    "ind_er": 0.3134,
+    "transductive": 0.3509
+   },
+   "kept": {
+    "FBIngram:25": 0.6,
+    "WKIngram:25": 0.6,
+    "NLIngram:0": 0.5999,
+    "WikiTopicsMT1:tax": 0.6,
+    "Metafam": 0.6,
+    "FBNELL": 0.6,
+    "FB15k237Inductive:v1": 0.6,
+    "WN18RRInductive:v1": 0.6,
+    "NELLInductive:v1": 0.6,
+    "CoDExSmall": 0.6
+   },
+   "kept_mean": 0.6,
+   "seconds": 51.5
+  },
+  {
+   "prune_frac": 0.6,
+   "random_control": false,
+   "dev10": {
+    "FBIngram:25": 0.348,
+    "WKIngram:25": 0.2655,
+    "NLIngram:0": 0.3762,
+    "WikiTopicsMT1:tax": 0.3386,
+    "Metafam": 0.5201,
+    "FBNELL": 0.4329,
+    "FB15k237Inductive:v1": 0.4818,
+    "WN18RRInductive:v1": 0.5508,
+    "NELLInductive:v1": 0.4896,
+    "CoDExSmall": 0.3778
+   },
+   "dev10_groups": {
+    "ind_e": 0.5074,
+    "ind_er": 0.3802,
+    "transductive": 0.3778
+   },
+   "kept": {
+    "FBIngram:25": 0.7232,
+    "WKIngram:25": 0.7928,
+    "NLIngram:0": 0.7625,
+    "WikiTopicsMT1:tax": 0.7074,
+    "Metafam": 0.6691,
+    "FBNELL": 0.8099,
+    "FB15k237Inductive:v1": 0.7235,
+    "WN18RRInductive:v1": 0.7515,
+    "NELLInductive:v1": 0.6653,
+    "CoDExSmall": 0.6534
+   },
+   "kept_mean": 0.7259,
+   "seconds": 51.5
+  },
+  {
+   "prune_frac": 0.6,
+   "random_control": true,
+   "dev10": {
+    "FBIngram:25": 0.2639,
+    "WKIngram:25": 0.1913,
+    "NLIngram:0": 0.2278,
+    "WikiTopicsMT1:tax": 0.2133,
+    "Metafam": 0.3515,
+    "FBNELL": 0.3361,
+    "FB15k237Inductive:v1": 0.362,
+    "WN18RRInductive:v1": 0.2556,
+    "NELLInductive:v1": 0.2935,
+    "CoDExSmall": 0.3116
+   },
+   "dev10_groups": {
+    "ind_e": 0.3037,
+    "ind_er": 0.264,
+    "transductive": 0.3116
+   },
+   "kept": {
+    "FBIngram:25": 0.4,
+    "WKIngram:25": 0.4,
+    "NLIngram:0": 0.4001,
+    "WikiTopicsMT1:tax": 0.4,
+    "Metafam": 0.4,
+    "FBNELL": 0.4,
+    "FB15k237Inductive:v1": 0.4,
+    "WN18RRInductive:v1": 0.4,
+    "NELLInductive:v1": 0.4,
+    "CoDExSmall": 0.4
+   },
+   "kept_mean": 0.4,
+   "seconds": 51.6
+  },
+  {
+   "prune_frac": 0.8,
+   "random_control": false,
+   "dev10": {
+    "FBIngram:25": 0.3475,
+    "WKIngram:25": 0.2757,
+    "NLIngram:0": 0.3669,
+    "WikiTopicsMT1:tax": 0.2138,
+    "Metafam": 0.5,
+    "FBNELL": 0.433,
+    "FB15k237Inductive:v1": 0.4664,
+    "WN18RRInductive:v1": 0.5469,
+    "NELLInductive:v1": 0.4682,
+    "CoDExSmall": 0.3519
+   },
+   "dev10_groups": {
+    "ind_e": 0.4938,
+    "ind_er": 0.3561,
+    "transductive": 0.3519
+   },
+   "kept": {
+    "FBIngram:25": 0.5371,
+    "WKIngram:25": 0.6493,
+    "NLIngram:0": 0.5565,
+    "WikiTopicsMT1:tax": 0.4496,
+    "Metafam": 0.4802,
+    "FBNELL": 0.6428,
+    "FB15k237Inductive:v1": 0.543,
+    "WN18RRInductive:v1": 0.4743,
+    "NELLInductive:v1": 0.4822,
+    "CoDExSmall": 0.4757
+   },
+   "kept_mean": 0.5291,
+   "seconds": 51.6
+  },
+  {
+   "prune_frac": 0.8,
+   "random_control": true,
+   "dev10": {
+    "FBIngram:25": 0.1661,
+    "WKIngram:25": 0.1588,
+    "NLIngram:0": 0.1447,
+    "WikiTopicsMT1:tax": 0.1912,
+    "Metafam": 0.2941,
+    "FBNELL": 0.236,
+    "FB15k237Inductive:v1": 0.2939,
+    "WN18RRInductive:v1": 0.1259,
+    "NELLInductive:v1": 0.1863,
+    "CoDExSmall": 0.2558
+   },
+   "dev10_groups": {
+    "ind_e": 0.202,
+    "ind_er": 0.1985,
+    "transductive": 0.2558
+   },
+   "kept": {
+    "FBIngram:25": 0.2,
+    "WKIngram:25": 0.1999,
+    "NLIngram:0": 0.2,
+    "WikiTopicsMT1:tax": 0.2,
+    "Metafam": 0.2,
+    "FBNELL": 0.2,
+    "FB15k237Inductive:v1": 0.2,
+    "WN18RRInductive:v1": 0.2,
+    "NELLInductive:v1": 0.2,
+    "CoDExSmall": 0.2
+   },
+   "kept_mean": 0.2,
+   "seconds": 51.5
+  },
+  {
+   "prune_frac": 0.9,
+   "random_control": false,
+   "dev10": {
+    "FBIngram:25": 0.3157,
+    "WKIngram:25": 0.2618,
+    "NLIngram:0": 0.3591,
+    "WikiTopicsMT1:tax": 0.1445,
+    "Metafam": 0.482,
+    "FBNELL": 0.4194,
+    "FB15k237Inductive:v1": 0.4293,
+    "WN18RRInductive:v1": 0.5495,
+    "NELLInductive:v1": 0.4488,
+    "CoDExSmall": 0.3232
+   },
+   "dev10_groups": {
+    "ind_e": 0.4759,
+    "ind_er": 0.3304,
+    "transductive": 0.3232
+   },
+   "kept": {
+    "FBIngram:25": 0.3875,
+    "WKIngram:25": 0.4885,
+    "NLIngram:0": 0.4295,
+    "WikiTopicsMT1:tax": 0.3033,
+    "Metafam": 0.3933,
+    "FBNELL": 0.4672,
+    "FB15k237Inductive:v1": 0.43,
+    "WN18RRInductive:v1": 0.3629,
+    "NELLInductive:v1": 0.3308,
+    "CoDExSmall": 0.3456
+   },
+   "kept_mean": 0.3939,
+   "seconds": 51.6
+  },
+  {
+   "prune_frac": 0.9,
+   "random_control": true,
+   "dev10": {
+    "FBIngram:25": 0.1242,
+    "WKIngram:25": 0.1352,
+    "NLIngram:0": 0.1085,
+    "WikiTopicsMT1:tax": 0.1802,
+    "Metafam": 0.2117,
+    "FBNELL": 0.1608,
+    "FB15k237Inductive:v1": 0.2335,
+    "WN18RRInductive:v1": 0.0572,
+    "NELLInductive:v1": 0.0691,
+    "CoDExSmall": 0.2051
+   },
+   "dev10_groups": {
+    "ind_e": 0.1199,
+    "ind_er": 0.1534,
+    "transductive": 0.2051
+   },
+   "kept": {
+    "FBIngram:25": 0.1,
+    "WKIngram:25": 0.1,
+    "NLIngram:0": 0.0999,
+    "WikiTopicsMT1:tax": 0.1,
+    "Metafam": 0.1,
+    "FBNELL": 0.1,
+    "FB15k237Inductive:v1": 0.1,
+    "WN18RRInductive:v1": 0.1,
+    "NELLInductive:v1": 0.1,
+    "CoDExSmall": 0.1
+   },
+   "kept_mean": 0.1,
+   "seconds": 51.4
+  },
+  {
+   "prune_frac": 0.95,
+   "random_control": false,
+   "dev10": {
+    "FBIngram:25": 0.2702,
+    "WKIngram:25": 0.1994,
+    "NLIngram:0": 0.3494,
+    "WikiTopicsMT1:tax": 0.1387,
+    "Metafam": 0.4852,
+    "FBNELL": 0.3915,
+    "FB15k237Inductive:v1": 0.3942,
+    "WN18RRInductive:v1": 0.5465,
+    "NELLInductive:v1": 0.4157,
+    "CoDExSmall": 0.2767
+   },
+   "dev10_groups": {
+    "ind_e": 0.4521,
+    "ind_er": 0.3057,
+    "transductive": 0.2767
+   },
+   "kept": {
+    "FBIngram:25": 0.3146,
+    "WKIngram:25": 0.3611,
+    "NLIngram:0": 0.3509,
+    "WikiTopicsMT1:tax": 0.2494,
+    "Metafam": 0.3559,
+    "FBNELL": 0.3689,
+    "FB15k237Inductive:v1": 0.3619,
+    "WN18RRInductive:v1": 0.2732,
+    "NELLInductive:v1": 0.2071,
+    "CoDExSmall": 0.2234
+   },
+   "kept_mean": 0.3066,
+   "seconds": 51.5
+  },
+  {
+   "prune_frac": 0.95,
+   "random_control": true,
+   "dev10": {
+    "FBIngram:25": 0.0974,
+    "WKIngram:25": 0.0948,
+    "NLIngram:0": 0.0754,
+    "WikiTopicsMT1:tax": 0.177,
+    "Metafam": 0.0761,
+    "FBNELL": 0.1163,
+    "FB15k237Inductive:v1": 0.1989,
+    "WN18RRInductive:v1": 0.0336,
+    "NELLInductive:v1": 0.0401,
+    "CoDExSmall": 0.1359
+   },
+   "dev10_groups": {
+    "ind_e": 0.0909,
+    "ind_er": 0.1062,
+    "transductive": 0.1359
+   },
+   "kept": {
+    "FBIngram:25": 0.05,
+    "WKIngram:25": 0.05,
+    "NLIngram:0": 0.0501,
+    "WikiTopicsMT1:tax": 0.05,
+    "Metafam": 0.05,
+    "FBNELL": 0.05,
+    "FB15k237Inductive:v1": 0.0501,
+    "WN18RRInductive:v1": 0.05,
+    "NELLInductive:v1": 0.05,
+    "CoDExSmall": 0.05
+   },
+   "kept_mean": 0.05,
+   "seconds": 51.3
+  }
+ ]
+}
