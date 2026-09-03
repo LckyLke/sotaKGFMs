@@ -141,6 +141,9 @@ SYNTH_DEFAULTS = {
     "rule_targets": False,        # RR1: attach rule hypotheses with labels
     "rule_neg_per_pos": 4,        # RR1: sampled non-rules per evidenced rule
     "rule_weight": 0.0,           # RR1: weight of the rule-recovery loss
+    "start_step": 0,              # no synthetic step before this step (the
+                                  # from-scratch recipe mixes in the decay
+                                  # phase only, as the validated MX1 did)
 }
 
 #: Salt keeping the per-step coin stream disjoint from the per-step instance
@@ -573,15 +576,15 @@ def forward_chain(facts, rules: Sequence[tuple],
 
 
 def _draw_from(pool: list, n: int, generator: torch.Generator) -> list:
-    """``n`` entries of ``pool``: without replacement when it is long
-    enough, with replacement otherwise (a short pool must not bias the
-    instance draw toward hub-heavy graphs by retries)."""
-    if n <= 0:
+    """``n`` entries of ``pool`` without replacement when it is long enough.
+    A short pool returns EVERY entry once, in a random order, and the
+    caller pads the row and masks the padding (2026-09-03: sampling with
+    replacement handed a repeated candidate a multiplied self-adversarial
+    weight, the reviewer's finding on MX2). With ``n`` 1 the draw is the
+    MX1 one."""
+    if n <= 0 or not pool:
         return []
-    if len(pool) >= n:
-        idx = torch.randperm(len(pool), generator=generator)[:n]
-    else:
-        idx = torch.randint(len(pool), (n,), generator=generator)
+    idx = torch.randperm(len(pool), generator=generator)[:n]
     return [pool[i] for i in idx.tolist()]
 
 
@@ -612,7 +615,7 @@ def _draw_negatives(pool: list, n: int, hard_frac: float, h: int, graph_set,
     hard_pool = [e for e in pool if e in near]
     hard = _draw_from(hard_pool, min(n_hard, len(hard_pool)), generator)
     taken = set(hard)
-    rest_pool = [e for e in pool if e not in taken] or pool
+    rest_pool = [e for e in pool if e not in taken]
     return hard + _draw_from(rest_pool, n - len(hard), generator)
 
 
@@ -800,6 +803,11 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
     if picked is None:
         return None
     h, r, t, negs = picked
+    # a short pool leaves the row short: pad with the first negative and
+    # mask the padding out of the loss (neg_mask), never resample
+    num_real_neg = len(negs)
+    while len(negs) < neg_per_pos:
+        negs.append(negs[0])
 
     # full-closure positives: the other derivable-but-absent tails of the
     # query (h, r), up to num_positive - 1 of them, drawn only when asked.
@@ -848,6 +856,8 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
     rows += [[old2new[h], old2new[n], r] for n in negs]
     pos_mask = torch.tensor([True] * (1 + len(extra_pos))
                             + [False] * (num_positive - 1 - len(extra_pos)))
+    neg_mask = torch.tensor([True] * num_real_neg
+                            + [False] * (neg_per_pos - num_real_neg))
     return _make(
         edge_index=edge_index,
         edge_type=edge_type,
@@ -855,6 +865,7 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
         num_relations=R,
         test_triplets=torch.tensor(rows, dtype=torch.long),
         pos_mask=pos_mask,
+        neg_mask=neg_mask,
         num_positive=int(num_positive),
         proof_pos=proof_pos,
         family="rules",
@@ -978,7 +989,7 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator,
         rel_offsets = [0] * len(chosen)
         num_direct = max(int(inst.num_relations) for inst in chosen)
     eis, ets, queries, masks, proofs, offset = [], [], [], [], [], 0
-    rule_idx, rule_lab = [], []
+    neg_masks, rule_idx, rule_lab = [], [], []
     for i, (inst, roff) in enumerate(zip(chosen, rel_offsets)):
         eis.append(inst.edge_index + offset)
         ets.append(inst.edge_type + roff if roff else inst.edge_type)
@@ -989,6 +1000,7 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator,
             trip[:, 2] += roff
         queries.append(trip)
         masks.append(getattr(inst, "pos_mask", None))
+        neg_masks.append(getattr(inst, "neg_mask", None))
         proofs.append(getattr(inst, "proof_pos", None))
         ridx = getattr(inst, "rule_idx", None)
         if ridx is not None and ridx.numel():
@@ -1010,9 +1022,16 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator,
     )
     # several positive slots per row: hand the mask to synth_loss. A pool
     # of single-positive rows carries no mask, so the loss stays the old one.
-    if all(m is not None for m in masks) and any(int(m.shape[0]) > 1
-                                                  for m in masks):
+    # several positive slots per row, or padded negative slots: hand the
+    # masks to synth_loss. Pools of single-positive, unpadded rows carry
+    # none, so the loss stays the old one.
+    padded = (all(m is not None for m in neg_masks)
+              and any(not bool(m.all()) for m in neg_masks))
+    if all(m is not None for m in masks) and (
+            any(int(m.shape[0]) > 1 for m in masks) or padded):
         union.query_pos_mask = torch.stack(masks)
+    if padded:
+        union.query_neg_mask = torch.stack(neg_masks)
     # proof pairs (rows, union edge positions): a row's proof edges are its
     # instance's proof_pos shifted by the instance's edge offset, plus the
     # inverse copies at + E (the propagation runs over both directions)
@@ -1108,10 +1127,12 @@ def synth_loss(model, union_graph, queries: torch.Tensor, walk_offset: int = 0,
     else:
         pred = model(union_graph, queries, support=None, walk_offset=walk_offset)
     pos_mask = getattr(union_graph, "query_pos_mask", None)
+    neg_mask = getattr(union_graph, "query_neg_mask", None)
     if pos_mask is not None:
-        # [positive slots (masked) | negatives], the full-closure layout
-        loss = multi_positive_nll(pred, pos_mask.to(pred.device),
-                                  adversarial_temperature)
+        # [positive slots (masked) | negatives (masked)], the full-closure layout
+        loss = multi_positive_nll(
+            pred, pos_mask.to(pred.device), adversarial_temperature,
+            neg_mask=None if neg_mask is None else neg_mask.to(pred.device))
     else:
         loss = self_adversarial_nll(pred, int(queries.shape[1]) - 1,
                                     adversarial_temperature)
@@ -1148,6 +1169,8 @@ def synth_config(cfg, force: bool = False) -> Optional[dict]:
     assert out["proof_weight"] >= 0.0, "synth.proof_weight must be >= 0"
     out["rule_targets"] = bool(out["rule_targets"])
     out["rule_neg_per_pos"] = int(out["rule_neg_per_pos"])
+    out["start_step"] = int(out["start_step"])
+    assert out["start_step"] >= 0, "synth.start_step must be >= 0"
     out["rule_weight"] = float(out["rule_weight"])
     assert out["rule_neg_per_pos"] >= 1 and out["rule_weight"] >= 0.0
     for key in ("instances_per_step", "seed", "pool_size", "palette",
@@ -1183,6 +1206,8 @@ def is_synth_step(step: int, scfg: dict) -> bool:
     """
     fraction = float(scfg["fraction"])
     if fraction <= 0.0:
+        return False
+    if int(step) < int(scfg.get("start_step", 0)):
         return False
     if fraction >= 1.0:
         return True

@@ -1,9 +1,8 @@
-# RR2 (2026-09-03): MX2a (MX1 plus isolated relation blocks) plus rule
-# recovery from the relation states (RuleHead; evidenced latent rules as
-# hypotheses with certain labels, synth.rule_targets, at synth.rule_weight).
-# Paired against MX2a.
+# R0 with the scenario-conditioned readout (2026-09-03): the 4-graph
+# backbone config plus model.scenario, no synthetic steps; the control for
+# incite_recipe_mx1_scenario.yaml.
 model:
-  rule_head: yes          # RR2: rule recovery from relation states
+  scenario: yes           # SC1 joined the recipe
   dim: 32
   rounds: 6
   layer_norm: yes
@@ -30,17 +29,6 @@ support:
 
 relation:
   lambda: 0.0             # phase 2.3 lever
-
-synth:
-  prior: rules            # the latent rule-system prior (RULES_PRIOR.md)
-  enabled: yes
-  fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
-  instances_per_step: 16
-  seed: 2048
-  isolate_relations: yes  # needed by the rule head
-  rule_targets: yes       # RR2: evidenced rules as labeled hypotheses
-  rule_neg_per_pos: 4     # RR2: sampled non-rules per evidenced rule
-  rule_weight: 0.2        # RR2: weight of the rule-recovery loss (1.0 was a fivefold dose)
 
 train:
   batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)

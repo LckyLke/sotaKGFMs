@@ -1,9 +1,6 @@
-# RR2 (2026-09-03): MX2a (MX1 plus isolated relation blocks) plus rule
-# recovery from the relation states (RuleHead; evidenced latent rules as
-# hypotheses with certain labels, synth.rule_targets, at synth.rule_weight).
-# Paired against MX2a.
+# MX45 (2026-09-03): the mix at 45 percent, the high point of the dose
+# curve (MX15, MX1, MX45) for the mechanism figure. Paired against MX1.
 model:
-  rule_head: yes          # RR2: rule recovery from relation states
   dim: 32
   rounds: 6
   layer_norm: yes
@@ -34,13 +31,9 @@ relation:
 synth:
   prior: rules            # the latent rule-system prior (RULES_PRIOR.md)
   enabled: yes
-  fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
+  fraction: 0.45          # the high dose
   instances_per_step: 16
   seed: 2048
-  isolate_relations: yes  # needed by the rule head
-  rule_targets: yes       # RR2: evidenced rules as labeled hypotheses
-  rule_neg_per_pos: 4     # RR2: sampled non-rules per evidenced rule
-  rule_weight: 0.2        # RR2: weight of the rule-recovery loss (1.0 was a fivefold dose)
 
 train:
   batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)

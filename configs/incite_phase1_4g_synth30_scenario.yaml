@@ -1,9 +1,13 @@
-# RR2 (2026-09-03): MX2a (MX1 plus isolated relation blocks) plus rule
-# recovery from the relation states (RuleHead; evidenced latent rules as
-# hypotheses with certain labels, synth.rule_targets, at synth.rule_weight).
-# Paired against MX2a.
+# SC1 (2026-09-03): MX1's recipe plus the scenario-conditioned readout
+# (model.scenario): a second head reads each candidate's half-link
+# indicators (does it already have an incoming edge of the query relation,
+# how many; does the head have an outgoing one) next to the candidate
+# feature and adds a correction to the path score, so seen-answer and
+# unseen-answer candidates are calibrated separately. Exactly the identity
+# at the warm start. The reviewer's first direction; the upper bound from
+# the dumps is +0.0076 / +0.0079 over MX1. Paired against MX1.
 model:
-  rule_head: yes          # RR2: rule recovery from relation states
+  scenario: yes           # SC1: the scenario-conditioned readout
   dim: 32
   rounds: 6
   layer_norm: yes
@@ -37,10 +41,6 @@ synth:
   fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
   instances_per_step: 16
   seed: 2048
-  isolate_relations: yes  # needed by the rule head
-  rule_targets: yes       # RR2: evidenced rules as labeled hypotheses
-  rule_neg_per_pos: 4     # RR2: sampled non-rules per evidenced rule
-  rule_weight: 0.2        # RR2: weight of the rule-recovery loss (1.0 was a fivefold dose)
 
 train:
   batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)

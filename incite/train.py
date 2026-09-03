@@ -142,7 +142,8 @@ def self_adversarial_nll(pred: torch.Tensor, num_negative: int,
 
 
 def multi_positive_nll(pred: torch.Tensor, pos_mask: torch.Tensor,
-                       adversarial_temperature: float) -> torch.Tensor:
+                       adversarial_temperature: float,
+                       neg_mask: torch.Tensor = None) -> torch.Tensor:
     """``self_adversarial_nll`` with several certified positives per row
     (2026-09-03, the rules prior's full-closure supervision).
 
@@ -151,7 +152,9 @@ def multi_positive_nll(pred: torch.Tensor, pos_mask: torch.Tensor,
     repeat a real one and are masked out). The positive term is the masked
     MEAN over the slots, so a row weighs exactly what it weighs in the
     single-positive loss; with ``P == 1`` and an all-true mask the two
-    functions agree up to floating-point rounding.
+    functions agree up to floating-point rounding. ``neg_mask [b, N]``
+    (optional) marks the real negatives: padded slots get no loss and no
+    self-adversarial weight (their logits are excluded from the softmax).
     """
     P = int(pos_mask.shape[1])
     pos, neg = pred[:, :P], pred[:, P:]
@@ -161,11 +164,22 @@ def multi_positive_nll(pred: torch.Tensor, pos_mask: torch.Tensor,
     pos_loss = (pos_loss * m).sum(dim=-1) / m.sum(dim=-1).clamp(min=1.0)
     neg_loss = F.binary_cross_entropy_with_logits(
         neg, torch.zeros_like(neg), reduction="none")
-    if adversarial_temperature > 0:
-        with torch.no_grad():
-            w = F.softmax(neg / adversarial_temperature, dim=-1)
+    if neg_mask is None:
+        if adversarial_temperature > 0:
+            with torch.no_grad():
+                w = F.softmax(neg / adversarial_temperature, dim=-1)
+        else:
+            w = torch.full_like(neg, 1.0 / max(1, neg.shape[1]))
     else:
-        w = torch.full_like(neg, 1.0 / max(1, neg.shape[1]))
+        valid = neg_mask.to(torch.bool)
+        if adversarial_temperature > 0:
+            with torch.no_grad():
+                logits = neg.masked_fill(~valid, float("-inf"))
+                w = F.softmax(logits / adversarial_temperature, dim=-1)
+        else:
+            nm = valid.to(pred.dtype)
+            w = nm / nm.sum(dim=-1, keepdim=True).clamp(min=1.0)
+        neg_loss = neg_loss * valid.to(pred.dtype)
     neg_loss = (neg_loss * w).sum(dim=-1)
     return ((pos_loss + neg_loss) / (1.0 + w.sum(dim=-1))).mean()
 

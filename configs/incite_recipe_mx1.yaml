@@ -1,9 +1,9 @@
-# RR2 (2026-09-03): MX2a (MX1 plus isolated relation blocks) plus rule
-# recovery from the relation states (RuleHead; evidenced latent rules as
-# hypotheses with certain labels, synth.rule_targets, at synth.rule_weight).
-# Paired against MX2a.
+# R1 (2026-09-03): the paper recipe as ONE from-scratch run: MX1's recipe
+# with the synthetic mix restricted to the decay phase (synth.start_step
+# 20001), which is what the validated continuation did. Steps 1..20000 run
+# at the constant base lr with no synthetic step; 20001..30000 warm up and
+# decay linearly with 30 percent synthetic steps (--schedule_start 20001).
 model:
-  rule_head: yes          # RR2: rule recovery from relation states
   dim: 32
   rounds: 6
   layer_norm: yes
@@ -37,10 +37,7 @@ synth:
   fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
   instances_per_step: 16
   seed: 2048
-  isolate_relations: yes  # needed by the rule head
-  rule_targets: yes       # RR2: evidenced rules as labeled hypotheses
-  rule_neg_per_pos: 4     # RR2: sampled non-rules per evidenced rule
-  rule_weight: 0.2        # RR2: weight of the rule-recovery loss (1.0 was a fivefold dose)
+  start_step: 20001       # the mix in the decay phase only (MX1's recipe)
 
 train:
   batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)

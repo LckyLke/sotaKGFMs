@@ -62,7 +62,8 @@ except ImportError:  # pragma: no cover - flat invocation
 #: state_dict prefixes of lever modules a config may leave unbuilt; a
 #: checkpoint carrying them still loads as an ensemble member (the trunk
 #: and the score head are what the entity forward uses)
-LEVER_PREFIXES = ("readout.", "walk_module.", "unary_mlp.", "gates.", "rule_head.")
+LEVER_PREFIXES = ("readout.", "walk_module.", "unary_mlp.", "gates.", "rule_head.",
+                  "scenario_mlp.")
 
 
 def load_members(cfg: EasyDict, ckpt_paths):
@@ -108,7 +109,8 @@ def build_model(cfg: EasyDict) -> INCITE:
                   num_mlp_layer=int(cfg.model.num_mlp_layer),
                   unary=bool(cfg.model.get("unary", False)),
                   gate=bool(cfg.model.get("gate", False)),
-                  rule_head=bool(cfg.model.get("rule_head", False)))
+                  rule_head=bool(cfg.model.get("rule_head", False)),
+                  scenario=bool(cfg.model.get("scenario", False)))
 
 
 def support_build_kwargs(cfg: EasyDict) -> dict:

@@ -1,9 +1,9 @@
-# RR2 (2026-09-03): MX2a (MX1 plus isolated relation blocks) plus rule
-# recovery from the relation states (RuleHead; evidenced latent rules as
-# hypotheses with certain labels, synth.rule_targets, at synth.rule_weight).
-# Paired against MX2a.
+# MX2H (2026-09-03): the MX2 bundle at HALF the dose (fraction 0.15). If it
+# recovers MX1's level, MX2 lost by dose; if not, by distribution or
+# gradient conflict (the reviewer's reading of SYNTH_V2_RESULT.md). Also
+# runs with the negative mask, so no repeated negative carries a
+# multiplied weight. Paired against MX1 and MX15.
 model:
-  rule_head: yes          # RR2: rule recovery from relation states
   dim: 32
   rounds: 6
   layer_norm: yes
@@ -34,13 +34,13 @@ relation:
 synth:
   prior: rules            # the latent rule-system prior (RULES_PRIOR.md)
   enabled: yes
-  fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
+  fraction: 0.15          # half of MX2's dose
   instances_per_step: 16
   seed: 2048
-  isolate_relations: yes  # needed by the rule head
-  rule_targets: yes       # RR2: evidenced rules as labeled hypotheses
-  rule_neg_per_pos: 4     # RR2: sampled non-rules per evidenced rule
-  rule_weight: 0.2        # RR2: weight of the rule-recovery loss (1.0 was a fivefold dose)
+  neg_per_pos_rules: 64   # MX2: certified negatives, many (MX1: 1)
+  hard_neg_frac: 0.5      # MX2: half of them from the head's 1-2 hop neighborhood
+  num_positive_rules: 4   # MX2: full-closure positives, masked slots (MX1: 1)
+  isolate_relations: yes  # MX2: per-instance relation blocks in the union
 
 train:
   batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)

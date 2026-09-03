@@ -201,6 +201,32 @@ class SupportReadout(nn.Module):
 # ---------------------------------------------------------------------------
 # The model
 # ---------------------------------------------------------------------------
+def scenario_features(graph, h: torch.Tensor, r: torch.Tensor,
+                      t_index: torch.Tensor, num_nodes: int) -> torch.Tensor:
+    """The half-link scenario indicators of every candidate, ``[b, c, 4]``:
+    ``[answer half present, log1p(its count), query half present,
+    log1p(its count)]`` where the answer half of candidate t is an edge
+    ``(x, r, t)`` of the message graph (rows are in tail form, so r may be
+    an inverse id) and the query half is an edge ``(h, r, x)``. Computed on
+    the graph the model propagates over, so in training the removed query
+    edges do not count, exactly as at evaluation."""
+    ei, et = graph.edge_index, graph.edge_type
+    b, c = t_index.shape
+    out = torch.zeros(b, c, 4, device=ei.device)
+    for i in range(b):
+        m = et == r[i]
+        dst = ei[1, m]
+        src = ei[0, m]
+        in_r = torch.bincount(dst, minlength=int(num_nodes)).to(out.dtype)
+        cnt = in_r[t_index[i]]
+        out_h = (src == h[i]).sum().to(out.dtype)
+        out[i, :, 0] = (cnt > 0).to(out.dtype)
+        out[i, :, 1] = torch.log1p(cnt)
+        out[i, :, 2] = (out_h > 0).to(out.dtype)
+        out[i, :, 3] = torch.log1p(out_h)
+    return out
+
+
 class EdgeGate(nn.Module):
     """The proof-guided propagation gate of one round (2026-09-03, PG1).
 
@@ -311,7 +337,8 @@ class INCITE(nn.Module):
                  num_mlp_layer: int = 2,
                  unary: bool = False,
                  gate: bool = False,
-                 rule_head: bool = False):
+                 rule_head: bool = False,
+                 scenario: bool = False):
         super().__init__()
         self.dim = int(dim)
         self.rounds = int(rounds)
@@ -359,6 +386,22 @@ class INCITE(nn.Module):
         # Rule recovery (2026-09-03, RR1): a head on the relation states,
         # trained on synthetic steps only (the rules are known there).
         self.rule_head = RuleHead(dim) if rule_head else None
+        # Scenario-conditioned readout (2026-09-03, SC1, the reviewer's first
+        # direction). Every lever so far moved the model ALONG the trade-off
+        # between seen-answer and unseen-answer candidates. Both scenario
+        # indicators are observable per candidate at inference: does the
+        # candidate already have an incoming edge of the query relation
+        # (and how many), does the head have an outgoing one. A second head
+        # reads the candidate feature plus these four scalars and ADDS a
+        # correction to the path score, so the two candidate populations
+        # can be calibrated separately. Its last layer starts at zero: a
+        # freshly attached head is exactly the identity.
+        self.scenario_mlp = None
+        if scenario:
+            self.scenario_mlp = nn.Sequential(
+                nn.Linear(2 * dim + 4, dim), nn.ReLU(), nn.Linear(dim, 1))
+            nn.init.zeros_(self.scenario_mlp[-1].weight)
+            nn.init.zeros_(self.scenario_mlp[-1].bias)
         self.relation_steps = nn.ModuleList(
             [FactorizedRelationStep(dim, layer_norm, count_channel)
              for _ in range(self.rounds)])
@@ -553,6 +596,13 @@ class INCITE(nn.Module):
         cand_feature = feature.gather(
             1, t_index.unsqueeze(-1).expand(-1, -1, feature.shape[-1]))
         score = self.score_mlp(cand_feature).squeeze(-1)
+
+        if self.scenario_mlp is not None:
+            feat = scenario_features(msg_graph, h_index[:, 0], r_index[:, 0],
+                                     t_index, pairs.num_nodes)      # [b, c, 4]
+            score = score + self.scenario_mlp(
+                torch.cat([cand_feature, feat.to(cand_feature.dtype)],
+                          dim=-1)).squeeze(-1)
 
         if self.unary_mlp is not None:
             g = self._global_states(msg_graph)                      # [V, d]
