@@ -108,9 +108,9 @@ except Exception:  # pragma: no cover
     _Data = None
 
 try:
-    from .train import self_adversarial_nll
+    from .train import self_adversarial_nll, multi_positive_nll
 except ImportError:  # pragma: no cover - flat invocation
-    from train import self_adversarial_nll  # type: ignore
+    from train import self_adversarial_nll, multi_positive_nll  # type: ignore
 
 __all__ = ["generate_instances", "union_batch", "synth_loss", "synth_config",
            "is_synth_step", "synth_step_loss", "SYNTH_DEFAULTS",
@@ -128,6 +128,14 @@ SYNTH_DEFAULTS = {
     "palette": 8,            # colour ids are sampled from 1..palette
     "prior": "petals",       # instance family: "petals" (2.1b) or "rules"
     "neg_per_pos_rules": 1,  # negatives per positive, rules family only
+    # ---- MX2 generator-side knobs (2026-09-03), rules family only. The
+    # defaults reproduce the MX1 code path draw for draw. ----
+    "num_positive_rules": 1,      # positive slots per query row (masked)
+    "hard_neg_frac": 0.0,         # share of negatives from the head's 1-2 hop
+                                  # neighborhood; the rest are uniform
+    "unseen_answer_share": -1.0,  # target share of unseen-answer queries;
+                                  # negative = the natural draw (about 0.47)
+    "isolate_relations": False,   # per-instance relation blocks in the union
 }
 
 #: Salt keeping the per-step coin stream disjoint from the per-step instance
@@ -515,10 +523,59 @@ def forward_chain(facts, rules: Sequence[tuple],
     return known
 
 
+def _draw_from(pool: list, n: int, generator: torch.Generator) -> list:
+    """``n`` entries of ``pool``: without replacement when it is long
+    enough, with replacement otherwise (a short pool must not bias the
+    instance draw toward hub-heavy graphs by retries)."""
+    if n <= 0:
+        return []
+    if len(pool) >= n:
+        idx = torch.randperm(len(pool), generator=generator)[:n]
+    else:
+        idx = torch.randint(len(pool), (n,), generator=generator)
+    return [pool[i] for i in idx.tolist()]
+
+
+def _draw_negatives(pool: list, n: int, hard_frac: float, h: int, graph_set,
+                    generator: torch.Generator):
+    """``n`` certified negatives from ``pool`` (type-consistent participating
+    tails that no rule derives, see the caller). With ``hard_frac`` > 0 that
+    share is drawn from the head's 1-2 hop neighborhood first -- the
+    structurally close candidates a path model confuses -- and the rest
+    from the remainder of the pool. Real KGs cannot offer this: a close
+    candidate there may be a true fact that is merely missing. An empty
+    pool returns None (the caller redraws the query). With ``hard_frac`` 0
+    and ``n`` 1 the draw sequence is the MX1 one."""
+    if not pool:
+        return None
+    if hard_frac <= 0.0 or n <= 1:
+        return _draw_from(pool, n, generator)
+    n_hard = int(round(hard_frac * n))
+    adj = {}
+    for hh, _rr, tt in graph_set:
+        adj.setdefault(hh, set()).add(tt)
+        adj.setdefault(tt, set()).add(hh)
+    hop1 = adj.get(h, set())
+    near = set(hop1)
+    for x in hop1:
+        near |= adj.get(x, set())
+    near.discard(h)
+    hard_pool = [e for e in pool if e in near]
+    hard = _draw_from(hard_pool, min(n_hard, len(hard_pool)), generator)
+    taken = set(hard)
+    rest_pool = [e for e in pool if e not in taken] or pool
+    return hard + _draw_from(rest_pool, n - len(hard), generator)
+
+
 def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
-                        rng: dict):
+                        rng: dict, num_positive: int = 1,
+                        hard_neg_frac: float = 0.0,
+                        unseen_answer_share: float = -1.0):
     """One attempt at a rules instance; None when the draw yields no usable
-    query (retried by ``create_rules_instance``, generator advancing)."""
+    query (retried by ``create_rules_instance``, generator advancing).
+
+    The three keyword knobs are the MX2 generator-side levers; at their
+    defaults the function draws exactly what it drew for MX1."""
     lo_e, hi_e = rng["entities"]
     E = int(round(math.exp(_rand_range(math.log(lo_e), math.log(hi_e),
                                        generator))))
@@ -589,19 +646,46 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
     for e in participating:
         part_by_type.setdefault(int(entity_type[e]), []).append(e)
 
+    # scenario targeting: with a non-negative target, the query comes from
+    # the unseen-answer part of the pool (the answer has no incoming
+    # query-relation edge in the observed graph) with that probability and
+    # from the seen-answer part otherwise; an empty part falls back to the
+    # whole pool. The natural draw (target < 0) is about 47 percent unseen
+    # at these ranges, already above the benchmark's 37 percent.
+    draw_pool = query_pool
+    if unseen_answer_share >= 0.0:
+        has_in = {(rr, tt) for _hh, rr, tt in graph_set}
+        unseen = [f for f in query_pool if (f[1], f[2]) not in has_in]
+        seen = [f for f in query_pool if (f[1], f[2]) in has_in]
+        part = unseen if _rand_float(generator) < unseen_answer_share else seen
+        draw_pool = part if part else query_pool
+
     picked = None
     for _try in range(12):
-        h, r, t = query_pool[_rand_int(len(query_pool), generator)]
+        h, r, t = draw_pool[_rand_int(len(draw_pool), generator)]
         pool = [e for ty in sorted(tail_types[r])
                 for e in part_by_type.get(ty, ())
                 if e != h and (h, r, e) not in forbidden]
-        if len(pool) >= neg_per_pos:
-            idx = torch.randperm(len(pool), generator=generator)[:neg_per_pos]
-            picked = (h, r, t, [pool[i] for i in idx.tolist()])
+        negs = _draw_negatives(pool, neg_per_pos, hard_neg_frac, h, graph_set,
+                               generator)
+        if negs is not None:
+            picked = (h, r, t, negs)
             break
     if picked is None:
         return None
     h, r, t, negs = picked
+
+    # full-closure positives: the other derivable-but-absent tails of the
+    # query (h, r), up to num_positive - 1 of them, drawn only when asked.
+    # They are certain labels the single-positive row left unscored, and
+    # scoring them costs no extra propagation (same head, same relation).
+    extra_pos: List[int] = []
+    if num_positive > 1:
+        others = sorted(tt for hh, rr, tt in query_pool
+                        if hh == h and rr == r and tt != t)
+        if others:
+            perm = torch.randperm(len(others), generator=generator)
+            extra_pos = [others[i] for i in perm.tolist()[:num_positive - 1]]
 
     # compact ids to the participating entities (h, t and negs are among
     # them: closure facts only mention graph entities, negatives are drawn
@@ -612,14 +696,24 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
         [[old2new[hh] for hh, _r, _t in graph],
          [old2new[tt_] for _h, _r, tt_ in graph]], dtype=torch.long)
     edge_type = torch.tensor([rr for _h, rr, _t in graph], dtype=torch.long)
-    triplets = [[old2new[h], old2new[t], r]] + [
-        [old2new[h], old2new[n], r] for n in negs]
+    # row layout: [positive | extra positives | padding | negatives]; the
+    # padding repeats the positive and is masked out of the loss, so every
+    # instance of a pool has the same row count and union_batch can stack
+    rows = [[old2new[h], old2new[t], r]]
+    rows += [[old2new[h], old2new[p], r] for p in extra_pos]
+    while len(rows) < num_positive:
+        rows.append(list(rows[0]))
+    rows += [[old2new[h], old2new[n], r] for n in negs]
+    pos_mask = torch.tensor([True] * (1 + len(extra_pos))
+                            + [False] * (num_positive - 1 - len(extra_pos)))
     return _make(
         edge_index=edge_index,
         edge_type=edge_type,
         num_nodes=len(participating),
         num_relations=R,
-        test_triplets=torch.tensor(triplets, dtype=torch.long),
+        test_triplets=torch.tensor(rows, dtype=torch.long),
+        pos_mask=pos_mask,
+        num_positive=int(num_positive),
         family="rules",
         entity_type=entity_type[torch.tensor(participating,
                                              dtype=torch.long)],
@@ -633,7 +727,9 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
 
 
 def create_rules_instance(generator: torch.Generator, neg_per_pos: int = 1,
-                          ranges: dict = None):
+                          ranges: dict = None, num_positive: int = 1,
+                          hard_neg_frac: float = 0.0,
+                          unseen_answer_share: float = -1.0):
     """One rules-family instance (see the module docstring).
 
     Duck-typed like the petals instances -- ``edge_index`` (direct edges
@@ -649,7 +745,10 @@ def create_rules_instance(generator: torch.Generator, neg_per_pos: int = 1,
     if ranges:
         rng.update(ranges)
     for _attempt in range(8):
-        inst = _try_rules_instance(generator, int(neg_per_pos), rng)
+        inst = _try_rules_instance(
+            generator, int(neg_per_pos), rng, num_positive=int(num_positive),
+            hard_neg_frac=float(hard_neg_frac),
+            unseen_answer_share=float(unseen_answer_share))
         if inst is not None:
             return inst
     raise AssertionError("rules-prior instance generation failed 8 draws "
@@ -674,7 +773,12 @@ def generate_instances(cfg, generator: torch.Generator,
     if prior == "rules":
         neg = int(scfg.get("neg_per_pos_rules",
                            SYNTH_DEFAULTS["neg_per_pos_rules"]))
-        return [create_rules_instance(generator, neg) for _ in range(n)]
+        return [create_rules_instance(
+            generator, neg,
+            num_positive=int(scfg.get("num_positive_rules", 1)),
+            hard_neg_frac=float(scfg.get("hard_neg_frac", 0.0)),
+            unseen_answer_share=float(scfg.get("unseen_answer_share", -1.0)))
+            for _ in range(n)]
     palette = int(scfg["palette"])
     out = []
     for _ in range(n):
@@ -688,7 +792,8 @@ def generate_instances(cfg, generator: torch.Generator,
 # ---------------------------------------------------------------------------
 # The union batch
 # ---------------------------------------------------------------------------
-def union_batch(instances: Sequence, k: int, generator: torch.Generator
+def union_batch(instances: Sequence, k: int, generator: torch.Generator,
+                isolate_relations: bool = False
                 ) -> Tuple[object, torch.Tensor]:
     """Disjoint union of ``k`` sampled instances plus their query batch.
 
@@ -708,15 +813,31 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator
         pick = torch.randint(len(instances), (k,), generator=generator).tolist()
     chosen = [instances[i] for i in pick]
 
-    num_direct = max(int(inst.num_relations) for inst in chosen)
-    eis, ets, queries, offset = [], [], [], 0
-    for inst in chosen:
+    # isolate_relations (MX2): every instance gets its own block of
+    # relation ids, so its relation states are computed from its own facts
+    # only -- as they are for a real graph -- instead of being mixed with
+    # the bulk terms of k - 1 unrelated rule systems (the crosstalk risk in
+    # RULES_PRIOR.md). Off: one shared vocabulary, the petals convention.
+    if isolate_relations:
+        rel_offsets, acc = [], 0
+        for inst in chosen:
+            rel_offsets.append(acc)
+            acc += int(inst.num_relations)
+        num_direct = acc
+    else:
+        rel_offsets = [0] * len(chosen)
+        num_direct = max(int(inst.num_relations) for inst in chosen)
+    eis, ets, queries, masks, offset = [], [], [], [], 0
+    for inst, roff in zip(chosen, rel_offsets):
         eis.append(inst.edge_index + offset)
-        ets.append(inst.edge_type)
+        ets.append(inst.edge_type + roff if roff else inst.edge_type)
         trip = inst.test_triplets.clone()
         trip[:, 0] += offset
         trip[:, 1] += offset
+        if roff:
+            trip[:, 2] += roff
         queries.append(trip)
+        masks.append(getattr(inst, "pos_mask", None))
         offset += int(inst.num_nodes)
 
     ei = torch.cat(eis, dim=1)
@@ -727,6 +848,11 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator
         num_nodes=offset,
         num_relations=2 * num_direct,
     )
+    # several positive slots per row: hand the mask to synth_loss. A pool
+    # of single-positive rows carries no mask, so the loss stays the old one.
+    if all(m is not None for m in masks) and any(int(m.shape[0]) > 1
+                                                  for m in masks):
+        union.query_pos_mask = torch.stack(masks)
     return union, torch.stack(queries)
 
 
@@ -766,6 +892,11 @@ def synth_loss(model, union_graph, queries: torch.Tensor, walk_offset: int = 0,
     score. That is the entire point of the exercise.
     """
     pred = model(union_graph, queries, support=None, walk_offset=walk_offset)
+    pos_mask = getattr(union_graph, "query_pos_mask", None)
+    if pos_mask is not None:
+        # [positive slots (masked) | negatives], the full-closure layout
+        return multi_positive_nll(pred, pos_mask.to(pred.device),
+                                  adversarial_temperature)
     return self_adversarial_nll(pred, int(queries.shape[1]) - 1,
                                 adversarial_temperature)
 
@@ -788,15 +919,24 @@ def synth_config(cfg, force: bool = False) -> Optional[dict]:
     unknown = set(block) - set(SYNTH_DEFAULTS)
     assert not unknown, "unknown synth config keys: %s" % sorted(unknown)
     out["enabled"] = bool(out["enabled"])
+    out["isolate_relations"] = bool(out["isolate_relations"])
     out["fraction"] = float(out["fraction"])
+    out["hard_neg_frac"] = float(out["hard_neg_frac"])
+    out["unseen_answer_share"] = float(out["unseen_answer_share"])
     for key in ("instances_per_step", "seed", "pool_size", "palette",
-                "neg_per_pos_rules"):
+                "neg_per_pos_rules", "num_positive_rules"):
         out[key] = int(out[key])
     out["prior"] = str(out["prior"])
     assert out["prior"] in ("petals", "rules"), \
         "synth.prior must be 'petals' or 'rules', got %r" % out["prior"]
     assert out["neg_per_pos_rules"] >= 1, \
         "synth.neg_per_pos_rules must be >= 1"
+    assert out["num_positive_rules"] >= 1, \
+        "synth.num_positive_rules must be >= 1"
+    assert 0.0 <= out["hard_neg_frac"] <= 1.0, \
+        "synth.hard_neg_frac must be in [0, 1]"
+    assert out["unseen_answer_share"] <= 1.0, \
+        "synth.unseen_answer_share must be <= 1 (negative = natural)"
     assert 0.0 <= out["fraction"] <= 1.0, "synth.fraction must be in [0, 1]"
     if not out["enabled"] and not force:
         return None
@@ -848,7 +988,9 @@ def synth_step_loss(model, scfg: dict, step: int, device=None,
     k = int(scfg["instances_per_step"])
     count = k if str(scfg.get("prior", "petals")) == "rules" else None
     instances = generate_instances(scfg, gen, count)
-    union, queries = union_batch(instances, k, gen)
+    union, queries = union_batch(
+        instances, k, gen,
+        isolate_relations=bool(scfg.get("isolate_relations", False)))
     union, queries = to_device(union, queries, device)
     offset = step if walk_offset is None else int(walk_offset)
     return synth_loss(model, union, queries, walk_offset=offset,

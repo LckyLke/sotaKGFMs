@@ -141,6 +141,35 @@ def self_adversarial_nll(pred: torch.Tensor, num_negative: int,
     return loss.mean()
 
 
+def multi_positive_nll(pred: torch.Tensor, pos_mask: torch.Tensor,
+                       adversarial_temperature: float) -> torch.Tensor:
+    """``self_adversarial_nll`` with several certified positives per row
+    (2026-09-03, the rules prior's full-closure supervision).
+
+    ``pred [b, P + N]`` scores ``P`` positive slots and then ``N``
+    negatives; ``pos_mask [b, P]`` marks the real positives (padding slots
+    repeat a real one and are masked out). The positive term is the masked
+    MEAN over the slots, so a row weighs exactly what it weighs in the
+    single-positive loss; with ``P == 1`` and an all-true mask the two
+    functions agree up to floating-point rounding.
+    """
+    P = int(pos_mask.shape[1])
+    pos, neg = pred[:, :P], pred[:, P:]
+    m = pos_mask.to(pred.dtype)
+    pos_loss = F.binary_cross_entropy_with_logits(
+        pos, torch.ones_like(pos), reduction="none")
+    pos_loss = (pos_loss * m).sum(dim=-1) / m.sum(dim=-1).clamp(min=1.0)
+    neg_loss = F.binary_cross_entropy_with_logits(
+        neg, torch.zeros_like(neg), reduction="none")
+    if adversarial_temperature > 0:
+        with torch.no_grad():
+            w = F.softmax(neg / adversarial_temperature, dim=-1)
+    else:
+        w = torch.full_like(neg, 1.0 / max(1, neg.shape[1]))
+    neg_loss = (neg_loss * w).sum(dim=-1)
+    return ((pos_loss + neg_loss) / (1.0 + w.sum(dim=-1))).mean()
+
+
 # ---------------------------------------------------------------------------
 # INCITE steps
 # ---------------------------------------------------------------------------

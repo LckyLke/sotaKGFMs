@@ -444,6 +444,13 @@ def main(argv=None):
               "%.3f, %d instances/step, seed %d"
               % (scfg["prior"], scfg["fraction"], scfg["instances_per_step"],
                  scfg["seed"]))
+        if scfg["prior"] == "rules":
+            print("  rules knobs: neg_per_pos %d, num_positive %d, "
+                  "hard_neg_frac %.2f, unseen_answer_share %.2f, "
+                  "isolate_relations %s"
+                  % (scfg["neg_per_pos_rules"], scfg["num_positive_rules"],
+                     scfg["hard_neg_frac"], scfg["unseen_answer_share"],
+                     scfg["isolate_relations"]))
 
     model.train()
     best_sel, best_path = float("-inf"), None
