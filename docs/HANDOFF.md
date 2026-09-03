@@ -1,4 +1,4 @@
-# Takeover — 2026-09-02, 10:50 (day 6)
+# Takeover — 2026-09-03, 09:40 (day 7)
 
 Goal: a novel, publishable KGFM that beats TRIX and FLOCK on the 41-graph
 zero-shot inductive suite, with seed spread and matched pretraining data.
@@ -22,6 +22,48 @@ The incite worktree symlinks `output/` and `data/roots` to the main
 worktree's copies. `output/` (training dirs, logs) and `data/` are not in
 git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 
+## Live state right now (2026-09-03, 09:40) and how the session operates
+
+* **Best single model:** the 4-graph backbone continued with 30 percent
+  synthetic rules-prior steps (MX1): 0.4606 / 0.3851, ties or beats
+  TRIX on ind_e (+0.004) and leads on ind_er by +0.017 with a graph
+  bootstrap interval of +0.007 to +0.032. Checkpoint:
+  `checkpoints/incite-4g-synth30-last-step30k.pth`. Single seed.
+* **Best matched-diet (3-graph) model:** the floor-family soup,
+  0.4571 / 0.3775. No 3-graph lever beat it (decay adds nothing there).
+* **Training now:** MXG1 = synthetic mix 30 percent PLUS the unary
+  channel, warm start from the 4-graph last checkpoint, 10k steps with
+  decay (started 09:14, evals done about 14:30). Then MX15 (mix at 15
+  percent, about 20:00), then the TRIX budget A/B, the test-time levers,
+  FLOCK's last graph. Seed repeats stay gated behind
+  `output/research-plan/SEEDS_GO` until the paper model is chosen.
+* **The decision ahead:** if MXG1 beats MX1, the paper recipe is
+  "4-graph backbone + synthetic mix + unary"; otherwise MX1's recipe. In
+  both cases the next run is a from-scratch 20k+10k run with the mix as
+  THE recipe (not a continuation), then two more seeds of it. Release
+  the seed stages only for that recipe (rewrite B2/B3/C2/C3 first: they
+  still assume the continuation form).
+* **Per-stage ritual** (what the session does when a stage lands, in
+  this order): `scripts/paired_bootstrap.py <new-last> <reference>` and
+  versus `ranks/trix`; `scripts/halflink_report.py --labels
+  ../sotaKGFMs-incite/results/incite/halflink_labels.json ...` for the
+  per-scenario table; a result note under `results/incite/`; the
+  checkpoint into `checkpoints/` with a README row; this table; commit
+  and push both branches (`git push origin incite` from the incite
+  worktree; the remote push URL is SSH). The reference for every
+  continuation lever is L1 (`ranks/incite-4g-decay-last`), never the 20k
+  start.
+* **Watchers alive on this machine:** `scripts/research_plan_v8.sh` (the
+  queue; a Monitor on `output/research-plan/log.txt` wakes the session on
+  DONE/FAILED lines), `scripts/snapshot_watcher.sh` (last-5 snapshot
+  soups; v2 with a double memory check is armed to replace it after the
+  current soup), the KGPFN suite (29 of 41 graphs; the small-graph retry
+  finished). A background waiter swapped v7 to v8 on the MX1 marker.
+* **Memory notes for the session** live in
+  `~/.claude/projects/-home-lukef-Dokumente-GitHub-sotaKGFMs/memory/`
+  (validate before building; never edit running scripts; idempotent
+  queues).
+
 ## The state in one table (41 inductive graphs, test splits, seed 1024, LAST checkpoints unless stated)
 
 | model | ind_e MRR | ind_er MRR | note |
@@ -34,7 +76,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | TRIX | 0.4562 | 0.3679 | released, about 100k steps |
 | FLOCK | 0.4558 | 0.3674 | 40 of 41 graphs (ind_er over 22) |
 | KGPFN | 13 of 41 | | at TRIX level on the graphs done |
-| INCITE floor (3g, 20k steps) | 0.4553 | 0.3740 | DEV10-best checkpoint |
+| INCITE floor (3g, 20k steps) | 0.4553 | 0.3740 | DEV10-best checkpoint (17k); the last checkpoint (20k) is 0.4533 / 0.3749 |
 | INCITE floor-family soup | 0.4571 | 0.3775 | average of four floor descendants; the best matched-diet (3g) row |
 | INCITE floor + 10k decay (L2), last | 0.4510 | 0.3745 | no gain at 3 graphs (results/incite/DECAY_RESULT.md) |
 | INCITE 4g (20k) DEV10-best | 0.4542 | 0.3791 | |
@@ -91,9 +133,9 @@ margin), `scripts/halflink_report.py --labels
 4. **Checkpoint selection on DEV10 buys nothing** (E1): the unselected
    last checkpoint equals or beats the selected one. Report LAST
    checkpoints. DEV10 is diagnostic only.
-5. **Weight soups help a little** (E2: +0.002 / +0.0035 over the floor).
-   `scripts/snapshot_watcher.sh` averages the last five kept snapshots of
-   each decay run automatically.
+5. **Weight soups of different constant-lr runs help a little** (E2:
+   +0.002 / +0.0035 over the floor). Snapshot soups of one decayed run
+   add nothing (L1, G1: within ±0.001); the decay already averages.
 6. **Bidirectional re-ranking is marginal** (`results/incite/TESTTIME_LEVERS.md`):
    +0.004 on the DEV10 scalar at k=8, weight 0.5, gains on ind_e graphs,
    losses on ind_er graphs, at 3.6x eval cost. Queued late (E4/E5).
@@ -136,16 +178,18 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | P1 | synthetic rules-prior 100 percent pilot: DONE, 0.3593 / 0.2795 | ranks/incite-synth100-pilot | done |
 | L2 | floor (3-graph) decay: DONE, no gain (0.4510 / 0.3745) | ranks/incite-decay(-last) | done |
 | MX1 | 4g continuation with 30 percent synthetic steps: DONE, 0.4606 / 0.3851 | ranks/incite-4g-synth30(-last) | done |
-| MXG1 | synthetic mix 30 percent + unary channel, warm start, 10k decay (`configs/incite_phase1_4g_unary_synth30.yaml`) | ranks/incite-4g-unary-synth30(-last) | 15:00, 3 Sep |
+| MXG1 | synthetic mix 30 percent + unary channel, warm start, 10k decay (`configs/incite_phase1_4g_unary_synth30.yaml`); TRAINING NOW since 09:14 | ranks/incite-4g-unary-synth30(-last) | 14:30, 3 Sep |
 | MX15 | synthetic mix at 15 percent (`configs/incite_phase1_4g_synth15.yaml`) | ranks/incite-4g-synth15-last | 20:00, 3 Sep |
 | X1/X2 | TRIX@20k with their code, best epoch and last | ranks/trix-20k-best/-last | 04:00, 4 Sep |
 | E4/E5/E6 | re-ranked dumps (k=8), score ensemble of four trunks | ranks/incite-*-rerank, incite-ens4 | 08:00, 4 Sep |
 | F0 | FLOCK FBIngram:25 (patch 0005) | ranks/flock 41/41 | 10:00, 4 Sep |
-| B2/B3, C2/C3 | backbone seeds 1337 and 7 (20k), then the winner continuation (auto-picked among L1/M1/G1/M2) on each | gated by SEEDS_GO | on release, about 26 h |
+| B2/B3, C2/C3 | backbone seeds 1337 and 7 (20k), then the winner continuation (auto-picked among L1/M1/G1/M2/MX1/MXG1/MX15 by mean group MRR) on each | gated by SEEDS_GO | on release, about 26 h; rewrite first if the paper recipe is a from-scratch run |
 
-Also running: the KGPFN suite in the background (1.7 GB, days), and
-`scripts/kgpfn_small_retry.sh` for its small failed graphs. Do NOT start
-another training run on this GPU; evals of 1 to 3 GB are fine.
+Also running: the KGPFN suite in the background (1.7 GB; 29 of 41; the
+small-graph retry finished). Do NOT start another training run on this
+GPU. Evals of 1 to 3 GB are fine, but only after two low memory readings
+three minutes apart: a training container ramps to 13 GB within minutes
+of its start and an eval that starts in the ramp OOMs (it happened).
 
 ## Directions NOT covered by the plan (for a second agent or machine)
 
@@ -175,8 +219,11 @@ without conflicts.
    disagree at Hits@10 on 6 to 8 percent of queries. Distil the score
    ensemble (E6 gives its realistic gain) into a single INCITE model on
    the pretraining graphs.
-6. **From-scratch masking with the cap, if M2 is positive.** A 10k
-   continuation may be too short to change what the model relies on.
+6. **Scenario-targeted synthetic generation.** The rules prior already
+   supplies unseen-answer rows; a generator option that biases queries
+   toward targets without other edges of the query relation, or toward
+   unreachable targets, would aim the mix at the two failure pools
+   directly (`incite/synth.py`, `create_rules_instance`).
 7. **FLOCK's relation baseline** (`flock_relation.pth`) for the joint-head
    story: FLOCK reports 0.881 on 54 graphs; our joint model has 0.8484
    on ind_er. Its entity eval took 23 hours here; budget accordingly.
@@ -217,7 +264,7 @@ uncapped half-link masking, DEV10 checkpoint selection.
 6. Train: `scripts/train_incite.sh` through `docker_run.sh` with
    `INCITE_CONFIG`, `INCITE_SEED`, `INCITE_TRAIN_GRAPHS`, `INCITE_RESUME` or
    `INCITE_INIT_FROM`, `INCITE_TRAIN_STEPS`, `INCITE_TRAIN_EXTRA_ARGS`
-   (lr schedule, masking, keep_every). See `scripts/research_plan_v5.sh`
+   (lr schedule, masking, keep_every). See `scripts/research_plan_v8.sh`
    for every exact invocation. 16 GB fits batch 32x1 on the 3-graph mix
    and 16x2 on the 4-graph mix with activation checkpointing.
 7. Every rank dump goes into its own `ranks/<name>/` with a
