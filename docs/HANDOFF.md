@@ -31,8 +31,8 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   `checkpoints/incite-4g-synth30-last-step30k.pth`. Single seed.
 * **Best matched-diet (3-graph) model:** the floor-family soup,
   0.4571 / 0.3775. No 3-graph lever beat it (decay adds nothing there).
-* **Everything is queued (21:45 update, after the independent review,
-  see "The independent review" below):** plan v14 runs. Protocol: every
+* **Everything is queued (21:00 update, after the independent review,
+  see "The independent review" below):** plan v15 runs (v14 plus the second verifier's fixes). Protocol: every
   lever gets a DEV-SUITE verdict first (`diagnostics/dev_eval.py`: valid
   splits of nine transductive graphs outside the diet and outside the 41
   test graphs, `results/incite/dev/<stage>.json`), then its 41-graph
@@ -57,11 +57,12 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   dev-suite gain wins. Never an untested combination (the MX2 lesson).
   The decision and its reasons are written to `output/research-plan/RECIPE`.
 * **How to intervene:** `touch output/research-plan/SEEDS_HOLD` holds
-  R2/R3 back (R1 still runs). A stage is skipped by its marker in
-  `output/research-plan/`; delete `<stage>.failed` to retry it on a
-  relaunch (`./RESTART.sh`). The winner pick for R1 is automatic (mean
-  group MRR of the `-last` dumps); its config is logged as "winning
-  continuation recipe".
+  the seed stages R1S2/R0S2/R1S3/R0S3 and R1L (R0 and R1 still run). A
+  stage is skipped by its marker in `output/research-plan/`; delete
+  `<stage>.failed` to retry it on a relaunch (`./RESTART.sh`, which now
+  launches only the plan). The recipe decision is written to
+  `output/research-plan/RECIPE` with its reasons and logged as "recipe:";
+  delete that file to redo it.
 * **Per-stage ritual** (what the session does when a stage lands, in
   this order): `scripts/paired_bootstrap.py <new-last> <reference>` and
   versus `ranks/trix`; `scripts/halflink_report.py --labels
@@ -72,7 +73,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   worktree; the remote push URL is SSH). The reference for every
   continuation lever is L1 (`ranks/incite-4g-decay-last`), never the 20k
   start.
-* **Watchers alive on this machine:** only `scripts/research_plan_v14.sh`
+* **Watchers alive on this machine:** only `scripts/research_plan_v15.sh`
   (the queue after the review; v12 replaced v11 when MX2 lost; a Monitor on
   `output/research-plan/log.txt` wakes the session on DONE/FAILED lines).
   The snapshot watcher finished its list and exited (soups add nothing,
@@ -226,14 +227,16 @@ matched-diet comparison (FMX), X1/X2, the mechanism figure.
    up to 0.10 MRR on single graphs; the only statistics we have are
    graph-level bootstraps. Three seeds of the winner are in the plan.
 
-## Running on this machine: `scripts/research_plan_v14.sh` (markers in output/research-plan/)
+## Running on this machine: `scripts/research_plan_v15.sh` (markers in output/research-plan/)
 
-Stages are idempotent (v4 fixed a relaunch that wiped a finished run).
-`./RESTART.sh` relaunches everything after a pause. Seed repeats are
-DEFERRED (user decision, 2026-09-02): they run only after someone
-creates `output/research-plan/SEEDS_GO`, once the paper model is known.
+Stages are idempotent (v4 fixed a relaunch that wiped a finished run; a
+`trained` guard skips a finished training). `./RESTART.sh` relaunches the
+plan after a pause. The seed stages run AUTOMATICALLY (the user's
+2026-09-03 instruction) unless `output/research-plan/SEEDS_HOLD` exists.
 Order and ETAs (continuations: 10k steps from the 4g last checkpoint,
-linear lr decay, warmup 500, kept snapshots every 1000):
+linear lr decay, warmup 500, kept snapshots every 1000; from-scratch runs:
+30k steps, constant to 20k, then warmup and decay, the mix in the decay
+phase only):
 
 | stage | what | output (incite worktree) | ETA |
 | --- | --- | --- | --- |
@@ -250,7 +253,7 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | D0 | dev-suite numbers of L1, MX1, G1, L2 | results/incite/dev/{L1,MX1,G1,L2}.json | 01:00, 4 Sep |
 | SC1 | MX1 plus the scenario-conditioned readout (`configs/incite_phase1_4g_synth30_scenario.yaml`); dev suite, then 41 graphs; paired against MX1 | results/incite/dev/SC1.json, ranks/incite-4g-synth30-scenario-last | 06:30, 4 Sep |
 | FMX | the 3-graph floor plus the mix (`configs/incite_phase1_synth30.yaml`), the matched-diet test; paired against L2 and TRIX | ranks/incite-synth30-last | 12:00, 4 Sep |
-| MX15, MX45 | the mix at 15 and 45 percent: the dose curve with MX1, both recipe candidates | ranks/incite-4g-synth15-last, incite-4g-synth45-last | 23:00, 4 Sep |
+| MX15, MX45 | the mix at 15 and 45 percent: the dose curve with MX1, both recipe candidates (dev numbers for both) | ranks/incite-4g-synth15-last, incite-4g-synth45-last | 23:00, 4 Sep |
 | MXS9 | MX1 with 90 percent unseen-answer synthetic queries (`configs/incite_phase1_4g_synth30_share90.yaml`) | ranks/incite-4g-synth30-s90-last | 04:30, 5 Sep |
 | MX2a, RR2 | relation blocks alone (bisection step one, and the base RR2 needs); rule recovery at weight 0.2 on it | ranks/incite-4g-synth30-{iso,iso-rules}-last | 15:30, 5 Sep |
 | recipe | the decision by the recorded rule, written to `output/research-plan/RECIPE` | | 15:30, 5 Sep |
@@ -262,11 +265,10 @@ linear lr decay, warmup 500, kept snapshots every 1000):
 | E4/E5/E6, F0 | re-ranked dumps (k=8), score ensemble of four trunks, FLOCK FBIngram:25 | ranks/incite-*-rerank, incite-ens4, flock 41/41 | 22:00, 9 Sep |
 | R1L | the recipe at 60k steps (40k constant, 20k decay), one seed; held by SEEDS_HOLD | ranks/incite-recipe-<recipe>-60k-seed1024-last | 01:00, 11 Sep |
 
-Also running: the KGPFN suite in the background (1.7 GB; 29 of 41; the
-small-graph retry finished). Do NOT start another training run on this
-GPU. Evals of 1 to 3 GB are fine, but only after two low memory readings
-three minutes apart: a training container ramps to 13 GB within minutes
-of its start and an eval that starts in the ramp OOMs (it happened).
+Nothing else runs on this GPU. Do NOT start another training run on it.
+Evals of 1 to 3 GB are fine, but only after two low memory readings three
+minutes apart: a training container ramps to 13 GB within minutes of its
+start and an eval that starts in the ramp OOMs (it happened).
 
 ## Directions NOT covered by the plan (for a second agent or machine)
 
@@ -352,7 +354,7 @@ uncapped half-link masking, DEV10 checkpoint selection.
 6. Train: `scripts/train_incite.sh` through `docker_run.sh` with
    `INCITE_CONFIG`, `INCITE_SEED`, `INCITE_TRAIN_GRAPHS`, `INCITE_RESUME` or
    `INCITE_INIT_FROM`, `INCITE_TRAIN_STEPS`, `INCITE_TRAIN_EXTRA_ARGS`
-   (lr schedule, masking, keep_every). See `scripts/research_plan_v14.sh`
+   (lr schedule, masking, keep_every). See `scripts/research_plan_v15.sh`
    for every exact invocation. 16 GB fits batch 32x1 on the 3-graph mix
    and 16x2 on the 4-graph mix with activation checkpointing.
 7. Every rank dump goes into its own `ranks/<name>/` with a
@@ -364,7 +366,7 @@ uncapped half-link masking, DEV10 checkpoint selection.
   the schedule start** (the warmup formula with a negative step offset).
   Fixed on 2026-09-03: steps before the start run at the base lr
   (`incite/pretrain.py::make_lr_schedule`, `test_lr_schedule.py`). The
-  recipe runs R1/R2/R3 rely on it.
+  recipe runs R0/R1 and their seed repeats rely on it.
 * **A container stopped mid-start leaves torch's extension build lock
   behind** (`output/.torch_extensions-incite/rspmm/lock`), and the next
   container waits on it forever at "Load rspmm extension". One hour lost

@@ -22,16 +22,8 @@ else
   nohup scripts/research_plan_v14.sh >> output/research-plan/nohup.log 2>&1 & disown
   echo "research_plan_v14.sh launched"
 fi
-if pgrep -f '^bash scripts/kgpfn_small_retry.sh' > /dev/null; then
-  echo "kgpfn_small_retry.sh already running"
-else
-  nohup scripts/kgpfn_small_retry.sh >> output/kgpfn-small-retry-nohup.log 2>&1 & disown
-  echo "kgpfn_small_retry.sh launched"
-fi
-if pgrep -f '^bash scripts/snapshot_watcher.sh' > /dev/null; then
-  echo "snapshot_watcher.sh already running"
-else
-  nohup scripts/snapshot_watcher.sh >> output/snapshot-watcher-nohup.log 2>&1 & disown
-  echo "snapshot_watcher.sh launched"
-fi
+# The KGPFN small-graph retry and the snapshot watcher are NOT relaunched
+# (2026-09-03, the verifier's finding): the retry shares the GPU with the
+# plan's containers and once died of it (3.7 GB beside a training ramp);
+# snapshot soups add nothing (finding 5). Nothing is gated on either.
 echo "watch output/research-plan/log.txt"
