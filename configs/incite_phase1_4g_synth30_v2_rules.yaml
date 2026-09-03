@@ -1,0 +1,67 @@
+# RR1 (2026-09-03): MX2 plus rule recovery. The model gets a RuleHead on
+# its relation states (model.rule_head); on synthetic steps every instance
+# attaches its evidenced latent rules as hypotheses with certain labels
+# (synth.rule_targets, negatives sampled at rule_neg_per_pos per rule),
+# scored by the head and trained at synth.rule_weight next to the task
+# loss. The relation encoder is pushed to make the relational algebra of
+# an unseen vocabulary readable. Needs the isolated relation blocks.
+# Otherwise identical to incite_phase1_4g_synth30_v2.yaml; paired against MX2.
+model:
+  rule_head: yes          # RR1: rule recovery from relation states
+  dim: 32
+  rounds: 6
+  layer_norm: yes
+  short_cut: yes
+  count_channel: yes      # both channels stay: they are section A, not a lever
+  num_mlp_layer: 2
+
+walks:
+  enabled: no             # phase 2.1 lever
+  num_walks: 32
+  walk_length: 8
+  seed: 1024
+
+support:
+  enabled: no             # phase 2.2 lever
+  num_positive: 16
+  per_relation_cap: 64
+  neg_per_pos: 4
+  prototype_k: 16
+  hops: 3
+  ball_cap: 1024
+  class_prior: 0.1
+  build_batch_size: 16
+
+relation:
+  lambda: 0.0             # phase 2.3 lever
+
+synth:
+  prior: rules            # the latent rule-system prior (RULES_PRIOR.md)
+  enabled: yes
+  fraction: 0.3           # about 3,000 synthetic steps in a 10k continuation
+  instances_per_step: 16
+  seed: 2048
+  neg_per_pos_rules: 64   # MX2: certified negatives, many (MX1: 1)
+  hard_neg_frac: 0.5      # MX2: half of them from the head's 1-2 hop neighborhood
+  num_positive_rules: 4   # MX2: full-closure positives, masked slots (MX1: 1)
+  isolate_relations: yes  # MX2: per-instance relation blocks in the union
+  rule_targets: yes       # RR1: evidenced rules as labeled hypotheses
+  rule_neg_per_pos: 4     # RR1: sampled non-rules per evidenced rule
+  rule_weight: 1.0        # RR1: weight of the rule-recovery loss
+
+train:
+  batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)
+  accum_steps: 2          # effective 32; memory-forced for the 4-graph mix
+  checkpoint_activations: yes
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  lr: 5.0e-4
+  steps: 20000
+  val_interval: 1000
+  refresh_interval: 500
+  cost_gate: 0.20
+  val_samples: 500
+  graphs: [FB15k237, WN18RR, CoDExMedium]
+
+seed: 1024

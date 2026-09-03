@@ -115,7 +115,7 @@ except ImportError:  # pragma: no cover - flat invocation
 __all__ = ["generate_instances", "union_batch", "synth_loss", "synth_config",
            "is_synth_step", "synth_step_loss", "SYNTH_DEFAULTS",
            "RULES_RANGES", "sample_rule_system", "forward_chain",
-           "create_rules_instance"]
+           "create_rules_instance", "proof_support", "rule_targets_for"]
 
 #: Defaults for the ``synth:`` config block. ``enabled`` absent or false is
 #: the zero-behavior-change path: nothing in this module runs.
@@ -136,6 +136,11 @@ SYNTH_DEFAULTS = {
     "unseen_answer_share": -1.0,  # target share of unseen-answer queries;
                                   # negative = the natural draw (about 0.47)
     "isolate_relations": False,   # per-instance relation blocks in the union
+    "proof_weight": 0.0,          # weight of the gate's proof loss (PG1);
+                                  # 0 = no proof pairs reach the model
+    "rule_targets": False,        # RR1: attach rule hypotheses with labels
+    "rule_neg_per_pos": 4,        # RR1: sampled non-rules per evidenced rule
+    "rule_weight": 0.0,           # RR1: weight of the rule-recovery loss
 }
 
 #: Salt keeping the per-step coin stream disjoint from the per-step instance
@@ -430,42 +435,65 @@ def sample_rule_system(num_relations: int, num_types: int,
 
 def _rule_candidates(kind: str, body: tuple, head: int, by_rel: dict,
                      cap: int) -> list:
-    """Facts one rule derives from the indexed fact set, enumerated in a
-    deterministic (sorted-premise) order and truncated at ``cap``."""
+    """``(fact, premises)`` pairs one rule derives from the indexed fact
+    set, enumerated in a deterministic (sorted-premise) order and truncated
+    at ``cap``. The premises are the body facts the derivation used, in
+    body order -- the proof-guided gate's targets after ``proof_support``
+    expands them to observed edges."""
     out = []
     if kind == "hier":
         for h, t in by_rel.get(body[0], ()):
-            out.append((h, head, t))
+            out.append(((h, head, t), ((h, body[0], t),)))
             if len(out) >= cap:
                 break
     elif kind in ("inv", "sym"):
         for h, t in by_rel.get(body[0], ()):
-            out.append((t, head, h))
+            out.append(((t, head, h), ((h, body[0], t),)))
             if len(out) >= cap:
                 break
     else:                                                # comp
-        pairs = by_rel.get(body[0], ())
+        pairs = [(h, t, ((h, body[0], t),)) for h, t in by_rel.get(body[0], ())]
         for rel in body[1:]:
             nxt = {}
             for h, t in by_rel.get(rel, ()):
                 nxt.setdefault(h, []).append(t)
             joined = []
-            for h, t in pairs:
+            for h, t, prem in pairs:
                 for z in nxt.get(t, ()):
-                    joined.append((h, z))
+                    joined.append((h, z, prem + ((t, rel, z),)))
                     if len(joined) >= cap:
                         break
                 if len(joined) >= cap:
                     break
             pairs = joined
-        out = [(h, head, t) for h, t in pairs]
+        out = [((h, head, t), prem) for h, t, prem in pairs]
+    return out
+
+
+def proof_support(fact, derivations: dict, observed) -> set:
+    """The observed facts a derived ``fact`` rests on: its recorded premises,
+    expanded through derived premises down to members of ``observed``. A
+    fact that is itself observed is its own support."""
+    out, stack, seen = set(), [fact], set()
+    while stack:
+        f = stack.pop()
+        if f in seen:
+            continue
+        seen.add(f)
+        if f in observed:
+            out.add(f)
+            continue
+        got = derivations.get(f)
+        if got is not None:
+            stack.extend(got[1])
     return out
 
 
 def forward_chain(facts, rules: Sequence[tuple],
                   generator: Optional[torch.Generator] = None,
                   max_iters: int = 3, cap: Optional[int] = 12000,
-                  per_rule_cap: int = 4000) -> set:
+                  per_rule_cap: int = 4000, derivations: Optional[dict] = None
+                  ) -> set:
     """Forward-chain ``rules`` over ``facts`` -- (h, r, t) triples -- for at
     most ``max_iters`` iterations. Returns the closed fact SET (inputs
     included).
@@ -484,6 +512,14 @@ def forward_chain(facts, rules: Sequence[tuple],
     pure function of (facts, rules, seed). The caps are part of the prior's
     generative semantics: "derivable" means derivable by THIS bounded
     chainer, which is also what the verification tests re-run.
+
+    ``derivations`` (optional dict, 2026-09-03) receives, for every fact
+    the chainer ADDS, ``(rule index, premises)`` of the derivation that
+    landed it: the lowest-indexed rule that fired for it in that
+    iteration, so the record is a pure function of the same inputs and the
+    closure itself is untouched. Premises are facts of the closure at that
+    point, observed or derived; ``proof_support`` expands them down to
+    observed facts.
     """
     known = set(facts)
     rejected = set()
@@ -496,22 +532,30 @@ def forward_chain(facts, rules: Sequence[tuple],
         for r in by_rel:
             by_rel[r].sort()
         cands = set()
+        prem = {}
         for idx, rule in enumerate(rules):
-            for fact in _rule_candidates(rule[0], rule[1], rule[2], by_rel,
-                                         int(per_rule_cap)):
+            for fact, premises in _rule_candidates(rule[0], rule[1], rule[2],
+                                                   by_rel, int(per_rule_cap)):
                 if fact not in known and (idx, fact) not in rejected:
                     cands.add((idx, fact))
+                    if derivations is not None and (idx, fact) not in prem:
+                        prem[(idx, fact)] = premises
         if not cands:
             break
         ordered = sorted(cands)
+        fired_by = {}
         if generator is None:
             fired = {fact for _idx, fact in ordered}
+            if derivations is not None:
+                for idx, fact in ordered:
+                    fired_by.setdefault(fact, idx)
         else:
             coins = torch.rand(len(ordered), generator=generator).tolist()
             fired = set()
             for (idx, fact), coin in zip(ordered, coins):
                 if coin < rules[idx][3]:
                     fired.add(fact)
+                    fired_by.setdefault(fact, idx)
                 else:
                     rejected.add((idx, fact))
         new = sorted(fired)
@@ -520,6 +564,11 @@ def forward_chain(facts, rules: Sequence[tuple],
         if not new:
             continue
         known.update(new)
+        if derivations is not None:
+            for fact in new:
+                if fact not in derivations:
+                    idx = fired_by[fact]
+                    derivations[fact] = (idx, prem[(idx, fact)])
     return known
 
 
@@ -567,10 +616,85 @@ def _draw_negatives(pool: list, n: int, hard_frac: float, h: int, graph_set,
     return hard + _draw_from(rest_pool, n - len(hard), generator)
 
 
+RULE_KIND = {"hier": 0, "inv": 1, "sym": 2, "comp": 3}
+
+
+def _rule_key(kind: str, body: tuple, head: int):
+    """The (r1, r2, r3) slot layout of one rule hypothesis, -1 unused;
+    None for shapes the head does not score (composition of length 3)."""
+    if kind == "hier" or kind == "inv":
+        return (int(body[0]), int(head), -1)
+    if kind == "sym":
+        return (int(body[0]), -1, -1)
+    if len(body) != 2:
+        return None
+    return (int(body[0]), int(body[1]), int(head))
+
+
+def rule_targets_for(rules: Sequence[tuple], graph_set, num_relations: int,
+                     generator: torch.Generator, neg_per_pos: int = 4):
+    """Rule hypotheses with certain labels for the rule-recovery head (RR1).
+
+    Positives: the instance's rules that the OBSERVED facts evidence (the
+    body pattern occurs at least twice, so the rule is readable from the
+    graph in principle). Negatives: uniformly drawn hypotheses of each kind
+    that are not rules of the system at all, ``neg_per_pos`` per positive
+    and at least ``neg_per_pos`` per kind. Returns ``(idx [N, 4] long:
+    (kind, r1, r2, r3), label [N] float)``; every draw comes from
+    ``generator``.
+    """
+    by_rel = {}
+    for h, r, t in graph_set:
+        by_rel.setdefault(r, []).append((h, t))
+    for r in by_rel:
+        by_rel[r].sort()
+    all_keys = {k: set() for k in range(4)}
+    pos = {k: set() for k in range(4)}
+    for kind, body, head, _conf in rules:
+        key = _rule_key(kind, body, head)
+        if key is None:
+            continue
+        k = RULE_KIND[kind]
+        all_keys[k].add(key)
+        if len(_rule_candidates(kind, body, head, by_rel, 2)) >= 2:
+            pos[k].add(key)
+    rows, labels = [], []
+    R = int(num_relations)
+    for k in range(4):
+        P = sorted(pos[k])
+        for key in P:
+            rows.append((k,) + key)
+            labels.append(1.0)
+        n_neg = int(neg_per_pos) * max(1, len(P))
+        negs, tries = set(), 0
+        while len(negs) < n_neg and tries < 40 * n_neg:
+            tries += 1
+            r1 = _rand_int(R, generator)
+            if k == 2:
+                key = (r1, -1, -1)
+            elif k == 3:
+                key = (r1, _rand_int(R, generator), _rand_int(R, generator))
+            else:
+                r2 = _rand_int(R, generator)
+                if r2 == r1:
+                    continue
+                key = (r1, r2, -1)
+            if key in all_keys[k] or key in negs:
+                continue
+            negs.add(key)
+        for key in sorted(negs):
+            rows.append((k,) + key)
+            labels.append(0.0)
+    idx = torch.tensor(rows, dtype=torch.long).view(-1, 4)
+    return idx, torch.tensor(labels, dtype=torch.float32)
+
+
 def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
                         rng: dict, num_positive: int = 1,
                         hard_neg_frac: float = 0.0,
-                        unseen_answer_share: float = -1.0):
+                        unseen_answer_share: float = -1.0,
+                        rule_targets: bool = False,
+                        rule_neg_per_pos: int = 4):
     """One attempt at a rules instance; None when the draw yields no usable
     query (retried by ``create_rules_instance``, generator advancing).
 
@@ -634,7 +758,9 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
     graph_set = set(base) | set(kept)
 
     # labels: what the bounded chainer still derives from the OBSERVED graph
-    label_closure = forward_chain(graph_set, rules)
+    # (with the derivation of every derived fact, for the proof supports)
+    deriv = {}
+    label_closure = forward_chain(graph_set, rules, derivations=deriv)
     full_closure = forward_chain(base, rules)
     query_pool = sorted(label_closure - graph_set)
     if not query_pool:
@@ -687,11 +813,27 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
             perm = torch.randperm(len(others), generator=generator)
             extra_pos = [others[i] for i in perm.tolist()[:num_positive - 1]]
 
+    # proof support of the row: the observed edges the derivations of its
+    # positives rest on (the proof-guided gate's targets, PG1)
+    proof_facts = set()
+    for tt in [t] + extra_pos:
+        proof_facts |= proof_support((h, r, tt), deriv, graph_set)
+
     # compact ids to the participating entities (h, t and negs are among
     # them: closure facts only mention graph entities, negatives are drawn
     # from them -- degree-0 negatives would be trivially rejectable)
     old2new = {e: i for i, e in enumerate(participating)}
     graph = sorted(graph_set)
+    fact_pos = {f: i for i, f in enumerate(graph)}
+    proof_pos = torch.tensor(sorted(fact_pos[f] for f in proof_facts),
+                             dtype=torch.long)
+    extra = {}
+    if rule_targets:
+        # relation ids are instance-local already (no entity compaction
+        # touches them); drawn last so the query draw stays the MX1 one
+        r_idx, r_lab = rule_targets_for(rules, graph_set, R, generator,
+                                        int(rule_neg_per_pos))
+        extra = dict(rule_idx=r_idx, rule_label=r_lab)
     edge_index = torch.tensor(
         [[old2new[hh] for hh, _r, _t in graph],
          [old2new[tt_] for _h, _r, tt_ in graph]], dtype=torch.long)
@@ -714,7 +856,9 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
         test_triplets=torch.tensor(rows, dtype=torch.long),
         pos_mask=pos_mask,
         num_positive=int(num_positive),
+        proof_pos=proof_pos,
         family="rules",
+        **extra,
         entity_type=entity_type[torch.tensor(participating,
                                              dtype=torch.long)],
         rules=rules,
@@ -729,7 +873,9 @@ def _try_rules_instance(generator: torch.Generator, neg_per_pos: int,
 def create_rules_instance(generator: torch.Generator, neg_per_pos: int = 1,
                           ranges: dict = None, num_positive: int = 1,
                           hard_neg_frac: float = 0.0,
-                          unseen_answer_share: float = -1.0):
+                          unseen_answer_share: float = -1.0,
+                          rule_targets: bool = False,
+                          rule_neg_per_pos: int = 4):
     """One rules-family instance (see the module docstring).
 
     Duck-typed like the petals instances -- ``edge_index`` (direct edges
@@ -748,7 +894,9 @@ def create_rules_instance(generator: torch.Generator, neg_per_pos: int = 1,
         inst = _try_rules_instance(
             generator, int(neg_per_pos), rng, num_positive=int(num_positive),
             hard_neg_frac=float(hard_neg_frac),
-            unseen_answer_share=float(unseen_answer_share))
+            unseen_answer_share=float(unseen_answer_share),
+            rule_targets=bool(rule_targets),
+            rule_neg_per_pos=int(rule_neg_per_pos))
         if inst is not None:
             return inst
     raise AssertionError("rules-prior instance generation failed 8 draws "
@@ -777,7 +925,9 @@ def generate_instances(cfg, generator: torch.Generator,
             generator, neg,
             num_positive=int(scfg.get("num_positive_rules", 1)),
             hard_neg_frac=float(scfg.get("hard_neg_frac", 0.0)),
-            unseen_answer_share=float(scfg.get("unseen_answer_share", -1.0)))
+            unseen_answer_share=float(scfg.get("unseen_answer_share", -1.0)),
+            rule_targets=bool(scfg.get("rule_targets", False)),
+            rule_neg_per_pos=int(scfg.get("rule_neg_per_pos", 4)))
             for _ in range(n)]
     palette = int(scfg["palette"])
     out = []
@@ -827,8 +977,9 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator,
     else:
         rel_offsets = [0] * len(chosen)
         num_direct = max(int(inst.num_relations) for inst in chosen)
-    eis, ets, queries, masks, offset = [], [], [], [], 0
-    for inst, roff in zip(chosen, rel_offsets):
+    eis, ets, queries, masks, proofs, offset = [], [], [], [], [], 0
+    rule_idx, rule_lab = [], []
+    for i, (inst, roff) in enumerate(zip(chosen, rel_offsets)):
         eis.append(inst.edge_index + offset)
         ets.append(inst.edge_type + roff if roff else inst.edge_type)
         trip = inst.test_triplets.clone()
@@ -838,6 +989,15 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator,
             trip[:, 2] += roff
         queries.append(trip)
         masks.append(getattr(inst, "pos_mask", None))
+        proofs.append(getattr(inst, "proof_pos", None))
+        ridx = getattr(inst, "rule_idx", None)
+        if ridx is not None and ridx.numel():
+            rel_cols = ridx[:, 1:]
+            shifted = torch.where(rel_cols >= 0, rel_cols + roff, rel_cols)
+            rule_idx.append(torch.cat([torch.full((ridx.shape[0], 1), i,
+                                                  dtype=torch.long),
+                                       ridx[:, :1], shifted], dim=1))
+            rule_lab.append(inst.rule_label)
         offset += int(inst.num_nodes)
 
     ei = torch.cat(eis, dim=1)
@@ -853,6 +1013,27 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator,
     if all(m is not None for m in masks) and any(int(m.shape[0]) > 1
                                                   for m in masks):
         union.query_pos_mask = torch.stack(masks)
+    # proof pairs (rows, union edge positions): a row's proof edges are its
+    # instance's proof_pos shifted by the instance's edge offset, plus the
+    # inverse copies at + E (the propagation runs over both directions)
+    if all(p is not None for p in proofs):
+        E, e0, rows, edges = ei.shape[1], 0, [], []
+        for i, (inst, p) in enumerate(zip(chosen, proofs)):
+            if p.numel():
+                pos = p + e0
+                edges.append(torch.cat([pos, pos + E]))
+                rows.append(torch.full((2 * int(p.numel()),), i,
+                                       dtype=torch.long))
+            e0 += int(inst.edge_index.shape[1])
+        if rows:
+            union.proof_rows = torch.cat(rows)
+            union.proof_edges = torch.cat(edges)
+    # rule hypotheses (RR1): (row, kind, r1, r2, r3) with the relation ids
+    # in the row's own block -- meaningful only with isolate_relations
+    if rule_idx:
+        union.rule_idx = torch.cat(rule_idx)
+        union.rule_label = torch.cat(rule_lab)
+        union.rule_isolated = bool(isolate_relations)
     return union, torch.stack(queries)
 
 
@@ -870,7 +1051,9 @@ def to_device(union, queries: torch.Tensor, device):
 # The loss
 # ---------------------------------------------------------------------------
 def synth_loss(model, union_graph, queries: torch.Tensor, walk_offset: int = 0,
-               adversarial_temperature: float = 1.0) -> torch.Tensor:
+               adversarial_temperature: float = 1.0,
+               proof_weight: float = 0.0,
+               rule_weight: float = 0.0) -> torch.Tensor:
     """Scalar supervision loss on one union batch.
 
     ``model(union_graph, queries)`` with ``queries [k, 1 + neg, 3]`` scores
@@ -891,14 +1074,52 @@ def synth_loss(model, union_graph, queries: torch.Tensor, walk_offset: int = 0,
     entity and relation states before round 1, so they are upstream of every
     score. That is the entire point of the exercise.
     """
-    pred = model(union_graph, queries, support=None, walk_offset=walk_offset)
+    # the proof-guided gate (PG1): with a positive proof_weight, a gated
+    # model and proof pairs on the union, the forward also returns the
+    # one-sided gate loss on those pairs, added here
+    rows = getattr(union_graph, "proof_rows", None)
+    aux = None
+    proof = None
+    if (proof_weight > 0 and rows is not None
+            and getattr(model, "gates", None) is not None):
+        proof = (rows.to(queries.device),
+                 union_graph.proof_edges.to(queries.device))
+    # rule recovery (RR1): the relation states of the same forward feed the
+    # rule head; needs the isolated relation blocks
+    ridx = getattr(union_graph, "rule_idx", None)
+    rule_loss = None
+    want_rules = (rule_weight > 0 and ridx is not None
+                  and getattr(model, "rule_head", None) is not None)
+    if want_rules:
+        assert getattr(union_graph, "rule_isolated", False), \
+            "rule recovery needs synth.isolate_relations"
+        pred, aux, z = model(union_graph, queries, support=None,
+                             walk_offset=walk_offset, proof=proof,
+                             return_states=True)
+        from .model import rule_recovery_loss as _rrl
+        rule_loss = _rrl(model.rule_head, z, ridx.to(z.device),
+                         union_graph.rule_label.to(z.device))
+        if proof is None:
+            aux = None
+    elif proof is not None:
+        pred, aux = model(union_graph, queries, support=None,
+                          walk_offset=walk_offset, proof=proof,
+                          return_aux=True)
+    else:
+        pred = model(union_graph, queries, support=None, walk_offset=walk_offset)
     pos_mask = getattr(union_graph, "query_pos_mask", None)
     if pos_mask is not None:
         # [positive slots (masked) | negatives], the full-closure layout
-        return multi_positive_nll(pred, pos_mask.to(pred.device),
+        loss = multi_positive_nll(pred, pos_mask.to(pred.device),
                                   adversarial_temperature)
-    return self_adversarial_nll(pred, int(queries.shape[1]) - 1,
-                                adversarial_temperature)
+    else:
+        loss = self_adversarial_nll(pred, int(queries.shape[1]) - 1,
+                                    adversarial_temperature)
+    if aux is not None:
+        loss = loss + float(proof_weight) * aux
+    if rule_loss is not None:
+        loss = loss + float(rule_weight) * rule_loss
+    return loss
 
 
 # ---------------------------------------------------------------------------
@@ -923,6 +1144,12 @@ def synth_config(cfg, force: bool = False) -> Optional[dict]:
     out["fraction"] = float(out["fraction"])
     out["hard_neg_frac"] = float(out["hard_neg_frac"])
     out["unseen_answer_share"] = float(out["unseen_answer_share"])
+    out["proof_weight"] = float(out["proof_weight"])
+    assert out["proof_weight"] >= 0.0, "synth.proof_weight must be >= 0"
+    out["rule_targets"] = bool(out["rule_targets"])
+    out["rule_neg_per_pos"] = int(out["rule_neg_per_pos"])
+    out["rule_weight"] = float(out["rule_weight"])
+    assert out["rule_neg_per_pos"] >= 1 and out["rule_weight"] >= 0.0
     for key in ("instances_per_step", "seed", "pool_size", "palette",
                 "neg_per_pos_rules", "num_positive_rules"):
         out[key] = int(out[key])
@@ -994,4 +1221,6 @@ def synth_step_loss(model, scfg: dict, step: int, device=None,
     union, queries = to_device(union, queries, device)
     offset = step if walk_offset is None else int(walk_offset)
     return synth_loss(model, union, queries, walk_offset=offset,
-                      adversarial_temperature=adversarial_temperature), k
+                      adversarial_temperature=adversarial_temperature,
+                      proof_weight=float(scfg.get("proof_weight", 0.0)),
+                      rule_weight=float(scfg.get("rule_weight", 0.0))), k

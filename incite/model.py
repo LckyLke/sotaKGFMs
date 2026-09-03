@@ -201,6 +201,106 @@ class SupportReadout(nn.Module):
 # ---------------------------------------------------------------------------
 # The model
 # ---------------------------------------------------------------------------
+class EdgeGate(nn.Module):
+    """The proof-guided propagation gate of one round (2026-09-03, PG1).
+
+    A per-(query, source node) scale and a per-(query, relation) scale;
+    an edge's message is multiplied by ``node[b, src] * rel[b, r]``. The
+    factorization is what lets the gate ride the fused kernel unchanged:
+    the node scale folds into x, the relation scale into the projected
+    relation features, and no ``[b, E, d]`` tensor is materialized. Each
+    logit is linear in the state plus a query term. Weights start at zero
+    and every scale is divided by sigmoid(BIAS) computed on the same
+    device, so a freshly attached gate is EXACTLY the identity and a warm
+    start leaves the trunk's function untouched. ``forward`` returns the
+    raw sigmoids (what the proof loss pushes and the pruning measurement
+    thresholds); ``scales`` turns them into the multipliers.
+    """
+    BIAS = 6.0
+
+    def __init__(self, dim: int):
+        super().__init__()
+        self.node = nn.Linear(dim, 1)
+        self.node_q = nn.Linear(dim, 1, bias=False)
+        self.rel = nn.Linear(dim, 1)
+        self.rel_q = nn.Linear(dim, 1, bias=False)
+        for lin in (self.node, self.node_q, self.rel, self.rel_q):
+            nn.init.zeros_(lin.weight)
+        nn.init.constant_(self.node.bias, self.BIAS)
+        nn.init.constant_(self.rel.bias, self.BIAS)
+
+    def forward(self, x, z, q):
+        """x [b, V, d], z [b, R, d], q [b, d] -> (node [b, V], rel [b, R])."""
+        qn = self.node_q(q).squeeze(-1).unsqueeze(1)                 # [b, 1]
+        qr = self.rel_q(q).squeeze(-1).unsqueeze(1)                   # [b, 1]
+        gn = torch.sigmoid(self.node(x).squeeze(-1) + qn)             # [b, V]
+        gr = torch.sigmoid(self.rel(z).squeeze(-1) + qr)              # [b, R]
+        return gn, gr
+
+    def scales(self, gn, gr):
+        norm = torch.sigmoid(torch.full((1, 1), self.BIAS, dtype=gn.dtype,
+                                        device=gn.device))
+        return gn / norm, gr / norm
+
+
+class RuleHead(nn.Module):
+    """Rule recovery from relation states (2026-09-03, RR1).
+
+    Every rules-prior instance carries its latent rule system. This head
+    reads the trunk's relation states ``z [b, R, d]`` and scores rule
+    hypotheses with certain labels: hierarchy ``r2 <- r1`` and inversion
+    ``r2(y,x) <- r1(x,y)`` as bilinear forms on the two states, symmetry
+    as a linear form on one state, composition ``r3 <- r1 . r2`` as an
+    MLP on the three states. The loss trains the relation encoder to make
+    the relational algebra of an unseen vocabulary linearly readable; no
+    KGFM does this. ``idx [N, 5]`` rows are ``(row, kind, r1, r2, r3)``
+    with kind 0 hier, 1 inv, 2 sym, 3 comp and unused slots -1.
+    """
+    KINDS = 4
+
+    def __init__(self, dim: int):
+        super().__init__()
+        self.bilinear = nn.ModuleList([nn.Bilinear(dim, dim, 1) for _ in range(2)])
+        self.sym = nn.Linear(dim, 1)
+        self.comp = nn.Sequential(nn.Linear(3 * dim, dim), nn.ReLU(),
+                                  nn.Linear(dim, 1))
+
+    def forward(self, z: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
+        row, kind, r1, r2, r3 = idx.unbind(-1)
+        a = z[row, r1]
+        b = z[row, r2.clamp(min=0)]
+        c = z[row, r3.clamp(min=0)]
+        out = z.new_zeros(idx.shape[0])
+        for k in (0, 1):
+            m = kind == k
+            if bool(m.any()):
+                out = out.masked_scatter(m, self.bilinear[k](a[m], b[m]).squeeze(-1))
+        m = kind == 2
+        if bool(m.any()):
+            out = out.masked_scatter(m, self.sym(a[m]).squeeze(-1))
+        m = kind == 3
+        if bool(m.any()):
+            out = out.masked_scatter(
+                m, self.comp(torch.cat([a[m], b[m], c[m]], dim=-1)).squeeze(-1))
+        return out
+
+
+def rule_recovery_loss(head: RuleHead, z: torch.Tensor, idx: torch.Tensor,
+                       label: torch.Tensor) -> torch.Tensor:
+    """BCE-with-logits per rule kind, averaged over the kinds present, so
+    the frequent kinds do not drown the rare ones."""
+    logits = head(z, idx)
+    label = label.to(logits.dtype)
+    per = F.binary_cross_entropy_with_logits(logits, label, reduction="none")
+    kind = idx[:, 1]
+    parts = []
+    for k in range(RuleHead.KINDS):
+        m = kind == k
+        if bool(m.any()):
+            parts.append(per[m].mean())
+    return torch.stack(parts).mean()
+
+
 class INCITE(nn.Module):
 
     def __init__(self, dim: int = 32, rounds: int = 6, layer_norm: bool = True,
@@ -209,7 +309,9 @@ class INCITE(nn.Module):
                  support_readout: bool = True,
                  support_k: int = 16,
                  num_mlp_layer: int = 2,
-                 unary: bool = False):
+                 unary: bool = False,
+                 gate: bool = False,
+                 rule_head: bool = False):
         super().__init__()
         self.dim = int(dim)
         self.rounds = int(rounds)
@@ -238,6 +340,16 @@ class INCITE(nn.Module):
         self.checkpoint_activations = False
         self.entity_steps = nn.ModuleList(
             [EntityStep(dim, layer_norm) for _ in range(self.rounds)])
+        # Proof-guided propagation gate (2026-09-03, PG1): one EdgeGate per
+        # round, None when off. ``prune_frac`` > 0 at evaluation drops that
+        # share of each query's edges by gate value (the measurement in
+        # diagnostics/gate_prune_dev.py); training never prunes.
+        self.gates = nn.ModuleList(
+            [EdgeGate(dim) for _ in range(self.rounds)]) if gate else None
+        self.prune_frac = 0.0
+        # Rule recovery (2026-09-03, RR1): a head on the relation states,
+        # trained on synthetic steps only (the rules are known there).
+        self.rule_head = RuleHead(dim) if rule_head else None
         self.relation_steps = nn.ModuleList(
             [FactorizedRelationStep(dim, layer_norm, count_channel)
              for _ in range(self.rounds)])
@@ -281,8 +393,10 @@ class INCITE(nn.Module):
 
     def _trunk(self, msg_graph, pairs: IncidencePairs, h_index: torch.Tensor,
                r_query: Optional[torch.Tensor], t_index: Optional[torch.Tensor],
-               task: int, walk_offset: int = 0):
-        """The alternating rounds. Returns (x [b, V, d], z [b, R, d])."""
+               task: int, walk_offset: int = 0, proof=None):
+        """The alternating rounds. Returns (x [b, V, d], z [b, R, d], aux):
+        ``aux`` is the per-round gate loss on ``proof`` summed over rounds,
+        a zero scalar without gates or proof."""
         b = len(h_index)
         num_nodes, num_relations = pairs.num_nodes, pairs.num_relations
         device = h_index.device
@@ -313,24 +427,35 @@ class INCITE(nn.Module):
         # the walk features -- sampled once, above, from a fresh seeded
         # Generator -- are inputs to round 1, not part of any round.
         use_ckpt = self.checkpoint_activations and torch.is_grad_enabled()
+        aux = x.new_zeros(())
         for k in range(self.rounds):
             if use_ckpt:
-                x, z = checkpoint(self._round, k, task, x, z, z_boundary,
-                                  msg_graph.edge_index, msg_graph.edge_type,
-                                  pairs, h_index, t_index, r_query, q,
-                                  use_reentrant=False)
+                x, z, a = checkpoint(self._round, k, task, x, z, z_boundary,
+                                     msg_graph.edge_index, msg_graph.edge_type,
+                                     pairs, h_index, t_index, r_query, q, proof,
+                                     use_reentrant=False)
             else:
-                x, z = self._round(k, task, x, z, z_boundary,
-                                   msg_graph.edge_index, msg_graph.edge_type,
-                                   pairs, h_index, t_index, r_query, q)
-        return x, z
+                x, z, a = self._round(k, task, x, z, z_boundary,
+                                      msg_graph.edge_index, msg_graph.edge_type,
+                                      pairs, h_index, t_index, r_query, q, proof)
+            aux = aux + a
+        return x, z, aux
 
     def _round(self, k: int, task: int, x, z, z_boundary, edge_index,
-               edge_type, pairs: IncidencePairs, h_index, t_index, r_query, q):
+               edge_type, pairs: IncidencePairs, h_index, t_index, r_query, q,
+               proof=None):
         """Round k: boundary from the CURRENT z, entity step, node MLP,
         relation step. Under activation checkpointing this whole function is
         recomputed in backward, so it must stay RNG-free (no dropout in the
-        trunk -- asserted by a test) and free of hidden mutable state."""
+        trunk -- asserted by a test) and free of hidden mutable state.
+
+        With gates, the round's node and relation scales multiply the
+        messages. ``proof`` = (rows [m], edges [m]) adds the one-sided gate
+        loss on those (query, edge) pairs to the returned aux scalar: proof
+        edges are pushed open, nothing is pushed shut (type context flows
+        through non-proof edges). At evaluation ``prune_frac`` > 0 zeroes
+        the lowest-gated share of each query's edges through a per-edge
+        weight (measurement only, see diagnostics/gate_prune_dev.py)."""
         b, d = x.shape[0], self.dim
         num_nodes = pairs.num_nodes
         device = x.device
@@ -345,22 +470,47 @@ class INCITE(nn.Module):
                 1, h_index.view(b, 1, 1).expand(b, 1, d), q_k.unsqueeze(1))
             boundary_x.scatter_add_(
                 1, t_index.view(b, 1, 1).expand(b, 1, d), (-q_k).unsqueeze(1))
-        hidden = self.entity_steps[k](x, z, boundary_x, edge_index, edge_type)
+        aux = x.new_zeros(())
+        node_scale = rel_scale = edge_weight = None
+        if self.gates is not None:
+            gn, gr = self.gates[k](x, z, q_k)
+            node_scale, rel_scale = self.gates[k].scales(gn, gr)
+            if proof is not None:
+                rows, edges = proof
+                src, typ = edge_index[0, edges], edge_type[edges]
+                aux = -(torch.log(gn[rows, src] + 1e-6)
+                        + torch.log(gr[rows, typ] + 1e-6)).mean()
+            if not self.training and self.prune_frac > 0:
+                g = gn[:, edge_index[0]] * gr[:, edge_type]            # [b, E]
+                num_edges = g.shape[1]
+                keep = max(1, int(round((1.0 - float(self.prune_frac))
+                                        * num_edges)))
+                thr = g.kthvalue(num_edges - keep + 1, dim=1,
+                                 keepdim=True).values
+                edge_weight = (g >= thr).to(x.dtype)
+        hidden = self.entity_steps[k](x, z, boundary_x, edge_index, edge_type,
+                                      node_scale, rel_scale, edge_weight)
         x = hidden + x if self.short_cut else hidden
         node_repr = self.node_mlps[k](
             torch.cat([x, q_k.unsqueeze(1).expand_as(x)], dim=-1))
         z_hidden = self.relation_steps[k](z, node_repr, pairs, z_boundary)
         z = z_hidden + z if self.short_cut else z_hidden
-        return x, z
+        return x, z, aux
 
     # -- entity task --------------------------------------------------------
     def forward(self, data, batch: torch.Tensor,
                 support: Optional[SupportStore] = None,
-                walk_offset: int = 0, halflink=None) -> torch.Tensor:
+                walk_offset: int = 0, halflink=None, proof=None,
+                return_aux: bool = False, return_states: bool = False):
         """TRIX's entity interface: ``batch [b, c, 3]`` (h, t, r) -> ``[b, c]``.
 
         ``halflink``: optional ``(mask_answer [b], mask_query [b])`` bool
-        tensors, training only -- see ``mask_halflinks``.
+        tensors, training only -- see ``mask_halflinks``. ``proof``:
+        optional ``(rows [m], edges [m])`` proof pairs in ``data``'s edge
+        numbering for the gate loss; ``return_aux`` returns ``(score,
+        aux)`` with that loss (zero without gates); ``return_states``
+        returns ``(score, aux, z)`` with the final relation states (the
+        rule-recovery head reads them).
         """
         h_index, t_index, r_index = batch.unbind(-1)
         num_direct = int(data.num_relations) // 2
@@ -379,8 +529,8 @@ class INCITE(nn.Module):
                                        t_index[:, 0], mask_answer, mask_query,
                                        num_direct, max_answer_degree=maxdeg)
 
-        x, z = self._trunk(msg_graph, pairs, h_index[:, 0], r_index[:, 0],
-                           None, TASK_ENTITY, walk_offset)
+        x, z, aux = self._trunk(msg_graph, pairs, h_index[:, 0], r_index[:, 0],
+                                None, TASK_ENTITY, walk_offset, proof=proof)
         b, d = x.shape[0], self.dim
         node_query = z.gather(
             1, r_index[:, 0].view(b, 1, 1).expand(b, 1, d)).expand_as(x)
@@ -413,7 +563,9 @@ class INCITE(nn.Module):
                     continue
                 residual[i] = self.readout(cand_feature[i], rows)
             score = score + residual
-        return score
+        if return_states:
+            return score, aux, z
+        return (score, aux) if return_aux else score
 
     # -- relation task ------------------------------------------------------
     def forward_relation(self, data, batch: torch.Tensor,
@@ -429,7 +581,7 @@ class INCITE(nn.Module):
             msg_graph = remove_easy_edges(data, h_index.unsqueeze(-1),
                                           t_index.unsqueeze(-1),
                                           r_index.unsqueeze(-1))
-        x, z = self._trunk(msg_graph, pairs, h_index, None, t_index,
+        x, z, _ = self._trunk(msg_graph, pairs, h_index, None, t_index,
                            TASK_RELATION, walk_offset)
         b, d = x.shape[0], self.dim
         x_h = x.gather(1, h_index.view(b, 1, 1).expand(b, 1, d)).squeeze(1)
@@ -460,7 +612,7 @@ class INCITE(nn.Module):
         module is in -- builders call it under no_grad and eval().
         """
         pairs = self._pairs(graph)
-        x, z = self._trunk(graph, pairs, heads, rels, None, TASK_ENTITY)
+        x, z, _ = self._trunk(graph, pairs, heads, rels, None, TASK_ENTITY)
         m, d = x.shape[0], self.dim
         z_q = z.gather(1, rels.view(m, 1, 1).expand(m, 1, d)).squeeze(1)
         feature = torch.cat([x, z_q.unsqueeze(1).expand_as(x)], dim=-1)
@@ -502,8 +654,13 @@ class INCITE(nn.Module):
         boundary_x = torch.ones(1, num_nodes, d, device=device)
         q = torch.ones(1, d, device=device)
         for k in range(self.rounds):
+            node_scale = rel_scale = None
+            if self.gates is not None:
+                gn, gr = self.gates[k](x, z, q)
+                node_scale, rel_scale = self.gates[k].scales(gn, gr)
             hidden = self.entity_steps[k](x, z, boundary_x,
-                                          graph.edge_index, graph.edge_type)
+                                          graph.edge_index, graph.edge_type,
+                                          node_scale, rel_scale)
             x = hidden + x if self.short_cut else hidden
             node_repr = self.node_mlps[k](
                 torch.cat([x, q.unsqueeze(1).expand_as(x)], dim=-1))

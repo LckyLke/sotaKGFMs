@@ -36,7 +36,7 @@ def test_unary_adds_a_second_head():
         glob = model.encode_unlabeled(g)
         b, c, d = 1, g.num_nodes, model.dim
         pairs = model._pairs(g)
-        x, z = model._trunk(g, pairs, torch.tensor([0]), torch.tensor([1]), None, 0)
+        x, z, _ = model._trunk(g, pairs, torch.tensor([0]), torch.tensor([1]), None, 0)
         z_q = z[:, 1]
         feat = torch.cat([glob[0].expand(c, d), glob, z_q.expand(c, d)], dim=-1)
         manual = model.unary_mlp(feat).squeeze(-1)

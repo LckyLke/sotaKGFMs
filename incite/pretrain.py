@@ -193,6 +193,10 @@ def make_lr_schedule(base_lr: float, schedule: str, final_lr: float,
 
     def lr_at(step: int) -> float:
         k = int(step) - int(first_step)
+        if k < 0:
+            # before the schedule starts (a from-scratch run with
+            # --schedule_start, 2026-09-03): the base lr, constant
+            return base_lr
         if warmup and k < warmup:
             return base_lr * float(k + 1) / float(warmup)
         p = min(max((k - int(warmup)) / float(span), 0.0), 1.0)

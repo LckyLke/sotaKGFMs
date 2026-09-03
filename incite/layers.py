@@ -100,19 +100,31 @@ def pair_sum(input: torch.Tensor, src: torch.Tensor, dst: torch.Tensor,
 
 
 def distmult_sum(x: torch.Tensor, rel: torch.Tensor, edge_index: torch.Tensor,
-                 edge_type: torch.Tensor, boundary: torch.Tensor) -> torch.Tensor:
-    """``out[t] = boundary[t] + sum_{(h,r,t)} rel[r] * x[h]`` -> ``[b, V, d]``."""
+                 edge_type: torch.Tensor, boundary: torch.Tensor,
+                 edge_weight: Optional[torch.Tensor] = None) -> torch.Tensor:
+    """``out[t] = boundary[t] + sum_{(h,r,t)} w[b,e] * rel[r] * x[h]`` ->
+    ``[b, V, d]``. ``edge_weight [b, E]`` is optional (the pruning
+    measurement of the proof-guided gate, 2026-09-03): the fused kernel
+    takes one weight vector per call, so a weighted batch runs it once per
+    row -- measurement speed, not training speed. Without it the call is
+    the original one."""
     b, n, d = x.shape
     src, dst = edge_index[0], edge_index[1]
     if _use_kernel(x):
-        flat_x = x.transpose(0, 1).reshape(n, b * d)
-        flat_rel = rel.transpose(0, 1).reshape(rel.shape[1], b * d)
-        edge_weight = torch.ones(len(edge_type), device=x.device, dtype=x.dtype)
-        # flipped: the kernel aggregates into edge_index[0]
-        out = _rspmm()(torch.stack([dst, src]), edge_type, edge_weight,
-                       flat_rel, flat_x, sum="add", mul="mul")
-        return out.view(n, b, d).transpose(0, 1) + boundary
+        flipped = torch.stack([dst, src])      # the kernel aggregates into [0]
+        if edge_weight is None:
+            flat_x = x.transpose(0, 1).reshape(n, b * d)
+            flat_rel = rel.transpose(0, 1).reshape(rel.shape[1], b * d)
+            ones = torch.ones(len(edge_type), device=x.device, dtype=x.dtype)
+            out = _rspmm()(flipped, edge_type, ones, flat_rel, flat_x,
+                           sum="add", mul="mul")
+            return out.view(n, b, d).transpose(0, 1) + boundary
+        rows = [_rspmm()(flipped, edge_type, edge_weight[i].to(x.dtype),
+                         rel[i], x[i], sum="add", mul="mul") for i in range(b)]
+        return torch.stack(rows) + boundary
     msg = x.index_select(1, src) * rel.index_select(1, edge_type)
+    if edge_weight is not None:
+        msg = msg * edge_weight.unsqueeze(-1).to(msg.dtype)
     out = boundary.clone()
     out.index_add_(1, dst, msg)
     return out
@@ -149,9 +161,18 @@ class EntityStep(nn.Module):
         self.rel_proj = _mlp(dim)
         self.update = _Update(dim, layer_norm)
 
-    def forward(self, x, z, boundary, edge_index, edge_type):
+    def forward(self, x, z, boundary, edge_index, edge_type,
+                node_scale=None, rel_scale=None, edge_weight=None):
+        """``node_scale [b, V]`` and ``rel_scale [b, R]`` (the proof-guided
+        gate) multiply the message SOURCES only: the node's own state in
+        the update is untouched. ``edge_weight [b, E]`` is the pruning
+        mask, see ``distmult_sum``."""
         rel = self.rel_proj(z)
-        agg = distmult_sum(x, rel, edge_index, edge_type, boundary)
+        if rel_scale is not None:
+            rel = rel * rel_scale.unsqueeze(-1)
+        x_src = x if node_scale is None else x * node_scale.unsqueeze(-1)
+        agg = distmult_sum(x_src, rel, edge_index, edge_type, boundary,
+                           edge_weight)
         return self.update(x, agg)
 
 
