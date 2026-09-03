@@ -23,3 +23,4 @@ baseline branch for the schedule.
 | incite-4g-decay-last-step30k.pth | configs/incite_phase1.yaml | 4-graph backbone + 10k-step linear decay continuation (L1), last: THE NEW REFERENCE (2026-09-02) | 0.4560 / 0.3852 |
 | incite-4g-unary-last-step10k.pth | configs/incite_phase1_4g_unary.yaml | 4g last + unary channel, warm start, 10k decay (G1), last: best single model so far | 0.4571 / 0.3874 |
 | incite-synth100-pilot-best-step6k.pth | configs/incite_synthsweep_100.yaml | trained on the synthetic rules prior ONLY, 10k steps, no real KG; DEV10 best | 0.3593 / 0.2795 |
+| incite-4g-synth30-last-step30k.pth | configs/incite_phase1.yaml (eval) / configs/incite_phase1_4g_synth30.yaml (train) | 4g last + 10k decay with 30 percent synthetic rules-prior steps (MX1), last: BEST SINGLE MODEL (2026-09-03) | 0.4606 / 0.3851 |
