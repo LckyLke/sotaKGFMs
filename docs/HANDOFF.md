@@ -317,6 +317,12 @@ uncapped half-link masking, DEV10 checkpoint selection.
   Fixed on 2026-09-03: steps before the start run at the base lr
   (`incite/pretrain.py::make_lr_schedule`, `test_lr_schedule.py`). The
   recipe runs R1/R2/R3 rely on it.
+* **A container stopped mid-start leaves torch's extension build lock
+  behind** (`output/.torch_extensions-incite/rspmm/lock`), and the next
+  container waits on it forever at "Load rspmm extension". One hour lost
+  on 2026-09-03. `scripts/in_container.sh` now deletes a lock older than
+  ten minutes at every container start; by hand: remove the lock file,
+  the waiting process continues on its own.
 * **A boundary detector that counts every marker fires on the snapshot
   watcher's markers.** v10 waited for "a new marker" while MXG1's evals
   ran; `snapshot-MX1.done` arrived, v10 stopped the eval container and
