@@ -40,7 +40,14 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   waits for MX45's marker and takes over there. v17 = v16 plus stage PG3
   (Luke's call, 4 Sep: the gate that can close, bias 2 and the two-sided
   proof loss, `configs/incite_phase1_4g_synth30_gate3.yaml`), a recipe
-  candidate after RR2 and before the decision (mx1gate3). v16 = v15 plus
+  candidate after RR2 and before the decision (mx1gate3). A fourth
+  verifier APPROVED PG3's code and v17 with no blocking finding; its
+  points are applied (the negative weight 0.29 makes the identity a
+  stationary point of the proof loss, the gate's start bias is saved in
+  the checkpoint, a lever tensor the config does not build is an error
+  on load). Deferred until PG3 shows a gain: a twin with the proof loss
+  off (gate trained by the task loss alone), which would attribute the
+  gain to the generator's supervision. v16 = v15 plus
   stage D0W (the four reference dev numbers under the stratified
   protocol, see Protocol) and a guard: the recipe decision refuses
   uniform dev files, and a failed D0W sets `output/research-plan/RECIPE_HOLD`
