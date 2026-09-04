@@ -35,7 +35,12 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 * **What runs (unattended, verified):** `scripts/research_plan_v15.sh`
   (launched 21:00, took over from v12 at PG2's boundary at 22:11) ran
   SC1; `scripts/research_plan_v16.sh` (launched 23:16, pid 3755228) took
-  over at SC1's boundary (02:04, 4 Sep) and runs D0W, then FMX. v16 = v15 plus
+  over at SC1's boundary (02:04, 4 Sep) and ran D0W, FMX, MX15 and trains
+  MX45 now; `scripts/research_plan_v17.sh` (launched 08:47, pid 4072791)
+  waits for MX45's marker and takes over there. v17 = v16 plus stage PG3
+  (Luke's call, 4 Sep: the gate that can close, bias 2 and the two-sided
+  proof loss, `configs/incite_phase1_4g_synth30_gate3.yaml`), a recipe
+  candidate after RR2 and before the decision (mx1gate3). v16 = v15 plus
   stage D0W (the four reference dev numbers under the stratified
   protocol, see Protocol) and a guard: the recipe decision refuses
   uniform dev files, and a failed D0W sets `output/research-plan/RECIPE_HOLD`
@@ -84,7 +89,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   them; the recipe is fixed once.
 * **The recipe rule (recorded in the plan):** MX1's recipe, the mix in
   the decay phase only (`synth.start_step 20001`), plus AT MOST ONE
-  modification. Among SC1, MX15, MX45, MXS9 and RR2 a candidate is
+  modification. Among SC1, MX15, MX45, MXS9, RR2 and PG3 a candidate is
   accepted if its stratified dev number beats MX1's by at least 0.003 on
   the graphs both have (at least six) AND its paired 41-graph interval
   against MX1 is above zero on one group with the other group's point
@@ -148,6 +153,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g + synthetic mix + proof-guided gate (PG2), last | 0.4588 | 0.3869 | inert, as the review predicted: −0.0018 [−0.0033, −0.0005] / +0.0018 [−0.0019, +0.0073] versus MX1, the same scenario profile cell for cell, no gate bias moved by more than 0.11; results/incite/GATE_RESULT.md |
 | INCITE 4g + synthetic mix + scenario-conditioned readout (SC1), last | 0.4613 | 0.3873 | MX1 within noise: +0.0007 [−0.0003, +0.0018] / +0.0023 [−0.0009, +0.0068], every scenario cell within 0.003; the head's last layer stayed near zero (weight norm 0.03); not accepted as the recipe modification (the test interval includes zero); results/incite/SCENARIO_RESULT.md |
 | INCITE 3g floor + 10k decay + 30 percent mix (FMX), last | 0.4563 | 0.3720 | the matched-diet test: ties TRIX on ind_e (+0.0001 [−0.0061, +0.0061]) and +0.0041 [−0.0057, +0.0165] on ind_er; the mix over L2 is +0.0053 [−0.0013, +0.0125] / −0.0025, the same scenario trade as MX1's; the fourth graph is +0.004 / +0.013 (MX1 − FMX); results/incite/FLOOR_MIX_RESULT.md |
+| **INCITE 4g + 15 percent synthetic mix (MX15), last** | **0.4621** | **0.3893** | the first mix result above the no-mix baseline on BOTH groups with intervals above zero: +0.0062 [+0.0018, +0.0109] / +0.0040 [+0.0009, +0.0078] over L1; +0.0016 [−0.0005, +0.0037] / +0.0042 [+0.0011, +0.0078] over MX1; half the seen-answer cost, most of the unseen-answer gain; dev +0.0036 over MX1 (7 of 8): clears both gates of the recipe rule (results/incite/DOSE15_RESULT.md) |
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
@@ -163,6 +169,7 @@ and the benchmark; results/incite/DEV_SUITE.md):
 | L2 (3g floor + decay) | 0.3407 | 0.3029 | 2 of 8 |
 | SC1 (MX1 + scenario readout) | | 0.3031 | 1 of 8 |
 | FMX (3g floor + decay + mix) | | 0.2997 | 2 of 8 against L2 |
+| MX15 (4g + decay + 15 percent mix) | | 0.3050 | 7 of 8 against MX1, 1 of 8 against L1 |
 
 THE FINDING OF 4 SEP: the prior's benchmark gain does not transfer.
 Outside the benchmark MX1 is 0.007 to 0.009 below L1 whichever way the
@@ -327,10 +334,12 @@ phase only):
 | SC1 | MX1 plus the scenario-conditioned readout: DONE (02:04, 4 Sep), MX1 within noise (0.4613 / 0.3873), the head stayed near zero, NOT the recipe modification; stratified dev 0.3031 (the references come with D0W); results/incite/SCENARIO_RESULT.md | results/incite/dev/SC1.json, ranks/incite-4g-synth30-scenario-last | done |
 | D0W | the four reference dev numbers under the stratified protocol: DONE (02:30, 4 Sep): L1 0.3082, MX1 0.3014, G1 0.3088, L2 0.3029; the expectation failed, the prior does not transfer (results/incite/DEV_SUITE.md) | results/incite/dev/{L1,MX1,G1,L2}.json (+ .uniform.json) | done |
 | FMX | the 3-graph floor plus the mix, the matched-diet test: DONE (04:58, 4 Sep), 0.4563 / 0.3720, ties TRIX at matched diet, the mix's trade is the same at 3 graphs, dev −0.0032 versus L2 (results/incite/FLOOR_MIX_RESULT.md) | ranks/incite-synth30-last, results/incite/dev/FMX.json | done |
-| MX15, MX45 | the mix at 15 and 45 percent: the dose curve with MX1, both recipe candidates (dev numbers for both); MX15 TRAINING since 04:58 (stages run about 1.5 times faster than the ETAs below) | ranks/incite-4g-synth15-last, incite-4g-synth45-last | 08:30 and 12:00, 4 Sep |
+| MX15 | the mix at 15 percent: DONE (08:41, 4 Sep), 0.4621 / 0.3893, clears both gates, the leading candidate (results/incite/DOSE15_RESULT.md) | ranks/incite-4g-synth15-last, results/incite/dev/MX15.json | done |
+| MX45 | the mix at 45 percent, the dose curve's high point; TRAINING since 08:41 (stages run about 1.5 times faster than the ETAs below) | ranks/incite-4g-synth45-last | 12:15, 4 Sep |
 | MXS9 | MX1 with 90 percent unseen-answer synthetic queries (`configs/incite_phase1_4g_synth30_share90.yaml`) | ranks/incite-4g-synth30-s90-last | 04:30, 5 Sep |
 | MX2a, RR2 | relation blocks alone (bisection step one, and the base RR2 needs); rule recovery at weight 0.2 on it | ranks/incite-4g-synth30-{iso,iso-rules}-last | 15:30, 5 Sep |
-| recipe | the decision by the recorded rule, written to `output/research-plan/RECIPE` | | 15:30, 5 Sep |
+| PG3 | (plan v17) MX1 plus the gate that can close: bias 2, the two-sided proof loss (non-proof edges of the same instance pushed shut), proof weight 0.02, soft weights at inference; warm start with MX1's stream; a recipe candidate (mx1gate3) | ranks/incite-4g-synth30-gate3-last, results/incite/dev/PG3.json | 03:00, 5 Sep |
+| recipe | the decision by the recorded rule, written to `output/research-plan/RECIPE` | | 03:00, 5 Sep |
 | R0 | from scratch, 30k steps, no mix, seed 1024 (the control) | ranks/incite-nomix-<recipe>-seed1024-last | 05:30, 6 Sep |
 | R1 | THE PAPER MODEL: from scratch, 30k steps, the recipe (`configs/incite_recipe_mx1*.yaml`), seed 1024 | ranks/incite-recipe-<recipe>-seed1024-last | 19:30, 6 Sep |
 | X1/X2 | TRIX@20k with their code, best epoch and last (the matched-budget test) | ranks/trix-20k-best/-last | 02:30, 7 Sep |
