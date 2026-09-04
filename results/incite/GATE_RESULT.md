@@ -183,3 +183,44 @@ labels in about 150 of its 2,900 synthetic steps, and neither more
 negatives nor hard negatives change what it learns. PG3 runs as
 configured. What the probe cannot say is whether the concept transfers
 to real graphs; that is PG3's question.
+
+## PG3 result (01:53, 5 Sep): the gate learned, the accuracy did not move
+
+Stage PG3 of plan v17/v18: 0.4596 / 0.3857 (`ranks/incite-4g-synth30-gate3-last`).
+
+| pair | ind_e | ind_er |
+| --- | --- | --- |
+| PG3 − MX1 | −0.0010 [−0.0022, +0.0003], 5 of 18 | +0.0006 [−0.0007, +0.0023], 10 of 23 |
+| PG3 − PG2 | +0.0008 [−0.0003, +0.0023], 8 of 18 | −0.0012 [−0.0065, +0.0027], 12 of 23 |
+| PG3 − MX15 | −0.0026 [−0.0045, −0.0006], 6 of 18 | −0.0036 [−0.0068, −0.0008], 7 of 23 |
+
+Per-scenario MRR: PG3 is MX1 within 0.002 in every cell (ind_e SQSA
+0.4796, SQUA 0.3039, UQSA 0.6031, UQUA 0.3864; ind_er 0.3935, 0.1898,
+0.5738, 0.2693). Dev suite: 0.3014, MX1's number exactly (5 of 8 graphs).
+Not the recipe modification.
+
+This time the gate did move. After 10k steps the biases sit at 1.93 to
+2.00 (no uniform drift: the 0.29 negative weight did what it was meant
+to), the node weights grew to norms 0.44 to 0.73, and the synthetic-step
+loss ended at 0.146 against MX1's 0.143: the proof term was learned
+almost to zero. On held-out synthetic instances the trained gate
+separates a query's proof edges from the rest with AUC 0.95 from round 3
+on (proof products 0.92, near non-proof products 0.49 to 0.58). And on
+REAL graphs it closes most of the messages: in the last round, 90 to 95
+percent of the gate products are below 0.5 on FB15k237Inductive v1,
+NELLInductive v1, WN18RRInductive v1 and CoDExSmall, with mean products
+0.13 to 0.27 and a 10th percentile of 0.02 to 0.12.
+
+So an edge-importance weighting learned from the generator's proof
+structure, applied as a soft multiplier on 90 percent of the messages,
+changes the accuracy by nothing: neither up on the benchmark nor on the
+dev suite, nor down. The trunk's scoring is invariant to it. Two
+readings are possible and a cheap measurement separates them: either the
+gate's ranking on real graphs is as good as on synthetic ones and the
+open 5 to 10 percent of the edges carry the answer (then hard pruning at
+inference costs nothing up to that fraction, and a kernel that skips
+closed edges would make the trunk several times cheaper), or the closed
+edges still carry their share through the sum and nothing is separable.
+PG2's hard-pruning curve lost 0.023 at half the edges kept; the same
+curve on PG3's checkpoint (CPU, four DEV10 graphs, 100 queries) runs
+now and is recorded below when it lands.
