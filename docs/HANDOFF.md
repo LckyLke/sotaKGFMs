@@ -37,7 +37,14 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   SC1; `scripts/research_plan_v16.sh` (launched 23:16, pid 3755228) took
   over at SC1's boundary (02:04, 4 Sep) and ran D0W, FMX, MX15 and MX45;
   `scripts/research_plan_v17.sh` (launched 08:47, pid 4072791) took over
-  at MX45's boundary (11:43) and trains MXS9. v17 = v16 plus stage PG3
+  at MX45's boundary (11:43) and trains MXS9; `scripts/research_plan_v18.sh`
+  (launched 15:05, pid 140885) waits for MXS9's marker and takes over
+  there. v18 = v17 plus stage SW1 (evaluation only, no training): the
+  combination probe's two one-pass checkpoints, the round-wise swap of
+  L1's rounds 0-2 with MX15's rounds 3-5 and the 0.5 soup of L1 and
+  MX15 (`output/incite-combo/soups/`, results/incite/COMBINATION_PROBE.md),
+  dev suite for both, the 41 graphs for one within 0.002 of MX15's dev
+  number; not recipe candidates. v17 = v16 plus stage PG3
   (Luke's call, 4 Sep: the gate that can close, bias 2 and the two-sided
   proof loss, `configs/incite_phase1_4g_synth30_gate3.yaml`), a recipe
   candidate after RR2 and before the decision (mx1gate3). A fourth
@@ -193,7 +200,14 @@ the gain sits on the diet's own families: FB15k237-derived +0.0066
 and WordNet-derived −0.003 to −0.001, Metafam −0.042. The decisive
 experiment is queued (R0 against R1 at three seeds, benchmark and dev
 suite); until it lands, the prior is a diet-family effect with a
-seen-answer cost, not a general structural prior. OPEN DECISION FOR
+seen-answer cost, not a general structural prior. THE COMBINATION PROBE (4 Sep, CPU, results/incite/COMBINATION_PROBE.md):
+every score-level combination of L1 with MX1 or MX15 lands within
+±0.001 of L1 on held-out carved splits against an oracle headroom of
++0.0065; the states carry the answer-half indicator with AUC 1.0 but no
+head uses it; KG-ICL is below MX15 on every scenario cell of the 41
+graphs and wins per graph family, not per scenario; the one lead is a
+round-wise swap (L1's early rounds, MX15's late rounds), +0.0024
+[+0.0009, +0.0039] over L1 there, evaluated by stage SW1. OPEN DECISION FOR
 LUKE: whether the paper model keeps the mix at all. The queue needs no
 change for it (R0 is the no-mix control at every seed, with dev
 numbers), but the framing does. The fourth diet graph adds nothing on
@@ -345,7 +359,8 @@ phase only):
 | FMX | the 3-graph floor plus the mix, the matched-diet test: DONE (04:58, 4 Sep), 0.4563 / 0.3720, ties TRIX at matched diet, the mix's trade is the same at 3 graphs, dev −0.0032 versus L2 (results/incite/FLOOR_MIX_RESULT.md) | ranks/incite-synth30-last, results/incite/dev/FMX.json | done |
 | MX15 | the mix at 15 percent: DONE (08:41, 4 Sep), 0.4621 / 0.3893, clears both gates, the leading candidate (results/incite/DOSE15_RESULT.md) | ranks/incite-4g-synth15-last, results/incite/dev/MX15.json | done |
 | MX45 | the mix at 45 percent: DONE (11:43, 4 Sep), 0.4585 / 0.3820, below MX1 on both groups; the dose curve 0/15/30/45 peaks at 15 (results/incite/DOSE_CURVE.md) | ranks/incite-4g-synth45-last, results/incite/dev/MX45.json | done |
-| MXS9 | MX1 with 90 percent unseen-answer synthetic queries (`configs/incite_phase1_4g_synth30_share90.yaml`); TRAINING since 11:43 under v17 (stages run about 1.5 times faster than the ETAs below) | ranks/incite-4g-synth30-s90-last | 15:30, 4 Sep |
+| MXS9 | MX1 with 90 percent unseen-answer synthetic queries (`configs/incite_phase1_4g_synth30_share90.yaml`); its 41-graph evaluation runs (dev −0.0035 versus MX1, 3 of 8: fails the dev gate) | ranks/incite-4g-synth30-s90-last, results/incite/dev/MXS9.json | 16:30, 4 Sep |
+| SW1 | (plan v18, evaluation only) the combination probe's round-wise swap (L1 rounds 0-2 + MX15 rounds 3-5) and the 0.5 soup of L1 and MX15: dev suite for both, the 41 graphs for one within 0.002 of MX15's dev 0.3050. Expectation recorded by the probe: near MX15, not +0.003 above it | results/incite/dev/SW1{swap,soup}.json, ranks/incite-{swap,soup}-l1mx15-last | 18:30, 4 Sep |
 | MX2a, RR2 | relation blocks alone (bisection step one, and the base RR2 needs); rule recovery at weight 0.2 on it | ranks/incite-4g-synth30-{iso,iso-rules}-last | 15:30, 5 Sep |
 | PG3 | (plan v17) MX1 plus the gate that can close: bias 2, the two-sided proof loss (non-proof edges of the same instance pushed shut), proof weight 0.02, soft weights at inference; warm start with MX1's stream; a recipe candidate (mx1gate3). A CPU probe (results/incite/GATE_RESULT.md) showed the labels are learnable: AUC 0.92-0.94 from round 2 with the gate trained on them alone, and more or harder negatives change nothing | ranks/incite-4g-synth30-gate3-last, results/incite/dev/PG3.json | 03:00, 5 Sep |
 | recipe | the decision by the recorded rule, written to `output/research-plan/RECIPE` | | 03:00, 5 Sep |
