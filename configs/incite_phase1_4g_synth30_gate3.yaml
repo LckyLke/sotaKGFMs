@@ -44,7 +44,10 @@ synth:
   seed: 2048
   step_offset: 20000      # a warm start counts from step 1; MX1 (resumed)
                           # counted from 20001: same coin, same instances
-  proof_weight: 1.0       # the proof loss on the gate
+  proof_weight: 0.02     # PG3: the gate term is SUMMED over the six rounds and
+                          # starts at about 6.0 (0.25 + 0.5 x 1.49 per round at
+                          # bias 2); 0.02 makes it the size of the task loss
+                          # (0.14) at the start, so the trunk is not swamped
   proof_neg_per_pos: 2    # PG3: non-proof edges per proof edge, pushed shut
   proof_neg_weight: 0.5   # PG3: their weight relative to the proof edges
 

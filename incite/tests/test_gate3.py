@@ -131,7 +131,7 @@ def test_pg3_configs_parse():
         cfg = yaml.safe_load(open(os.path.join(repo, "configs", name)))
         assert cfg["model"]["gate"] and float(cfg["model"]["gate_bias"]) == 2.0
         scfg = synth.synth_config(cfg)
-        assert scfg["proof_weight"] == 1.0 and scfg["proof_neg_per_pos"] == 2
+        assert scfg["proof_weight"] == 0.02 and scfg["proof_neg_per_pos"] == 2
         assert scfg["proof_neg_weight"] == 0.5
     cfg = yaml.safe_load(open(os.path.join(repo, "configs", "incite_phase1_4g_gate3.yaml")))
     assert cfg["model"]["gate"] and float(cfg["model"]["gate_bias"]) == 2.0

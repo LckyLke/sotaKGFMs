@@ -41,7 +41,10 @@ synth:
   instances_per_step: 16
   seed: 2048
   start_step: 20001       # the mix in the decay phase only (MX1's recipe)
-  proof_weight: 1.0       # PG3: the proof loss on the gate
+  proof_weight: 0.02     # PG3: the gate term is SUMMED over the six rounds and
+                          # starts at about 6.0 (0.25 + 0.5 x 1.49 per round at
+                          # bias 2); 0.02 makes it the size of the task loss
+                          # (0.14) at the start, so the trunk is not swamped
   proof_neg_per_pos: 2    # PG3: non-proof edges per proof edge, pushed shut
   proof_neg_weight: 0.5
 
