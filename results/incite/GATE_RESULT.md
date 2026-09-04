@@ -148,3 +148,38 @@ sparse-propagation direction is closed; the code stays as a measurement
 tool. What the idea did show: the generator's proof edges train an
 edge-importance ranking that beats chance by a wide margin. That is the
 piece to reuse if a compacting kernel ever exists.
+
+## PG3, queued 4 Sep: the gate that can close, and a probe of its labels
+
+PG3 (plan v17, `configs/incite_phase1_4g_synth30_gate3.yaml`) is MX1's
+recipe plus the gate at start bias 2 (still the exact identity, forty
+times the gradient, room to close), the two-sided proof loss on
+synthetic steps (proof edges pushed open, two non-proof edges of the
+same instance per proof edge pushed shut through the gate product,
+weight 0.29 so that the identity is a stationary point), `proof_weight`
+0.02 (the term sums over six rounds and starts near 6.0), soft weights at
+inference, warm start with MX1's synthetic stream. A recipe candidate.
+
+Are the labels enough? About 22 proof pairs and 45 negatives per
+synthetic step, 65,000 and 130,000 over the run, for 780 gate
+parameters. A CPU probe (`diagnostics/gate_label_probe.py`, trunk
+frozen, gates trained by the proof loss alone for 150 steps of 8
+instances) answers on held-out instances, AUC of the gate product
+between a query's proof edges and the other edges of its instance:
+
+| round | any2 (PG3) | any8 | near2 (hard negatives) |
+| --- | --- | --- | --- |
+| 0 | 0.52 | 0.52 | 0.52 |
+| 1 | 0.80 | 0.80 | 0.80 |
+| 2 | 0.92 | 0.92 | 0.93 |
+| 3 | 0.94 | 0.94 | 0.93 |
+| 4 | 0.94 | 0.94 | 0.94 |
+| 5 | 0.94 | 0.94 | 0.94 |
+
+Against the near non-proof edges only (within two hops of the head) the
+AUC is 0.88 to 0.90 from round 2 on, for all three. Round 0 carries no
+messages and cannot learn. The gate learns the concept from today's
+labels in about 150 of its 2,900 synthetic steps, and neither more
+negatives nor hard negatives change what it learns. PG3 runs as
+configured. What the probe cannot say is whether the concept transfers
+to real graphs; that is PG3's question.
