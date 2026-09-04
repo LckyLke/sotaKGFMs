@@ -33,9 +33,9 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   prior adds +0.0046 on ind_e. The defensible paper is about what a
   synthetic structural prior teaches a KGFM.
 * **What runs (unattended, verified):** `scripts/research_plan_v15.sh`
-  (launched 21:00, took over from v12 at PG2's boundary at 22:11) trains
-  SC1 now; `scripts/research_plan_v16.sh` (launched 23:16, pid 3755228)
-  waits for SC1's marker and takes over at that boundary. v16 = v15 plus
+  (launched 21:00, took over from v12 at PG2's boundary at 22:11) ran
+  SC1; `scripts/research_plan_v16.sh` (launched 23:16, pid 3755228) took
+  over at SC1's boundary (02:04, 4 Sep) and runs D0W, then FMX. v16 = v15 plus
   stage D0W (the four reference dev numbers under the stratified
   protocol, see Protocol) and a guard: the recipe decision refuses
   uniform dev files, and a failed D0W sets `output/research-plan/RECIPE_HOLD`
@@ -141,6 +141,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g + synthetic mix + unary channel (MXG1), last | 0.4593 | 0.3852 | the unary channel is redundant with the mix: −0.0013 [−0.0025, +0.0001] / +0.0002 versus MX1, the same scenario profile cell for cell; the DEV10-best checkpoint (9k of 10k) scores 0.4610 / 0.3870, +0.002 on both groups over last, the checkpoint-level noise at the end of the decay; results/incite/UNARY_SYNTH_RESULT.md |
 | INCITE 4g + synthetic mix with the generator-side bundle (MX2), last | 0.4512 | 0.3717 | NEGATIVE: −0.0094 [−0.0134, −0.0056] / −0.0134 [−0.0219, −0.0059] versus MX1, every scenario cell down; the synthetic-step loss doubled (0.14 to 0.27), the dose rose; bisection MX2a/MX2b queued; results/incite/SYNTH_V2_RESULT.md |
 | INCITE 4g + synthetic mix + proof-guided gate (PG2), last | 0.4588 | 0.3869 | inert, as the review predicted: −0.0018 [−0.0033, −0.0005] / +0.0018 [−0.0019, +0.0073] versus MX1, the same scenario profile cell for cell, no gate bias moved by more than 0.11; results/incite/GATE_RESULT.md |
+| INCITE 4g + synthetic mix + scenario-conditioned readout (SC1), last | 0.4613 | 0.3873 | MX1 within noise: +0.0007 [−0.0003, +0.0018] / +0.0023 [−0.0009, +0.0068], every scenario cell within 0.003; the head's last layer stayed near zero (weight norm 0.03); not accepted as the recipe modification (the test interval includes zero); results/incite/SCENARIO_RESULT.md |
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
@@ -301,8 +302,8 @@ phase only):
 | PG2 | MX1 plus the proof-guided propagation gate: DONE, inert (0.4588 / 0.3869, MX1 within noise; results/incite/GATE_RESULT.md) | ranks/incite-4g-synth30-gate-last | done |
 | PG2P | the gate's pruning curve: DONE. The gate ranks edges far above chance at the same realized kept fraction, but every fraction costs accuracy (ind_e −0.002 at 93 percent kept, −0.023 at 53); at inference every gate product is 1.00; the sparse-propagation direction is closed (results/incite/GATE_RESULT.md) | results/incite/gate_prune.json | done |
 | D0 | dev-suite numbers of L1, MX1, G1, L2 under the UNIFORM protocol: DONE (22:48, 3 Sep): 0.3408 / 0.3324 / 0.3399 / 0.3407, MX1 below L1 on 7 of 8 graphs, the seen-answer skew of transductive valid splits (see Protocol) | results/incite/dev/{L1,MX1,G1,L2}.uniform.json after D0W | done |
-| SC1 | MX1 plus the scenario-conditioned readout (`configs/incite_phase1_4g_synth30_scenario.yaml`); dev suite, then 41 graphs; paired against MX1 | results/incite/dev/SC1.json, ranks/incite-4g-synth30-scenario-last | 06:30, 4 Sep |
-| D0W | (plan v16) the four reference dev numbers recomputed under the stratified protocol, so that every candidate is compared like for like; the uniform files stay beside as *.uniform.json | results/incite/dev/{L1,MX1,G1,L2}.json | 03:45, 4 Sep |
+| SC1 | MX1 plus the scenario-conditioned readout: DONE (02:04, 4 Sep), MX1 within noise (0.4613 / 0.3873), the head stayed near zero, NOT the recipe modification; stratified dev 0.3031 (the references come with D0W); results/incite/SCENARIO_RESULT.md | results/incite/dev/SC1.json, ranks/incite-4g-synth30-scenario-last | done |
+| D0W | (plan v16) the four reference dev numbers recomputed under the stratified protocol, so that every candidate is compared like for like; the uniform files stay beside as *.uniform.json; RUNNING since 02:05 | results/incite/dev/{L1,MX1,G1,L2}.json | 02:35, 4 Sep |
 | FMX | the 3-graph floor plus the mix (`configs/incite_phase1_synth30.yaml`), the matched-diet test; paired against L2 and TRIX | ranks/incite-synth30-last | 12:00, 4 Sep |
 | MX15, MX45 | the mix at 15 and 45 percent: the dose curve with MX1, both recipe candidates (dev numbers for both) | ranks/incite-4g-synth15-last, incite-4g-synth45-last | 23:00, 4 Sep |
 | MXS9 | MX1 with 90 percent unseen-answer synthetic queries (`configs/incite_phase1_4g_synth30_share90.yaml`) | ranks/incite-4g-synth30-s90-last | 04:30, 5 Sep |
