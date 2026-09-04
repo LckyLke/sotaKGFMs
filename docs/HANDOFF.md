@@ -164,8 +164,10 @@ and the benchmark; results/incite/DEV_SUITE.md):
 
 THE FINDING OF 4 SEP: the prior's benchmark gain does not transfer.
 Outside the benchmark MX1 is 0.007 to 0.009 below L1 whichever way the
-queries are weighted, and 0.005 to 0.036 below on sparse inductive
-splits carved from the same graphs (pilot). Its seen-answer costs
+queries are weighted, and 0.014 below (2 wins of 16) on sparse inductive
+splits carved from the same graphs (`dev_eval.py --split inductive`,
+`results/incite/dev/ind_*.json`), where it also ends below its own 20k
+start while the plain decay gains 0.007. Its seen-answer costs
 (SQSA −0.011, UQSA −0.017) transfer from the benchmark; its unseen-answer
 gains (there +0.020 / +0.068) do not (+0.007 / +0.020). On the benchmark
 the gain sits on the diet's own families: FB15k237-derived +0.0066
@@ -173,8 +175,12 @@ the gain sits on the diet's own families: FB15k237-derived +0.0066
 and WordNet-derived −0.003 to −0.001, Metafam −0.042. The decisive
 experiment is queued (R0 against R1 at three seeds, benchmark and dev
 suite); until it lands, the prior is a diet-family effect with a
-seen-answer cost, not a general structural prior. The fourth diet graph
-adds nothing on the dev suite (L2 equals L1 uniformly, −0.005 stratified).
+seen-answer cost, not a general structural prior. OPEN DECISION FOR
+LUKE: whether the paper model keeps the mix at all. The queue needs no
+change for it (R0 is the no-mix control at every seed, with dev
+numbers), but the framing does. The fourth diet graph adds nothing on
+the transductive valid splits (L2 equals L1) and 0.020 on the carved
+inductive splits.
 | **INCITE trained on the synthetic rules prior ONLY** (P1, 10k steps, 41 min) | **0.3593** | **0.2795** | no real KG seen; 86 / 82 percent of ULTRA-3g; strong on unseen-answer cells, weak on seen-answer ones; results/incite/SYNTH_PILOT_RESULT.md |
 
 Relation task (unfiltered protocol): TRIX 0.7564 / 0.8415, INCITE joint
