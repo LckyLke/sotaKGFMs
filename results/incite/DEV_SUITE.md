@@ -166,20 +166,55 @@ per cell, one split per graph, L1 versus MX1:
 | ConceptNet100k#0 | 0.1788 | 0.1426 | −0.0362 |
 
 Cells (MX1 − L1): SQSA −0.013 to −0.057, UQSA −0.024 to −0.075, SQUA
-+0.003 to +0.013, UQUA +0.035 to +0.053. The sparse regime does not
-rescue the prior outside the benchmark's families; the full comparison
-(six checkpoints, two splits per graph, 300 per cell, protocol
-`inductive_v3`, files `results/incite/dev/ind_*.json`) runs on the CPU
-beside FMX and is added when it lands.
++0.003 to +0.013, UQUA +0.035 to +0.053.
+
+The full comparison (03:34, 4 Sep; CPU; two splits per graph, 300
+queries per cell, protocol `inductive_v3`, files
+`results/incite/dev/ind_*.json`; the splits' scenario mix is SQSA 0.43,
+SQUA 0.22, UQSA 0.22, UQUA 0.14, close to the benchmark's):
+
+| split | 20k start | L1 | MX1 | G1 | L2 | SC1 | MX1 − L1 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| YAGO310#0 | 0.4318 | 0.4271 | 0.4197 | 0.4294 | 0.3398 | 0.4240 | −0.0074 |
+| YAGO310#1 | 0.4842 | 0.4841 | 0.4730 | 0.4838 | 0.3687 | 0.4786 | −0.0111 |
+| CoDExSmall#0 | 0.1514 | 0.1490 | 0.1529 | 0.1487 | 0.1441 | 0.1542 | +0.0039 |
+| CoDExSmall#1 | 0.1681 | 0.1644 | 0.1615 | 0.1628 | 0.1628 | 0.1615 | −0.0029 |
+| CoDExLarge#0 | 0.2215 | 0.2217 | 0.2204 | 0.2225 | 0.2256 | 0.2186 | −0.0013 |
+| CoDExLarge#1 | 0.2298 | 0.2257 | 0.2203 | 0.2301 | 0.2335 | 0.2215 | −0.0054 |
+| Hetionet#0 | 0.0426 | 0.0474 | 0.0432 | 0.0482 | 0.0431 | 0.0437 | −0.0042 |
+| Hetionet#1 | 0.0469 | 0.0540 | 0.0483 | 0.0529 | 0.0453 | 0.0491 | −0.0057 |
+| ConceptNet100k#0 | 0.1509 | 0.1739 | 0.1418 | 0.1749 | 0.1606 | 0.1434 | −0.0321 |
+| ConceptNet100k#1 | 0.1369 | 0.1568 | 0.1287 | 0.1580 | 0.1449 | 0.1314 | −0.0281 |
+| DBpedia100k#0 | 0.4446 | 0.4449 | 0.4167 | 0.4409 | 0.4283 | 0.4345 | −0.0282 |
+| DBpedia100k#1 | 0.4310 | 0.4411 | 0.4124 | 0.4393 | 0.4330 | 0.4258 | −0.0287 |
+| AristoV4#0 | 0.1460 | 0.1591 | 0.1331 | 0.1603 | 0.1478 | 0.1340 | −0.0260 |
+| AristoV4#1 | 0.1339 | 0.1559 | 0.1205 | 0.1523 | 0.1424 | 0.1200 | −0.0354 |
+| WDsinger#0 | 0.3579 | 0.3666 | 0.3613 | 0.3599 | 0.3469 | 0.3571 | −0.0053 |
+| WDsinger#1 | 0.3633 | 0.3809 | 0.3820 | 0.3795 | 0.3691 | 0.3823 | +0.0011 |
+| mean | 0.2463 | 0.2533 | 0.2397 | 0.2527 | 0.2335 | 0.2425 | −0.0136 |
+| graphs' own mix | 0.2409 | 0.2453 | 0.2352 | 0.2449 | 0.2218 | 0.2380 | |
+
+MX1 wins 2 of 16 splits. Cells (mean over splits, MX1 − L1): SQSA
+−0.023, SQUA +0.011, UQSA −0.041, UQUA +0.038. Three more readings:
+
+* MX1 is below the 20k START it was continued from (−0.0066): on graphs
+  outside the benchmark the mixed continuation made the model worse,
+  while the plain decay (L1) made it better (+0.0070).
+* The fourth diet graph matters here: L2 (the 3-graph floor plus decay)
+  is 0.020 below L1, the largest gap on the table, where the
+  transductive valid splits showed none.
+* G1 equals L1 and SC1 equals MX1, as on the benchmark.
 
 ## What this means for the program
 
 1. The claim "a synthetic rules prior teaches a KGFM something general"
    is not supported by any graph outside the benchmark: on eight
    held-out KGs the prior costs 0.007 to 0.009 (stratified, uniform), on
-   carved sparse splits of them 0.005 to 0.036, always through the
-   seen-answer cells. Its benchmark gain (+0.0046 ind_e, single seed) is
-   concentrated on the diet's own Freebase and NELL families.
+   sixteen sparse inductive splits carved from them 0.014 (2 wins of 16),
+   always through the seen-answer cells, and the mixed continuation ends
+   below its own 20k start there. Its benchmark gain (+0.0046 ind_e,
+   single seed) is concentrated on the diet's own Freebase and NELL
+   families.
 2. The recipe rule stands as recorded (MX1's recipe plus at most one
    modification, the stratified dev gate and the paired test gate). The
    dev gate will favour candidates that reduce the prior's cost (MX15)
