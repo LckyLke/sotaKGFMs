@@ -38,8 +38,11 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   over at SC1's boundary (02:04, 4 Sep) and ran D0W, FMX, MX15 and MX45;
   `scripts/research_plan_v17.sh` (launched 08:47, pid 4072791) took over
   at MX45's boundary (11:43), ran MXS9 and MX2a; `scripts/research_plan_v18.sh`
-  (launched 15:05, pid 140885) took over at MX2a's boundary (18:35) and
-  runs SW1, then RR2, PG3, the decision. v18 = v17 plus stage SW1 (evaluation only, no training): the
+  (launched 15:05, pid 140885) took over at MX2a's boundary (18:35), ran
+  SW1, RR2 and PG3, wrote the recipe (`mx1f15`, 01:53, 5 Sep) and trains
+  R0, the no-mix control, from scratch; R1 (the paper model, the 15
+  percent mix in the decay phase) follows, then X1/X2, MX2H, the seeds,
+  the chores, R1L. v18 = v17 plus stage SW1 (evaluation only, no training): the
   combination probe's two one-pass checkpoints, the round-wise swap of
   L1's rounds 0-2 with MX15's rounds 3-5 and the 0.5 soup of L1 and
   MX15 (`output/incite-combo/soups/`, results/incite/COMBINATION_PROBE.md),
@@ -172,6 +175,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g + 30 percent mix, 90 percent unseen-answer queries (MXS9), last | 0.4553 | 0.3853 | the trade pushed further: −0.0052 [−0.0074, −0.0034] / +0.0003 versus MX1, every ind_e graph below MX1; rejected on both gates; results/incite/SHARE90_RESULT.md |
 | INCITE 4g + 30 percent mix with isolated relation blocks (MX2a), last | 0.4556 | 0.3797 | bisection of MX2: isolation alone is about half of the bundle's loss, −0.0049 [−0.0087, −0.0018] / −0.0053 [−0.0123, +0.0015] versus MX1, on the seen-answer cells; dev +0.0051 over MX1 (7 of 8) but the test gate fails: rejected; results/incite/ISOLATION_RESULT.md |
 | MX2a + rule recovery head at weight 0.2 (RR2), last | 0.4521 | 0.3773 | the head learns the rules (synthetic loss 0.96 → 0.19) and the seen-answer cells pay: −0.0035 [−0.0047, −0.0023] / −0.0024 versus MX2a, −0.0084 / −0.0077 versus MX1; rejected; results/incite/RULES_RECOVERY_RESULT.md |
+| INCITE 4g + synthetic mix + the gate that can close (PG3), last | 0.4596 | 0.3857 | the gate learned this time (AUC 0.95 on synthetic proof edges; 90 to 95 percent of real-graph messages gated below 0.5) and the accuracy did not move: −0.0010 [−0.0022, +0.0003] / +0.0006 versus MX1, dev equal to MX1's; not the recipe modification; results/incite/GATE_RESULT.md |
 | round-wise swap: L1's rounds 0-2 and heads, MX15's rounds 3-5 (one pass) | 0.4580 | 0.3868 | keeps L1's seen-answer cells and a third of the unseen-answer gain: +0.0021 / +0.0016 over L1 (intervals through zero), −0.0041 [−0.0070, −0.0012] / −0.0025 below MX15; results/incite/SWAP_SOUP_RESULT.md |
 | 0.5 parameter soup of L1 and MX15 (one pass) | 0.4609 | 0.3880 | MX15 at one pass with a milder profile: +0.0049 [+0.0016, +0.0086] / +0.0027 [+0.0005, +0.0055] over L1, tied with MX15 (−0.0012 / −0.0013, intervals through zero) |
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
@@ -194,6 +198,7 @@ and the benchmark; results/incite/DEV_SUITE.md):
 | MXS9 (MX1 with 90 percent unseen-answer queries) | | 0.2979 | 3 of 8 against MX1 |
 | MX2a (MX1 with isolated relation blocks) | | 0.3065 | 7 of 8 against MX1; the test gate fails |
 | RR2 (MX2a + rule head) | | 0.3019 | 5 of 8 against MX1 |
+| PG3 (MX1 + the gate that can close) | | 0.3014 | 5 of 8 against MX1 |
 | swap (L1 rounds 0-2, MX15 rounds 3-5) | | 0.3065 | 4 of 8 against MX15 |
 | soup (0.5 L1 + 0.5 MX15) | | 0.3060 | 5 of 8 against MX15 |
 
@@ -375,10 +380,10 @@ phase only):
 | SW1 | (plan v18, evaluation only) the combination probe's round-wise swap (L1 rounds 0-2 + MX15 rounds 3-5) and the 0.5 soup of L1 and MX15: dev suite for both, the 41 graphs for one within 0.002 of MX15's dev 0.3050. Expectation recorded by the probe: near MX15, not +0.003 above it | results/incite/dev/SW1{swap,soup}.json, ranks/incite-{swap,soup}-l1mx15-last | done (19:11, 4 Sep): both within 0.002 of MX15 on dev, both evaluated; the swap 0.4580 / 0.3868, the soup 0.4609 / 0.3880, neither above MX15 (results/incite/SWAP_SOUP_RESULT.md) |
 | MX2a | relation blocks alone: DONE (18:35, 4 Sep), 0.4556 / 0.3797, half of MX2's loss, rejected (dev gate passes, test gate fails; results/incite/ISOLATION_RESULT.md) | ranks/incite-4g-synth30-iso-last, results/incite/dev/MX2a.json | done |
 | RR2 | rule recovery at weight 0.2: DONE (22:28, 4 Sep), 0.4521 / 0.3773, rejected (results/incite/RULES_RECOVERY_RESULT.md) | ranks/incite-4g-synth30-iso-rules-last, results/incite/dev/RR2.json | done |
-| PG3 | (plan v17) MX1 plus the gate that can close: bias 2, the two-sided proof loss (non-proof edges of the same instance pushed shut), proof weight 0.02, negative weight 0.29, soft weights at inference; warm start with MX1's stream; a recipe candidate (mx1gate3); TRAINING since 22:28. A CPU probe (results/incite/GATE_RESULT.md) showed the labels are learnable: AUC 0.92-0.94 from round 2 with the gate trained on them alone, and more or harder negatives change nothing | ranks/incite-4g-synth30-gate3-last, results/incite/dev/PG3.json | 03:00, 5 Sep |
-| recipe | the decision by the recorded rule, written to `output/research-plan/RECIPE` | | 03:00, 5 Sep |
-| R0 | from scratch, 30k steps, no mix, seed 1024 (the control) | ranks/incite-nomix-<recipe>-seed1024-last | 05:30, 6 Sep |
-| R1 | THE PAPER MODEL: from scratch, 30k steps, the recipe (`configs/incite_recipe_mx1*.yaml`), seed 1024 | ranks/incite-recipe-<recipe>-seed1024-last | 19:30, 6 Sep |
+| PG3 | the gate that can close: DONE (01:53, 5 Sep), 0.4596 / 0.3857, MX1 within noise with a gate that did learn (results/incite/GATE_RESULT.md); its hard-pruning curve on CPU follows | ranks/incite-4g-synth30-gate3-last, results/incite/dev/PG3.json | done |
+| recipe | DECIDED (01:53, 5 Sep) by the recorded rule: `mx1f15` (MX15: dev +0.0036 over MX1, test ind_er interval above zero, ind_e point +0.0016). The others: SC1 dev +0.0017, MX45 −0.0011, MXS9 −0.0035, RR2 +0.0005, PG3 −0.0001 (all short of the dev gate or, MX2a, failing the test gate) | output/research-plan/RECIPE | done |
+| R0 | from scratch, 30k steps, no mix, seed 1024 (the control); TRAINING since 01:53, 5 Sep | ranks/incite-nomix-mx1f15-seed1024-last, results/incite/dev/R0.json | 10:30, 5 Sep |
+| R1 | THE PAPER MODEL: from scratch, 30k steps, the recipe `configs/incite_recipe_mx1_f15.yaml` (the 15 percent mix in the decay phase), seed 1024 | ranks/incite-recipe-mx1f15-seed1024-last, results/incite/dev/R1.json | 19:30, 5 Sep |
 | X1/X2 | TRIX@20k with their code, best epoch and last (the matched-budget test) | ranks/trix-20k-best/-last | 02:30, 7 Sep |
 | MX2H | the MX2 bundle at half dose with the negative mask (`configs/incite_phase1_4g_synth15_v2.yaml`): dose or distribution | ranks/incite-4g-synth15v2-last | 08:00, 7 Sep |
 | R1S2, R0S2, R1S3, R0S3 | the recipe and its control at seeds 1337 and 7; `touch output/research-plan/SEEDS_HOLD` holds them | ranks/incite-{recipe,nomix}-<recipe>-seed{1337,7}-last | 16:00, 9 Sep |
