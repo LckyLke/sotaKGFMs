@@ -251,15 +251,18 @@ class EdgeGate(nn.Module):
 
     def __init__(self, dim: int, bias: float = BIAS):
         super().__init__()
-        self.bias_init = float(bias)
+        # a buffer, so a checkpoint carries the bias its scales divide by
+        # (a PG3 checkpoint evaluated under a config without gate_bias would
+        # otherwise be divided by sigmoid(6) instead of sigmoid(2))
+        self.register_buffer("bias_init", torch.tensor(float(bias)))
         self.node = nn.Linear(dim, 1)
         self.node_q = nn.Linear(dim, 1, bias=False)
         self.rel = nn.Linear(dim, 1)
         self.rel_q = nn.Linear(dim, 1, bias=False)
         for lin in (self.node, self.node_q, self.rel, self.rel_q):
             nn.init.zeros_(lin.weight)
-        nn.init.constant_(self.node.bias, self.bias_init)
-        nn.init.constant_(self.rel.bias, self.bias_init)
+        nn.init.constant_(self.node.bias, float(bias))
+        nn.init.constant_(self.rel.bias, float(bias))
 
     def forward(self, x, z, q):
         """x [b, V, d], z [b, R, d], q [b, d] -> (node [b, V], rel [b, R])."""
@@ -270,8 +273,8 @@ class EdgeGate(nn.Module):
         return gn, gr
 
     def scales(self, gn, gr):
-        norm = torch.sigmoid(torch.full((1, 1), self.bias_init, dtype=gn.dtype,
-                                        device=gn.device))
+        norm = torch.sigmoid(self.bias_init.to(dtype=gn.dtype,
+                                               device=gn.device)).view(1, 1)
         return gn / norm, gr / norm
 
 

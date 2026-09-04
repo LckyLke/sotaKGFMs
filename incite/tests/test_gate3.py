@@ -25,7 +25,8 @@ def test_bias_two_is_still_the_exact_identity():
     assert torch.allclose(gn, torch.sigmoid(torch.tensor(2.0)))
     sn, sr = gated.gates[0].scales(gn, gr)
     assert torch.equal(sn, torch.ones_like(sn)) and torch.equal(sr, torch.ones_like(sr))
-    assert gated.gates[0].bias_init == 2.0 and EdgeGate.BIAS == 6.0
+    assert float(gated.gates[0].bias_init) == 2.0 and EdgeGate.BIAS == 6.0
+    assert "gates.0.bias_init" in gated.state_dict()  # persisted with the checkpoint
     # forty times the slope: the gradient of a sigmoid at 2 versus at 6
     s2, s6 = torch.sigmoid(torch.tensor(2.0)), torch.sigmoid(torch.tensor(6.0))
     assert (s2 * (1 - s2)) / (s6 * (1 - s6)) > 40
@@ -132,7 +133,7 @@ def test_pg3_configs_parse():
         assert cfg["model"]["gate"] and float(cfg["model"]["gate_bias"]) == 2.0
         scfg = synth.synth_config(cfg)
         assert scfg["proof_weight"] == 0.02 and scfg["proof_neg_per_pos"] == 2
-        assert scfg["proof_neg_weight"] == 0.5
+        assert abs(scfg["proof_neg_weight"] - 0.29) < 1e-9
     cfg = yaml.safe_load(open(os.path.join(repo, "configs", "incite_phase1_4g_gate3.yaml")))
     assert cfg["model"]["gate"] and float(cfg["model"]["gate_bias"]) == 2.0
     assert synth.synth_config(cfg) is None  # R0: the gate without the mix

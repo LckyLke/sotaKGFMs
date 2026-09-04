@@ -80,6 +80,14 @@ def load_members(cfg: EasyDict, ckpt_paths):
         bad_missing = [k for k in missing if not k.startswith(LEVER_PREFIXES)]
         bad_unexpected = [k for k in unexpected if not k.startswith(LEVER_PREFIXES)]
         assert not bad_missing, "%s: trunk tensors missing: %s" % (path, bad_missing[:5])
+        # a trained lever the config does not build would be dropped
+        # silently, and the model would not be the one that was trained
+        # (a PG3 gate is not the identity). Deliberate drops set
+        # INCITE_ALLOW_LEVER_DROP=1.
+        dropped = [k for k in unexpected if k.startswith(LEVER_PREFIXES)]
+        assert not dropped or os.environ.get("INCITE_ALLOW_LEVER_DROP") == "1", \
+            "%s: the config does not build lever tensors the checkpoint carries: %s" % (
+                path, dropped[:5])
         assert not bad_unexpected, "%s: tensors with no home: %s" % (path, bad_unexpected[:5])
         if missing or unexpected:
             print("%s: %d lever tensors at init, %d ignored" % (

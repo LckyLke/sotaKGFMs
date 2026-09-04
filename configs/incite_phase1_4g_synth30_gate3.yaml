@@ -47,9 +47,13 @@ synth:
   proof_weight: 0.02     # PG3: the gate term is SUMMED over the six rounds and
                           # starts at about 6.0 (0.25 + 0.5 x 1.49 per round at
                           # bias 2); 0.02 makes it the size of the task loss
-                          # (0.14) at the start, so the trunk is not swamped
+                          # (0.14, MX1's average; 0.32 on
+                          # the first batch) so that the trunk is not swamped
   proof_neg_per_pos: 2    # PG3: non-proof edges per proof edge, pushed shut
-  proof_neg_weight: 0.5   # PG3: their weight relative to the proof edges
+  proof_neg_weight: 0.29  # PG3: -2 log s - w log(1 - s^2) is flat at s = sigmoid(2)
+                          # for w = 1/s^2 - 1 = 0.289: a gate that cannot tell proof
+                          # from non-proof edges stays the identity instead of
+                          # damping every message to 0.86 (w = 0.5 would)
 
 train:
   batch_size: 16          # NELL995: 74.5k nodes OOMs single-piece 32 (S8 log)
