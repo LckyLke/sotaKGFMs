@@ -1,0 +1,34 @@
+{
+ "config": "incite_phase1_4g_unary.yaml",
+ "ckpt": "/kgfm-src/output/incite-pretrain-4g-unary/incite_last.pth",
+ "hashes": [
+  "fe7e165ef9bdd35b"
+ ],
+ "val_samples": 1000,
+ "graphs": {
+  "YAGO310": 0.4876,
+  "CoDExSmall": 0.407,
+  "CoDExLarge": 0.3048,
+  "Hetionet": 0.1886,
+  "ConceptNet100k": 0.2298,
+  "DBpedia100k": 0.3952,
+  "AristoV4": 0.2161,
+  "WDsinger": 0.4902
+ },
+ "queries": {
+  "YAGO310": 2000,
+  "CoDExSmall": 2000,
+  "CoDExLarge": 2000,
+  "Hetionet": 2000,
+  "ConceptNet100k": 2000,
+  "DBpedia100k": 2000,
+  "AristoV4": 2000,
+  "WDsinger": 1000
+ },
+ "failed": {},
+ "complete": true,
+ "graphs_ok": 8,
+ "mean": 0.3399,
+ "mean_non_nell": 0.3399,
+ "seconds": 384.7
+}

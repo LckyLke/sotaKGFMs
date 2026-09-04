@@ -67,8 +67,18 @@ lever.
 
 ## The dev suite
 
-SC1 is the first file under the stratified protocol
-(`results/incite/dev/SC1.json`, `protocol: stratified_v2`): benchmark-
-weighted mean 0.3031, the graphs' own mix 0.3318 (MX1's uniform number
-was 0.3324). The references' stratified numbers come from stage D0W (plan
-v16, running after SC1); the comparison is added below when they land.
+Stratified protocol (`results/incite/dev/*.json`, `protocol:
+stratified_v2`; the references from stage D0W, 02:30):
+
+| model | dev (benchmark-weighted) | graphs' own mix |
+| --- | --- | --- |
+| L1 | 0.3082 | 0.3378 |
+| MX1 | 0.3014 | 0.3290 |
+| G1 | 0.3088 | 0.3375 |
+| L2 | 0.3029 | 0.3365 |
+| SC1 | 0.3031 | 0.3318 |
+
+SC1 − MX1 on the dev suite: +0.0017 (5 of 8 graphs), under the rule's
+0.003 as well. Both gates fail; SC1 is not the recipe modification. The
+dev suite's own verdict on MX1 (0.007 below L1, against the benchmark's
++0.0046) is the subject of `results/incite/DEV_SUITE.md`.

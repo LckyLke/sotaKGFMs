@@ -102,3 +102,93 @@ against L1, which is consistent with the review (the prior's gain is
 small); a candidate must beat MX1, not L1; and if D0W puts MX1 more than
 about 0.003 below L1 again, the proxy still disagrees with the benchmark
 and the first gate is suspect.
+
+## D0W: the references under the stratified protocol (02:30, 4 Sep)
+
+| graph | L1 | MX1 | G1 | L2 | SC1 | MX1 − L1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| YAGO310 | 0.4034 | 0.4102 | 0.4101 | 0.3930 | 0.4201 | +0.0068 |
+| CoDExSmall | 0.3918 | 0.3892 | 0.3869 | 0.3894 | 0.3857 | −0.0026 |
+| CoDExLarge | 0.3264 | 0.3237 | 0.3262 | 0.3301 | 0.3265 | −0.0027 |
+| Hetionet | 0.1310 | 0.1246 | 0.1348 | 0.1323 | 0.1260 | −0.0064 |
+| ConceptNet100k | 0.1765 | 0.1544 | 0.1760 | 0.1555 | 0.1512 | −0.0221 |
+| DBpedia100k | 0.4059 | 0.3965 | 0.3990 | 0.4170 | 0.3991 | −0.0094 |
+| AristoV4 | 0.1763 | 0.1668 | 0.1804 | 0.1635 | 0.1653 | −0.0095 |
+| WDsinger | 0.4543 | 0.4459 | 0.4571 | 0.4422 | 0.4511 | −0.0084 |
+| mean | 0.3082 | 0.3014 | 0.3088 | 0.3029 | 0.3031 | −0.0068 |
+| graphs' own mix | 0.3378 | 0.3290 | 0.3375 | 0.3365 | 0.3318 | −0.0088 |
+
+The expectation above FAILED: MX1 is 0.0068 below L1, on 7 of 8 graphs,
+where the benchmark's cell effects predicted within ±0.002. The cells
+(mean over graphs of the pooled cell MRR, MX1 − L1): SQSA −0.011, SQUA
++0.007, UQSA −0.017, UQUA +0.020. The seen-answer costs transfer from the
+benchmark (there: −0.012 / −0.017); the unseen-answer gains do not (there:
++0.020 / +0.068). Re-weighting cannot fix a proxy whose cell EFFECTS
+differ, only one whose cell SHARES differ.
+
+## Where the benchmark gain lives: the diet's own families
+
+MX1 − L1 on the 41 test graphs by the source of the graph (`suite.family`;
+the pretraining diet is FB15k237, WN18RR, CoDExMedium, NELL995):
+
+| group | family | graphs | MX1 − L1 | wins |
+| --- | --- | --- | --- | --- |
+| ind_e | FB (FB15k237Inductive v1-v4, HM) | 8 | +0.0066 | 5 |
+| ind_e | NELL (NELLInductive v1-v4) | 4 | +0.0084 | 4 |
+| ind_e | WK (ILPC) | 2 | −0.0001 | 1 |
+| ind_e | WN (WN18RRInductive v1-v4) | 4 | −0.0009 | 1 |
+| ind_er | FB (FBIngram) | 4 | +0.0047 | 4 |
+| ind_er | NELL (NLIngram) | 5 | +0.0121 | 3 |
+| ind_er | WK (WKIngram, WikiTopics) | 12 | −0.0031 | 2 |
+| ind_er | other (Metafam, FBNELL) | 2 | −0.0231 | 0 |
+
+The gain sits on the Freebase- and NELL-derived graphs (FB15k237Inductive
+v1-v4: +0.010 to +0.023 each) and is absent on the Wikidata- and
+WordNet-derived ones. Against the 20k start (before any decay), MX1 gains
+on every family (+0.003 to +0.015) except Metafam, while L1's plain decay
+gains on WN and WK and loses slightly on FB and NELL: the mix keeps and
+extends the FB/NELL level that the plain continuation gives up. Nothing
+in this pattern says "a general structural prior"; it says an interaction
+with the diet's own graph families.
+
+## A carved inductive dev suite says the same (pilot, CPU)
+
+`dev_eval.py --split inductive` carves small sparse inference graphs out
+of each dev graph's train triples (2,000 entities by random walks, 4,800
+message edges, 1,200 queries, entities and relations re-indexed): the
+benchmark's regime, on KGs outside the benchmark. Pilot at 100 queries
+per cell, one split per graph, L1 versus MX1:
+
+| split | L1 | MX1 | MX1 − L1 |
+| --- | --- | --- | --- |
+| YAGO310#0 | 0.4329 | 0.4275 | −0.0054 |
+| CoDExLarge#0 | 0.2142 | 0.2054 | −0.0088 |
+| ConceptNet100k#0 | 0.1788 | 0.1426 | −0.0362 |
+
+Cells (MX1 − L1): SQSA −0.013 to −0.057, UQSA −0.024 to −0.075, SQUA
++0.003 to +0.013, UQUA +0.035 to +0.053. The sparse regime does not
+rescue the prior outside the benchmark's families; the full comparison
+(six checkpoints, two splits per graph, 300 per cell, protocol
+`inductive_v3`, files `results/incite/dev/ind_*.json`) runs on the CPU
+beside FMX and is added when it lands.
+
+## What this means for the program
+
+1. The claim "a synthetic rules prior teaches a KGFM something general"
+   is not supported by any graph outside the benchmark: on eight
+   held-out KGs the prior costs 0.007 to 0.009 (stratified, uniform), on
+   carved sparse splits of them 0.005 to 0.036, always through the
+   seen-answer cells. Its benchmark gain (+0.0046 ind_e, single seed) is
+   concentrated on the diet's own Freebase and NELL families.
+2. The recipe rule stands as recorded (MX1's recipe plus at most one
+   modification, the stratified dev gate and the paired test gate). The
+   dev gate will favour candidates that reduce the prior's cost (MX15)
+   over ones that intensify it (MX45, MXS9); that is the conservative
+   direction and it is disclosed here.
+3. The decisive experiment is already queued: R0 (no mix) against R1
+   (the recipe) from scratch at three seeds, on the benchmark AND on the
+   dev suite. The paper's framing follows from it: if R1 − R0 is inside
+   the seed noise on the benchmark, or negative on the dev suite, the
+   prior is reported as what it is, a diet-family effect with a
+   seen-answer cost, and the paper's contribution is the analysis (P1,
+   the scenario tables, the family tables), not a recipe.
