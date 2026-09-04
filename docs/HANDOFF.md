@@ -66,11 +66,16 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   pooled SQSA 0.353, SQUA 0.284, UQSA 0.284, UQUA 0.079), cells under 10
   queries left out, every cell's MRR and count in the file, the graph's
   own mix beside it as `graphs_natural`
-  (results/incite/DEV_SUITE.md). Expectation recorded before D0W lands:
-  MX1 within ±0.002 of L1 (the benchmark's own cell effects, reweighted,
-  give +0.001 to +0.003); if MX1 sits more than 0.003 below L1 again, the
-  proxy still disagrees with the benchmark and the first gate is suspect.
-  Why: the uniform 1,000-query sample
+  (results/incite/DEV_SUITE.md). The expectation recorded before D0W
+  (MX1 within ±0.002 of L1) FAILED: MX1 is 0.0068 below L1 stratified,
+  because the prior's unseen-answer gains do not transfer to graphs
+  outside the benchmark while its seen-answer costs do (see the dev table
+  below the state table). The dev gate therefore favours candidates that
+  reduce the prior's cost (MX15) over ones that intensify it; disclosed,
+  kept: a test-set argmax is the alternative the review ruled out.
+  `--split inductive` (analysis only, protocol `inductive_v3`) carves
+  sparse inference splits out of the dev graphs; it agrees.
+  Why the uniform sample failed first: the uniform 1,000-query sample
   is 80 to 90 percent seen-answer queries, the cells where the prior
   costs, and it ranked MX1 0.0084 BELOW L1 while the benchmark (61 / 66
   percent seen-answer) ranks it above; a proxy that would have rejected
@@ -146,21 +151,30 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
 
-The dev suite so far (eight transductive valid splits; the uniform
-protocol of D0, 1,000 triples per graph, both directions; superseded by
-the stratified protocol, see the live-state section):
+The dev suite so far (eight transductive valid splits outside the diet
+and the benchmark; results/incite/DEV_SUITE.md):
 
-| model | dev mean (uniform) | graphs won against L1 |
-| --- | --- | --- |
-| L1 (4g + decay) | 0.3408 | |
-| MX1 (4g + decay + 30 percent mix) | 0.3324 | 1 of 8 |
-| G1 (4g + decay + unary) | 0.3399 | 4 of 8 |
-| L2 (3g floor + decay) | 0.3407 | 4 of 8 |
+| model | uniform (D0) | stratified, benchmark-weighted (D0W) | graphs won against L1 (stratified) |
+| --- | --- | --- | --- |
+| L1 (4g + decay) | 0.3408 | 0.3082 | |
+| MX1 (4g + decay + 30 percent mix) | 0.3324 | 0.3014 | 1 of 8 |
+| G1 (4g + decay + unary) | 0.3399 | 0.3088 | 4 of 8 |
+| L2 (3g floor + decay) | 0.3407 | 0.3029 | 2 of 8 |
+| SC1 (MX1 + scenario readout) | | 0.3031 | 1 of 8 |
 
-Read with the per-scenario table: MX1 loses about 0.013 to L1 on the
-seen-answer cells and gains 0.02 to 0.07 on the unseen-answer cells;
-transductive valid queries are 80 to 90 percent seen-answer. The fourth
-diet graph adds nothing here (L2 equals L1).
+THE FINDING OF 4 SEP: the prior's benchmark gain does not transfer.
+Outside the benchmark MX1 is 0.007 to 0.009 below L1 whichever way the
+queries are weighted, and 0.005 to 0.036 below on sparse inductive
+splits carved from the same graphs (pilot). Its seen-answer costs
+(SQSA −0.011, UQSA −0.017) transfer from the benchmark; its unseen-answer
+gains (there +0.020 / +0.068) do not (+0.007 / +0.020). On the benchmark
+the gain sits on the diet's own families: FB15k237-derived +0.0066
+(ind_e) / +0.0047 (ind_er), NELL-derived +0.0084 / +0.0121, Wikidata-
+and WordNet-derived −0.003 to −0.001, Metafam −0.042. The decisive
+experiment is queued (R0 against R1 at three seeds, benchmark and dev
+suite); until it lands, the prior is a diet-family effect with a
+seen-answer cost, not a general structural prior. The fourth diet graph
+adds nothing on the dev suite (L2 equals L1 uniformly, −0.005 stratified).
 | **INCITE trained on the synthetic rules prior ONLY** (P1, 10k steps, 41 min) | **0.3593** | **0.2795** | no real KG seen; 86 / 82 percent of ULTRA-3g; strong on unseen-answer cells, weak on seen-answer ones; results/incite/SYNTH_PILOT_RESULT.md |
 
 Relation task (unfiltered protocol): TRIX 0.7564 / 0.8415, INCITE joint
@@ -303,8 +317,8 @@ phase only):
 | PG2P | the gate's pruning curve: DONE. The gate ranks edges far above chance at the same realized kept fraction, but every fraction costs accuracy (ind_e −0.002 at 93 percent kept, −0.023 at 53); at inference every gate product is 1.00; the sparse-propagation direction is closed (results/incite/GATE_RESULT.md) | results/incite/gate_prune.json | done |
 | D0 | dev-suite numbers of L1, MX1, G1, L2 under the UNIFORM protocol: DONE (22:48, 3 Sep): 0.3408 / 0.3324 / 0.3399 / 0.3407, MX1 below L1 on 7 of 8 graphs, the seen-answer skew of transductive valid splits (see Protocol) | results/incite/dev/{L1,MX1,G1,L2}.uniform.json after D0W | done |
 | SC1 | MX1 plus the scenario-conditioned readout: DONE (02:04, 4 Sep), MX1 within noise (0.4613 / 0.3873), the head stayed near zero, NOT the recipe modification; stratified dev 0.3031 (the references come with D0W); results/incite/SCENARIO_RESULT.md | results/incite/dev/SC1.json, ranks/incite-4g-synth30-scenario-last | done |
-| D0W | (plan v16) the four reference dev numbers recomputed under the stratified protocol, so that every candidate is compared like for like; the uniform files stay beside as *.uniform.json; RUNNING since 02:05 | results/incite/dev/{L1,MX1,G1,L2}.json | 02:35, 4 Sep |
-| FMX | the 3-graph floor plus the mix (`configs/incite_phase1_synth30.yaml`), the matched-diet test; paired against L2 and TRIX | ranks/incite-synth30-last | 12:00, 4 Sep |
+| D0W | the four reference dev numbers under the stratified protocol: DONE (02:30, 4 Sep): L1 0.3082, MX1 0.3014, G1 0.3088, L2 0.3029; the expectation failed, the prior does not transfer (results/incite/DEV_SUITE.md) | results/incite/dev/{L1,MX1,G1,L2}.json (+ .uniform.json) | done |
+| FMX | the 3-graph floor plus the mix (`configs/incite_phase1_synth30.yaml`), the matched-diet test; paired against L2 and TRIX; TRAINING since 02:30 (v16) | ranks/incite-synth30-last | 06:00, 4 Sep |
 | MX15, MX45 | the mix at 15 and 45 percent: the dose curve with MX1, both recipe candidates (dev numbers for both) | ranks/incite-4g-synth15-last, incite-4g-synth45-last | 23:00, 4 Sep |
 | MXS9 | MX1 with 90 percent unseen-answer synthetic queries (`configs/incite_phase1_4g_synth30_share90.yaml`) | ranks/incite-4g-synth30-s90-last | 04:30, 5 Sep |
 | MX2a, RR2 | relation blocks alone (bisection step one, and the base RR2 needs); rule recovery at weight 0.2 on it | ranks/incite-4g-synth30-{iso,iso-rules}-last | 15:30, 5 Sep |
