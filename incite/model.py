@@ -241,19 +241,25 @@ class EdgeGate(nn.Module):
     start leaves the trunk's function untouched. ``forward`` returns the
     raw sigmoids (what the proof loss pushes and the pruning measurement
     thresholds); ``scales`` turns them into the multipliers.
+
+    ``bias`` (PG3, 2026-09-04): the start logit. PG2 used 6.0, where the
+    sigmoid's slope is 0.0025 and nothing could move; 2.0 keeps the exact
+    identity at the start (the division by sigmoid(bias)) with forty
+    times the gradient and room to close (scales in (0, 1.135)).
     """
     BIAS = 6.0
 
-    def __init__(self, dim: int):
+    def __init__(self, dim: int, bias: float = BIAS):
         super().__init__()
+        self.bias_init = float(bias)
         self.node = nn.Linear(dim, 1)
         self.node_q = nn.Linear(dim, 1, bias=False)
         self.rel = nn.Linear(dim, 1)
         self.rel_q = nn.Linear(dim, 1, bias=False)
         for lin in (self.node, self.node_q, self.rel, self.rel_q):
             nn.init.zeros_(lin.weight)
-        nn.init.constant_(self.node.bias, self.BIAS)
-        nn.init.constant_(self.rel.bias, self.BIAS)
+        nn.init.constant_(self.node.bias, self.bias_init)
+        nn.init.constant_(self.rel.bias, self.bias_init)
 
     def forward(self, x, z, q):
         """x [b, V, d], z [b, R, d], q [b, d] -> (node [b, V], rel [b, R])."""
@@ -264,7 +270,7 @@ class EdgeGate(nn.Module):
         return gn, gr
 
     def scales(self, gn, gr):
-        norm = torch.sigmoid(torch.full((1, 1), self.BIAS, dtype=gn.dtype,
+        norm = torch.sigmoid(torch.full((1, 1), self.bias_init, dtype=gn.dtype,
                                         device=gn.device))
         return gn / norm, gr / norm
 
@@ -338,7 +344,7 @@ class INCITE(nn.Module):
                  unary: bool = False,
                  gate: bool = False,
                  rule_head: bool = False,
-                 scenario: bool = False):
+                 scenario: bool = False, gate_bias: float = 6.0):
         super().__init__()
         self.dim = int(dim)
         self.rounds = int(rounds)
@@ -372,7 +378,7 @@ class INCITE(nn.Module):
         # share of each query's edges by gate value (the measurement in
         # diagnostics/gate_prune_dev.py); training never prunes.
         self.gates = nn.ModuleList(
-            [EdgeGate(dim) for _ in range(self.rounds)]) if gate else None
+            [EdgeGate(dim, gate_bias) for _ in range(self.rounds)]) if gate else None
         self.prune_frac = 0.0
         # pruning bookkeeping (measurement only): the realized kept fraction
         # of every pruned round is appended to ``prune_kept`` (ties at the
@@ -504,8 +510,10 @@ class INCITE(nn.Module):
         With gates, the round's node and relation scales multiply the
         messages. ``proof`` = (rows [m], edges [m]) adds the one-sided gate
         loss on those (query, edge) pairs to the returned aux scalar: proof
-        edges are pushed open, nothing is pushed shut (type context flows
-        through non-proof edges). At evaluation ``prune_frac`` > 0 zeroes
+        edges are pushed open. PG3 (2026-09-04): a five-tuple (rows, edges,
+        neg_rows, neg_edges, neg_weight) also pushes the gate PRODUCT of
+        the non-proof pairs shut, weighted by neg_weight, so either factor
+        may close them. At evaluation ``prune_frac`` > 0 zeroes
         the lowest-gated share of each query's edges through a per-edge
         weight (measurement only, see diagnostics/gate_prune_dev.py)."""
         b, d = x.shape[0], self.dim
@@ -528,10 +536,15 @@ class INCITE(nn.Module):
             gn, gr = self.gates[k](x, z, q_k)
             node_scale, rel_scale = self.gates[k].scales(gn, gr)
             if proof is not None:
-                rows, edges = proof
+                rows, edges = proof[0], proof[1]
                 src, typ = edge_index[0, edges], edge_type[edges]
                 aux = -(torch.log(gn[rows, src] + 1e-6)
                         + torch.log(gr[rows, typ] + 1e-6)).mean()
+                if len(proof) > 2 and proof[2] is not None and proof[2].numel():
+                    nrows, nedges, nw = proof[2], proof[3], float(proof[4])
+                    nsrc, ntyp = edge_index[0, nedges], edge_type[nedges]
+                    prod = gn[nrows, nsrc] * gr[nrows, ntyp]
+                    aux = aux + nw * (-torch.log(1.0 - prod + 1e-6)).mean()
             if not self.training and self.prune_frac > 0:
                 g = gn[:, edge_index[0]] * gr[:, edge_type]            # [b, E]
                 if self.prune_random:

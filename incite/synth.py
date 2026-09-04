@@ -138,6 +138,11 @@ SYNTH_DEFAULTS = {
     "isolate_relations": False,   # per-instance relation blocks in the union
     "proof_weight": 0.0,          # weight of the gate's proof loss (PG1);
                                   # 0 = no proof pairs reach the model
+    "proof_neg_per_pos": 0,       # PG3: non-proof edges of the same
+                                  # instance per proof edge, pushed shut
+                                  # (0 = the one-sided loss of PG2)
+    "proof_neg_weight": 0.5,      # PG3: weight of that negative term
+                                  # relative to the positive one
     "rule_targets": False,        # RR1: attach rule hypotheses with labels
     "rule_neg_per_pos": 4,        # RR1: sampled non-rules per evidenced rule
     "rule_weight": 0.0,           # RR1: weight of the rule-recovery loss
@@ -960,7 +965,8 @@ def generate_instances(cfg, generator: torch.Generator,
 # The union batch
 # ---------------------------------------------------------------------------
 def union_batch(instances: Sequence, k: int, generator: torch.Generator,
-                isolate_relations: bool = False
+                isolate_relations: bool = False,
+                proof_neg_per_pos: int = 0
                 ) -> Tuple[object, torch.Tensor]:
     """Disjoint union of ``k`` sampled instances plus their query batch.
 
@@ -1042,17 +1048,40 @@ def union_batch(instances: Sequence, k: int, generator: torch.Generator,
     # instance's proof_pos shifted by the instance's edge offset, plus the
     # inverse copies at + E (the propagation runs over both directions)
     if all(p is not None for p in proofs):
-        E, e0, rows, edges = ei.shape[1], 0, [], []
+        E, e0, rows, edges, nrows, nedges = ei.shape[1], 0, [], [], [], []
         for i, (inst, p) in enumerate(zip(chosen, proofs)):
+            n_i = int(inst.edge_index.shape[1])
             if p.numel():
                 pos = p + e0
                 edges.append(torch.cat([pos, pos + E]))
                 rows.append(torch.full((2 * int(p.numel()),), i,
                                        dtype=torch.long))
-            e0 += int(inst.edge_index.shape[1])
+                if proof_neg_per_pos > 0:
+                    # PG3: the instance's observed edges outside the proof
+                    # support, proof_neg_per_pos per proof edge (a seeded
+                    # sample when there are more, all of them when fewer),
+                    # inverse copies included like the positives. An edge
+                    # in an alternative derivation is a wrong negative;
+                    # the recorded support is one derivation per fact.
+                    is_proof = torch.zeros(n_i, dtype=torch.bool)
+                    is_proof[p] = True
+                    cand = (~is_proof).nonzero().flatten()
+                    want = int(proof_neg_per_pos) * int(p.numel())
+                    if cand.numel() > want:
+                        cand = cand[torch.randperm(cand.numel(),
+                                                   generator=generator)[:want]]
+                    if cand.numel():
+                        neg = cand + e0
+                        nedges.append(torch.cat([neg, neg + E]))
+                        nrows.append(torch.full((2 * int(cand.numel()),), i,
+                                                dtype=torch.long))
+            e0 += n_i
         if rows:
             union.proof_rows = torch.cat(rows)
             union.proof_edges = torch.cat(edges)
+            if nrows:
+                union.proof_neg_rows = torch.cat(nrows)
+                union.proof_neg_edges = torch.cat(nedges)
     # rule hypotheses (RR1): (row, kind, r1, r2, r3) with the relation ids
     # in the row's own block -- meaningful only with isolate_relations
     if rule_idx:
@@ -1078,7 +1107,8 @@ def to_device(union, queries: torch.Tensor, device):
 def synth_loss(model, union_graph, queries: torch.Tensor, walk_offset: int = 0,
                adversarial_temperature: float = 1.0,
                proof_weight: float = 0.0,
-               rule_weight: float = 0.0) -> torch.Tensor:
+               rule_weight: float = 0.0,
+               proof_neg_weight: float = 0.5) -> torch.Tensor:
     """Scalar supervision loss on one union batch.
 
     ``model(union_graph, queries)`` with ``queries [k, 1 + neg, 3]`` scores
@@ -1109,6 +1139,12 @@ def synth_loss(model, union_graph, queries: torch.Tensor, walk_offset: int = 0,
             and getattr(model, "gates", None) is not None):
         proof = (rows.to(queries.device),
                  union_graph.proof_edges.to(queries.device))
+        nrows = getattr(union_graph, "proof_neg_rows", None)
+        if nrows is not None and nrows.numel():
+            # PG3: the two-sided loss; the plain pair keeps PG2's path
+            proof = proof + (nrows.to(queries.device),
+                             union_graph.proof_neg_edges.to(queries.device),
+                             float(proof_neg_weight))
     # rule recovery (RR1): the relation states of the same forward feed the
     # rule head; needs the isolated relation blocks
     ridx = getattr(union_graph, "rule_idx", None)
@@ -1173,6 +1209,9 @@ def synth_config(cfg, force: bool = False) -> Optional[dict]:
     out["unseen_answer_share"] = float(out["unseen_answer_share"])
     out["proof_weight"] = float(out["proof_weight"])
     assert out["proof_weight"] >= 0.0, "synth.proof_weight must be >= 0"
+    out["proof_neg_per_pos"] = int(out["proof_neg_per_pos"])
+    out["proof_neg_weight"] = float(out["proof_neg_weight"])
+    assert out["proof_neg_per_pos"] >= 0 and out["proof_neg_weight"] >= 0.0
     out["rule_targets"] = bool(out["rule_targets"])
     out["rule_neg_per_pos"] = int(out["rule_neg_per_pos"])
     out["start_step"] = int(out["start_step"])
@@ -1260,10 +1299,12 @@ def synth_step_loss(model, scfg: dict, step: int, device=None,
     instances = generate_instances(scfg, gen, count)
     union, queries = union_batch(
         instances, k, gen,
-        isolate_relations=bool(scfg.get("isolate_relations", False)))
+        isolate_relations=bool(scfg.get("isolate_relations", False)),
+        proof_neg_per_pos=int(scfg.get("proof_neg_per_pos", 0)))
     union, queries = to_device(union, queries, device)
     offset = step if walk_offset is None else int(walk_offset)
     return synth_loss(model, union, queries, walk_offset=offset,
                       adversarial_temperature=adversarial_temperature,
                       proof_weight=float(scfg.get("proof_weight", 0.0)),
-                      rule_weight=float(scfg.get("rule_weight", 0.0))), k
+                      rule_weight=float(scfg.get("rule_weight", 0.0)),
+                      proof_neg_weight=float(scfg.get("proof_neg_weight", 0.5))), k

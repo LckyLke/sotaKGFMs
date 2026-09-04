@@ -1,0 +1,608 @@
+{
+ "config": "incite_phase1.yaml",
+ "ckpt": "/kgfm-src/output/incite-pretrain-4g-synth15/incite_last.pth",
+ "hashes": [
+  "33417909058e4fa2"
+ ],
+ "protocol": "stratified_v2",
+ "split": "transductive",
+ "samples": 2,
+ "sub_nodes": 2000,
+ "edges_per_node": 3.0,
+ "query_frac": 0.2,
+ "split_stats": {},
+ "per_cell": 300,
+ "weights": {
+  "tail": {
+   "SQSA": 0.177,
+   "SQUA": 0.088,
+   "UQSA": 0.196,
+   "UQUA": 0.039
+  },
+  "head": {
+   "SQSA": 0.177,
+   "SQUA": 0.196,
+   "UQSA": 0.088,
+   "UQUA": 0.039
+  }
+ },
+ "min_cell": 10,
+ "graphs": {
+  "YAGO310": 0.4138,
+  "CoDExSmall": 0.3877,
+  "CoDExLarge": 0.3289,
+  "Hetionet": 0.1265,
+  "ConceptNet100k": 0.1578,
+  "DBpedia100k": 0.3991,
+  "AristoV4": 0.1723,
+  "WDsinger": 0.454
+ },
+ "graphs_natural": {
+  "YAGO310": 0.4922,
+  "CoDExSmall": 0.4041,
+  "CoDExLarge": 0.3307,
+  "Hetionet": 0.1608,
+  "ConceptNet100k": 0.207,
+  "DBpedia100k": 0.4039,
+  "AristoV4": 0.2036,
+  "WDsinger": 0.4853
+ },
+ "cells": {
+  "YAGO310": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.682,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.3047,
+     "n": 107
+    },
+    "UQSA": {
+     "mrr": 0.6478,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.3663,
+     "n": 46
+    }
+   },
+   "head": {
+    "SQSA": {
+     "mrr": 0.3626,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0473,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.4413,
+     "n": 107
+    },
+    "UQUA": {
+     "mrr": 0.3274,
+     "n": 46
+    }
+   }
+  },
+  "CoDExSmall": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.5572,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0603,
+     "n": 17
+    },
+    "UQSA": {
+     "mrr": 0.7604,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.4608,
+     "n": 14
+    }
+   },
+   "head": {
+    "SQSA": {
+     "mrr": 0.2356,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.1304,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.3452,
+     "n": 17
+    },
+    "UQUA": {
+     "mrr": 0.4908,
+     "n": 14
+    }
+   }
+  },
+  "CoDExLarge": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.5233,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.2334,
+     "n": 283
+    },
+    "UQSA": {
+     "mrr": 0.6805,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.392,
+     "n": 300
+    }
+   },
+   "head": {
+    "SQSA": {
+     "mrr": 0.0752,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0546,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.319,
+     "n": 283
+    },
+    "UQUA": {
+     "mrr": 0.383,
+     "n": 300
+    }
+   }
+  },
+  "Hetionet": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.1365,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0148,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.2168,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.009,
+     "n": 30
+    }
+   },
+   "head": {
+    "SQSA": {
+     "mrr": 0.187,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0372,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.1978,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.01,
+     "n": 30
+    }
+   }
+  },
+  "ConceptNet100k": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.2522,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0317,
+     "n": 225
+    },
+    "UQSA": {
+     "mrr": 0.2118,
+     "n": 84
+    },
+    "UQUA": {
+     "mrr": 0.1015,
+     "n": 10
+    }
+   },
+   "head": {
+    "SQSA": {
+     "mrr": 0.2259,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0238,
+     "n": 84
+    },
+    "UQSA": {
+     "mrr": 0.2099,
+     "n": 225
+    },
+    "UQUA": {
+     "mrr": 0.0454,
+     "n": 10
+    }
+   }
+  },
+  "DBpedia100k": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.5354,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.2581,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.6097,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.4479,
+     "n": 300
+    }
+   },
+   "head": {
+    "SQSA": {
+     "mrr": 0.2838,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.1673,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.4901,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.475,
+     "n": 300
+    }
+   }
+  },
+  "AristoV4": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.3039,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0179,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.2924,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.0337,
+     "n": 300
+    }
+   },
+   "head": {
+    "SQSA": {
+     "mrr": 0.194,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.0145,
+     "n": 300
+    },
+    "UQSA": {
+     "mrr": 0.2168,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.0526,
+     "n": 300
+    }
+   }
+  },
+  "WDsinger": {
+   "tail": {
+    "SQSA": {
+     "mrr": 0.3742,
+     "n": 300
+    },
+    "SQUA": {
+     "mrr": 0.3201,
+     "n": 297
+    },
+    "UQSA": {
+     "mrr": 0.5514,
+     "n": 300
+    },
+    "UQUA": {
+     "mrr": 0.6293,
+     "n": 300
+    }
+   }
+  }
+ },
+ "cells4": {
+  "YAGO310": {
+   "SQSA": {
+    "mrr": 0.5223,
+    "n": 600
+   },
+   "SQUA": {
+    "mrr": 0.115,
+    "n": 407
+   },
+   "UQSA": {
+    "mrr": 0.5935,
+    "n": 407
+   },
+   "UQUA": {
+    "mrr": 0.3469,
+    "n": 92
+   }
+  },
+  "CoDExSmall": {
+   "SQSA": {
+    "mrr": 0.3964,
+    "n": 600
+   },
+   "SQUA": {
+    "mrr": 0.1267,
+    "n": 317
+   },
+   "UQSA": {
+    "mrr": 0.7381,
+    "n": 317
+   },
+   "UQUA": {
+    "mrr": 0.4758,
+    "n": 28
+   }
+  },
+  "CoDExLarge": {
+   "SQSA": {
+    "mrr": 0.2992,
+    "n": 600
+   },
+   "SQUA": {
+    "mrr": 0.1414,
+    "n": 583
+   },
+   "UQSA": {
+    "mrr": 0.505,
+    "n": 583
+   },
+   "UQUA": {
+    "mrr": 0.3875,
+    "n": 600
+   }
+  },
+  "Hetionet": {
+   "SQSA": {
+    "mrr": 0.1618,
+    "n": 600
+   },
+   "SQUA": {
+    "mrr": 0.026,
+    "n": 600
+   },
+   "UQSA": {
+    "mrr": 0.2073,
+    "n": 600
+   },
+   "UQUA": {
+    "mrr": 0.0095,
+    "n": 60
+   }
+  },
+  "ConceptNet100k": {
+   "SQSA": {
+    "mrr": 0.2391,
+    "n": 600
+   },
+   "SQUA": {
+    "mrr": 0.0296,
+    "n": 309
+   },
+   "UQSA": {
+    "mrr": 0.2104,
+    "n": 309
+   },
+   "UQUA": {
+    "mrr": 0.0734,
+    "n": 20
+   }
+  },
+  "DBpedia100k": {
+   "SQSA": {
+    "mrr": 0.4096,
+    "n": 600
+   },
+   "SQUA": {
+    "mrr": 0.2127,
+    "n": 600
+   },
+   "UQSA": {
+    "mrr": 0.5499,
+    "n": 600
+   },
+   "UQUA": {
+    "mrr": 0.4615,
+    "n": 600
+   }
+  },
+  "AristoV4": {
+   "SQSA": {
+    "mrr": 0.249,
+    "n": 600
+   },
+   "SQUA": {
+    "mrr": 0.0162,
+    "n": 600
+   },
+   "UQSA": {
+    "mrr": 0.2546,
+    "n": 600
+   },
+   "UQUA": {
+    "mrr": 0.0431,
+    "n": 600
+   }
+  },
+  "WDsinger": {
+   "SQSA": {
+    "mrr": 0.3742,
+    "n": 300
+   },
+   "SQUA": {
+    "mrr": 0.3201,
+    "n": 297
+   },
+   "UQSA": {
+    "mrr": 0.5514,
+    "n": 300
+   },
+   "UQUA": {
+    "mrr": 0.6293,
+    "n": 300
+   }
+  }
+ },
+ "share": {
+  "YAGO310": {
+   "tail": {
+    "SQSA": 0.4123,
+    "SQUA": 0.0107,
+    "UQSA": 0.0724,
+    "UQUA": 0.0046
+   },
+   "head": {
+    "SQSA": 0.4123,
+    "SQUA": 0.0724,
+    "UQSA": 0.0107,
+    "UQUA": 0.0046
+   }
+  },
+  "CoDExSmall": {
+   "tail": {
+    "SQSA": 0.4007,
+    "SQUA": 0.0047,
+    "UQSA": 0.0909,
+    "UQUA": 0.0038
+   },
+   "head": {
+    "SQSA": 0.4007,
+    "SQUA": 0.0909,
+    "UQSA": 0.0047,
+    "UQUA": 0.0038
+   }
+  },
+  "CoDExLarge": {
+   "tail": {
+    "SQSA": 0.2657,
+    "SQUA": 0.0046,
+    "UQSA": 0.2218,
+    "UQUA": 0.0079
+   },
+   "head": {
+    "SQSA": 0.2657,
+    "SQUA": 0.2218,
+    "UQSA": 0.0046,
+    "UQUA": 0.0079
+   }
+  },
+  "Hetionet": {
+   "tail": {
+    "SQSA": 0.4902,
+    "SQUA": 0.0069,
+    "UQSA": 0.0027,
+    "UQUA": 0.0001
+   },
+   "head": {
+    "SQSA": 0.4902,
+    "SQUA": 0.0027,
+    "UQSA": 0.0069,
+    "UQUA": 0.0001
+   }
+  },
+  "ConceptNet100k": {
+   "tail": {
+    "SQSA": 0.3671,
+    "SQUA": 0.0938,
+    "UQSA": 0.035,
+    "UQUA": 0.0042
+   },
+   "head": {
+    "SQSA": 0.3671,
+    "SQUA": 0.035,
+    "UQSA": 0.0938,
+    "UQUA": 0.0042
+   }
+  },
+  "DBpedia100k": {
+   "tail": {
+    "SQSA": 0.3035,
+    "SQUA": 0.0356,
+    "UQSA": 0.1361,
+    "UQUA": 0.0248
+   },
+   "head": {
+    "SQSA": 0.3035,
+    "SQUA": 0.1361,
+    "UQSA": 0.0356,
+    "UQUA": 0.0248
+   }
+  },
+  "AristoV4": {
+   "tail": {
+    "SQSA": 0.3087,
+    "SQUA": 0.0762,
+    "UQSA": 0.1001,
+    "UQUA": 0.0151
+   },
+   "head": {
+    "SQSA": 0.3087,
+    "SQUA": 0.1001,
+    "UQSA": 0.0762,
+    "UQUA": 0.0151
+   }
+  },
+  "WDsinger": {
+   "tail": {
+    "SQSA": 0.2695,
+    "SQUA": 0.1373,
+    "UQSA": 0.4212,
+    "UQUA": 0.172
+   }
+  }
+ },
+ "queries": {
+  "YAGO310": 1506,
+  "CoDExSmall": 1262,
+  "CoDExLarge": 2366,
+  "Hetionet": 1860,
+  "ConceptNet100k": 1238,
+  "DBpedia100k": 2400,
+  "AristoV4": 2400,
+  "WDsinger": 1197
+ },
+ "failed": {},
+ "complete": true,
+ "graphs_ok": 8,
+ "mean": 0.305,
+ "mean_natural": 0.336,
+ "seconds": 367.8
+}

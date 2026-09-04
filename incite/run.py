@@ -109,6 +109,7 @@ def build_model(cfg: EasyDict) -> INCITE:
                   num_mlp_layer=int(cfg.model.num_mlp_layer),
                   unary=bool(cfg.model.get("unary", False)),
                   gate=bool(cfg.model.get("gate", False)),
+                  gate_bias=float(cfg.model.get("gate_bias", 6.0)),
                   rule_head=bool(cfg.model.get("rule_head", False)),
                   scenario=bool(cfg.model.get("scenario", False)))
 

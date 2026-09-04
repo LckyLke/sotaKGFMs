@@ -457,11 +457,13 @@ def main(argv=None):
         if scfg["prior"] == "rules":
             print("  rules knobs: neg_per_pos %d, num_positive %d, "
                   "hard_neg_frac %.2f, unseen_answer_share %.2f, "
-                  "isolate_relations %s, start_step %d, step_offset %d"
+                  "isolate_relations %s, start_step %d, step_offset %d, "
+                  "proof_weight %.2f, proof_neg_per_pos %d, proof_neg_weight %.2f"
                   % (scfg["neg_per_pos_rules"], scfg["num_positive_rules"],
                      scfg["hard_neg_frac"], scfg["unseen_answer_share"],
                      scfg["isolate_relations"], scfg["start_step"],
-                     scfg["step_offset"]))
+                     scfg["step_offset"], scfg["proof_weight"],
+                     scfg["proof_neg_per_pos"], scfg["proof_neg_weight"]))
 
     model.train()
     best_sel, best_path = float("-inf"), None
