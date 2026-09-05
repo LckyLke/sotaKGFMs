@@ -1,4 +1,4 @@
-# Takeover — 2026-09-05, 08:30 (day 9)
+# Takeover — 2026-09-05, 12:55 (day 9)
 
 Goal: a novel, publishable KGFM that beats TRIX and FLOCK on the 41-graph
 zero-shot inductive suite, with seed spread and matched pretraining data.
@@ -22,7 +22,7 @@ The incite worktree symlinks `output/` and `data/roots` to the main
 worktree's copies. `output/` (training dirs, logs) and `data/` are not in
 git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 
-## Live state right now (2026-09-05, 08:30) and how the session operates
+## Live state right now (2026-09-05, 12:55) and how the session operates
 
 * **Best single model:** MX15, the 4-graph backbone continued for 10k
   decay steps with 15 percent synthetic rules-prior steps: 0.4621 /
@@ -75,8 +75,10 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   20k with their code, the matched-budget test), MX2H (the MX2 bundle at
   half dose with the negative mask), the seeds R1S2/R0S2/R1S3/R0S3, the
   chores E4/E5/E6/F0, R1L (the recipe at 60k). Expected end: about 10
-  Sep. The plan table below has the ETAs; stages have run about 1.5
-  times faster than the ETAs written on 3 Sep. Every plan version since
+  Sep (the 60k run ends last). The plan table below has the ETAs: continuations ran about 1.5
+  times faster than the ETAs written on 3 Sep, but a from-scratch run
+  goes at about 0.7 steps per second here, half a continuation's speed
+  (R0: 26,600 steps in 11 hours), so the seeds take about 13 hours each. Every plan version since
   v15 was read by an independent verifier agent before it ran (v15, the
   stratified dev suite and v16, PG3 and v17); v18 added an evaluation-only
   stage. Nothing else runs on the GPU; CPU studies (the combination
@@ -384,13 +386,13 @@ phase only):
 | RR2 | rule recovery at weight 0.2: DONE (22:28, 4 Sep), 0.4521 / 0.3773, rejected (results/incite/RULES_RECOVERY_RESULT.md) | ranks/incite-4g-synth30-iso-rules-last, results/incite/dev/RR2.json | done |
 | PG3 | the gate that can close: DONE (01:53, 5 Sep), 0.4596 / 0.3857, MX1 within noise with a gate that did learn; its hard-pruning curve is PG2's shape (−0.026 at 61 percent of the edges kept): the gate direction is closed for good (results/incite/GATE_RESULT.md) | ranks/incite-4g-synth30-gate3-last, results/incite/dev/PG3.json | done |
 | recipe | DECIDED (01:53, 5 Sep) by the recorded rule: `mx1f15` (MX15: dev +0.0036 over MX1, test ind_er interval above zero, ind_e point +0.0016). The others: SC1 dev +0.0017, MX45 −0.0011, MXS9 −0.0035, RR2 +0.0005, PG3 −0.0001 (all short of the dev gate or, MX2a, failing the test gate) | output/research-plan/RECIPE | done |
-| R0 | from scratch, 30k steps, no mix, seed 1024 (the control); TRAINING since 01:53, 5 Sep (step 26k at 08:30) | ranks/incite-nomix-mx1f15-seed1024-last, results/incite/dev/R0.json | 10:30, 5 Sep |
-| R1 | THE PAPER MODEL: from scratch, 30k steps, the recipe `configs/incite_recipe_mx1_f15.yaml` (the 15 percent mix in the decay phase), seed 1024 | ranks/incite-recipe-mx1f15-seed1024-last, results/incite/dev/R1.json | 19:30, 5 Sep |
-| X1/X2 | TRIX@20k with their code, best epoch and last (the matched-budget test) | ranks/trix-20k-best/-last | 02:30, 6 Sep |
-| MX2H | the MX2 bundle at half dose with the negative mask (`configs/incite_phase1_4g_synth15_v2.yaml`): dose or distribution; paired against MX15 and MX1 | ranks/incite-4g-synth15v2-last | 08:00, 6 Sep |
-| R1S2, R0S2, R1S3, R0S3 | the recipe and its control at seeds 1337 and 7 (each with its own synthetic seed, `--synth_seed`); `touch output/research-plan/SEEDS_HOLD` holds them | ranks/incite-{recipe,nomix}-mx1f15-seed{1337,7}-last | 16:00, 8 Sep |
-| E4/E5/E6, F0 | re-ranked dumps (k=8), score ensemble of four trunks, FLOCK FBIngram:25 | ranks/incite-*-rerank, incite-ens4, flock 41/41 | 22:00, 8 Sep |
-| R1L | the recipe at 60k steps (40k constant, 20k decay), one seed; held by SEEDS_HOLD | ranks/incite-recipe-mx1f15-60k-seed1024-last | 01:00, 10 Sep |
+| R0 | from scratch, 30k steps, no mix, seed 1024 (the control); TRAINING since 01:53, 5 Sep (step 26,600 at 12:55, about 0.7 steps per second) | ranks/incite-nomix-mx1f15-seed1024-last, results/incite/dev/R0.json | 16:00, 5 Sep |
+| R1 | THE PAPER MODEL: from scratch, 30k steps, the recipe `configs/incite_recipe_mx1_f15.yaml` (the 15 percent mix in the decay phase), seed 1024 | ranks/incite-recipe-mx1f15-seed1024-last, results/incite/dev/R1.json | 05:30, 6 Sep |
+| X1/X2 | TRIX@20k with their code, best epoch and last (the matched-budget test) | ranks/trix-20k-best/-last | 12:30, 6 Sep |
+| MX2H | the MX2 bundle at half dose with the negative mask (`configs/incite_phase1_4g_synth15_v2.yaml`): dose or distribution; paired against MX15 and MX1 | ranks/incite-4g-synth15v2-last | 18:00, 6 Sep |
+| R1S2, R0S2, R1S3, R0S3 | the recipe and its control at seeds 1337 and 7 (each with its own synthetic seed, `--synth_seed`); `touch output/research-plan/SEEDS_HOLD` holds them | ranks/incite-{recipe,nomix}-mx1f15-seed{1337,7}-last | 00:00, 9 Sep |
+| E4/E5/E6, F0 | re-ranked dumps (k=8), score ensemble of four trunks, FLOCK FBIngram:25 | ranks/incite-*-rerank, incite-ens4, flock 41/41 | 06:00, 9 Sep |
+| R1L | the recipe at 60k steps (40k constant, 20k decay), one seed; held by SEEDS_HOLD | ranks/incite-recipe-mx1f15-60k-seed1024-last | 08:00, 10 Sep |
 
 Nothing else runs on this GPU. Do NOT start another training run on it.
 Evals of 1 to 3 GB are fine, but only after two low memory readings three
