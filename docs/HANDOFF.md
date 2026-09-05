@@ -22,7 +22,17 @@ The incite worktree symlinks `output/` and `data/roots` to the main
 worktree's copies. `output/` (training dirs, logs) and `data/` are not in
 git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 
-## Live state right now (2026-09-05, 12:55) and how the session operates
+## Live state right now (2026-09-05, 13:26) and how the session operates
+
+* **PAUSED (13:26, 5 Sep, on Luke's request).** Plan v18 and the R0
+  training container are stopped; the GPU is free. R0's last saved
+  checkpoint is step 27,000 of 30,000 (`output/incite-pretrain/incite_last.pth`,
+  STAGE = R0); about 950 steps, 25 minutes, are lost on resume. To resume
+  everything exactly where it stopped: `./RESTART.sh` in the baseline
+  worktree (it launches v18, which keeps R0's run directory and resumes
+  from the last checkpoint with the same absolute-step schedule; R1, the
+  seeds and the rest follow as before). Nothing else needs to be done
+  first; the queue's markers are intact. Until then, no GPU job runs.
 
 * **Best single model:** MX15, the 4-graph backbone continued for 10k
   decay steps with 15 percent synthetic rules-prior steps: 0.4621 /
@@ -75,7 +85,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
   20k with their code, the matched-budget test), MX2H (the MX2 bundle at
   half dose with the negative mask), the seeds R1S2/R0S2/R1S3/R0S3, the
   chores E4/E5/E6/F0, R1L (the recipe at 60k). Expected end: about 10
-  Sep (the 60k run ends last). The plan table below has the ETAs: continuations ran about 1.5
+  Sep (the 60k run ends last), counted from the resume. The plan table below has the ETAs: continuations ran about 1.5
   times faster than the ETAs written on 3 Sep, but a from-scratch run
   goes at about 0.7 steps per second here, half a continuation's speed
   (R0: 26,600 steps in 11 hours), so the seeds take about 13 hours each. Every plan version since
@@ -386,7 +396,7 @@ phase only):
 | RR2 | rule recovery at weight 0.2: DONE (22:28, 4 Sep), 0.4521 / 0.3773, rejected (results/incite/RULES_RECOVERY_RESULT.md) | ranks/incite-4g-synth30-iso-rules-last, results/incite/dev/RR2.json | done |
 | PG3 | the gate that can close: DONE (01:53, 5 Sep), 0.4596 / 0.3857, MX1 within noise with a gate that did learn; its hard-pruning curve is PG2's shape (−0.026 at 61 percent of the edges kept): the gate direction is closed for good (results/incite/GATE_RESULT.md) | ranks/incite-4g-synth30-gate3-last, results/incite/dev/PG3.json | done |
 | recipe | DECIDED (01:53, 5 Sep) by the recorded rule: `mx1f15` (MX15: dev +0.0036 over MX1, test ind_er interval above zero, ind_e point +0.0016). The others: SC1 dev +0.0017, MX45 −0.0011, MXS9 −0.0035, RR2 +0.0005, PG3 −0.0001 (all short of the dev gate or, MX2a, failing the test gate) | output/research-plan/RECIPE | done |
-| R0 | from scratch, 30k steps, no mix, seed 1024 (the control); TRAINING since 01:53, 5 Sep (step 26,600 at 12:55, about 0.7 steps per second) | ranks/incite-nomix-mx1f15-seed1024-last, results/incite/dev/R0.json | 16:00, 5 Sep |
+| R0 | from scratch, 30k steps, no mix, seed 1024 (the control); trained 01:53 to 13:26, 5 Sep, PAUSED at step 27,000 (last checkpoint); resumes with `./RESTART.sh` | ranks/incite-nomix-mx1f15-seed1024-last, results/incite/dev/R0.json | about 3 h after the resume |
 | R1 | THE PAPER MODEL: from scratch, 30k steps, the recipe `configs/incite_recipe_mx1_f15.yaml` (the 15 percent mix in the decay phase), seed 1024 | ranks/incite-recipe-mx1f15-seed1024-last, results/incite/dev/R1.json | 05:30, 6 Sep |
 | X1/X2 | TRIX@20k with their code, best epoch and last (the matched-budget test) | ranks/trix-20k-best/-last | 12:30, 6 Sep |
 | MX2H | the MX2 bundle at half dose with the negative mask (`configs/incite_phase1_4g_synth15_v2.yaml`): dose or distribution; paired against MX15 and MX1 | ranks/incite-4g-synth15v2-last | 18:00, 6 Sep |
