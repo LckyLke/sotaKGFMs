@@ -224,3 +224,44 @@ edges still carry their share through the sum and nothing is separable.
 PG2's hard-pruning curve lost 0.023 at half the edges kept; the same
 curve on PG3's checkpoint (CPU, four DEV10 graphs, 100 queries) runs
 now and is recorded below when it lands.
+
+## PG3's hard-pruning curve (CPU, four DEV10 graphs, 100 queries each, 5 Sep)
+
+`diagnostics/gate_prune_dev.py` on PG3's last checkpoint, FB15k237Inductive
+v1, NELLInductive v1, WN18RRInductive v1, CoDExSmall (`results/incite/gate3_prune_cpu.json`).
+Mean MRR over the four graphs; the random control interpolated at the
+gate's realized kept fraction.
+
+| requested x | realized kept | gate | random at that kept | loss against unpruned |
+| --- | --- | --- | --- | --- |
+| 0 | 1.000 | 0.4871 | 0.4871 | |
+| 0.5 | 0.608 | 0.4612 | 0.3740 | −0.026 |
+| 0.7 | 0.437 | 0.4499 | 0.3146 | −0.037 |
+| 0.8 | 0.332 | 0.4387 | 0.2675 | −0.048 |
+| 0.9 | 0.222 | 0.4053 | 0.2138 | −0.082 |
+| 0.95 | 0.150 | 0.3860 | 0.1671 | −0.101 |
+
+The gate that learned (AUC 0.95 on synthetic proof edges, 90 percent of
+real-graph messages below 0.5) prunes no better than PG2's inert one:
+about 5 percent of the MRR lost at 60 percent of the edges kept, 8
+percent at 44 percent kept, against PG2's 4.5 percent at 53 percent and
+8 percent at 39 percent (different graph sets and query counts, the same
+shape). Far above random pruning, and never free. The closed edges
+carry information the trunk uses through the sum even at a weight of
+0.2, so the soft weighting leaves the accuracy unchanged and the hard cut
+removes it. One graph is the exception: WN18RRInductive v1 keeps 0.557 of
+0.575 with 17 percent of its edges, a sparse hierarchy where few edges
+matter; FB, NELL and CoDEx lose 0.04 to 0.11 at the same fraction.
+
+## Verdict on the gate direction, final
+
+Three experiments, one answer. A gate that cannot close (PG2) is MX1
+within noise; a gate that can and does close (PG3) is MX1 within noise
+in every cell, on the benchmark and on the dev suite; and neither gate's
+ranking allows a free hard cut of the edges. Weighting or removing edges
+by the generator's proof structure changes neither the accuracy nor,
+without a kernel that skips edges and a tolerance for a 5 percent loss,
+the cost. The one durable finding is that the proof labels are learnable
+and transfer as a ranking to real graphs (90 percent of messages gated
+below 0.5 with no harm), which says the trunk is invariant to strong
+per-edge rescaling, not that it needs fewer edges.

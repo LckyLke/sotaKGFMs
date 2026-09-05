@@ -1,0 +1,285 @@
+{
+ "config": "incite_phase1_4g_synth30_gate3.yaml",
+ "ckpt": "/kgfm-src/output/incite-pretrain-4g-synth30-gate3/incite_last.pth",
+ "hashes": [
+  "b21a17ce96c002e7"
+ ],
+ "val_samples": 100,
+ "gate_stats_at_0": {
+  "FB15k237Inductive:v1": {
+   "below_0.5": 0.9182,
+   "mean": 0.2202,
+   "p10": 0.0249
+  },
+  "NELLInductive:v1": {
+   "below_0.5": 0.903,
+   "mean": 0.2701,
+   "p10": 0.0688
+  },
+  "WN18RRInductive:v1": {
+   "below_0.5": 0.9536,
+   "mean": 0.2723,
+   "p10": 0.1164
+  },
+  "CoDExSmall": {
+   "below_0.5": 0.9384,
+   "mean": 0.1253,
+   "p10": 0.0168
+  }
+ },
+ "cells": [
+  {
+   "prune_frac": 0.0,
+   "random_control": false,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.4946,
+    "NELLInductive:v1": 0.4821,
+    "WN18RRInductive:v1": 0.5753,
+    "CoDExSmall": 0.3966
+   },
+   "dev10_groups": {
+    "ind_e": 0.5173,
+    "ind_er": 0.0,
+    "transductive": 0.3966
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 1.0,
+    "NELLInductive:v1": 1.0,
+    "WN18RRInductive:v1": 1.0,
+    "CoDExSmall": 1.0
+   },
+   "kept_mean": 1.0,
+   "seconds": 35.1
+  },
+  {
+   "prune_frac": 0.5,
+   "random_control": false,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.471,
+    "NELLInductive:v1": 0.4296,
+    "WN18RRInductive:v1": 0.5659,
+    "CoDExSmall": 0.3784
+   },
+   "dev10_groups": {
+    "ind_e": 0.4888,
+    "ind_er": 0.0,
+    "transductive": 0.3784
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.6288,
+    "NELLInductive:v1": 0.5921,
+    "WN18RRInductive:v1": 0.6094,
+    "CoDExSmall": 0.6019
+   },
+   "kept_mean": 0.608,
+   "seconds": 28.9
+  },
+  {
+   "prune_frac": 0.5,
+   "random_control": true,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.3905,
+    "NELLInductive:v1": 0.3122,
+    "WN18RRInductive:v1": 0.3374,
+    "CoDExSmall": 0.3314
+   },
+   "dev10_groups": {
+    "ind_e": 0.3467,
+    "ind_er": 0.0,
+    "transductive": 0.3314
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.5,
+    "NELLInductive:v1": 0.5,
+    "WN18RRInductive:v1": 0.5,
+    "CoDExSmall": 0.5
+   },
+   "kept_mean": 0.5,
+   "seconds": 27.7
+  },
+  {
+   "prune_frac": 0.7,
+   "random_control": false,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.4614,
+    "NELLInductive:v1": 0.4242,
+    "WN18RRInductive:v1": 0.5662,
+    "CoDExSmall": 0.3479
+   },
+   "dev10_groups": {
+    "ind_e": 0.4839,
+    "ind_er": 0.0,
+    "transductive": 0.3479
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.4499,
+    "NELLInductive:v1": 0.4255,
+    "WN18RRInductive:v1": 0.448,
+    "CoDExSmall": 0.4245
+   },
+   "kept_mean": 0.437,
+   "seconds": 28.1
+  },
+  {
+   "prune_frac": 0.7,
+   "random_control": true,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.3426,
+    "NELLInductive:v1": 0.1876,
+    "WN18RRInductive:v1": 0.1988,
+    "CoDExSmall": 0.2832
+   },
+   "dev10_groups": {
+    "ind_e": 0.243,
+    "ind_er": 0.0,
+    "transductive": 0.2832
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.3,
+    "NELLInductive:v1": 0.3,
+    "WN18RRInductive:v1": 0.3,
+    "CoDExSmall": 0.3
+   },
+   "kept_mean": 0.3,
+   "seconds": 27.6
+  },
+  {
+   "prune_frac": 0.8,
+   "random_control": false,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.4632,
+    "NELLInductive:v1": 0.4049,
+    "WN18RRInductive:v1": 0.5624,
+    "CoDExSmall": 0.3244
+   },
+   "dev10_groups": {
+    "ind_e": 0.4768,
+    "ind_er": 0.0,
+    "transductive": 0.3244
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.3626,
+    "NELLInductive:v1": 0.3437,
+    "WN18RRInductive:v1": 0.2816,
+    "CoDExSmall": 0.3409
+   },
+   "kept_mean": 0.3322,
+   "seconds": 28.8
+  },
+  {
+   "prune_frac": 0.8,
+   "random_control": true,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.2833,
+    "NELLInductive:v1": 0.1374,
+    "WN18RRInductive:v1": 0.1376,
+    "CoDExSmall": 0.2516
+   },
+   "dev10_groups": {
+    "ind_e": 0.1861,
+    "ind_er": 0.0,
+    "transductive": 0.2516
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.2,
+    "NELLInductive:v1": 0.2,
+    "WN18RRInductive:v1": 0.2,
+    "CoDExSmall": 0.2
+   },
+   "kept_mean": 0.2,
+   "seconds": 27.9
+  },
+  {
+   "prune_frac": 0.9,
+   "random_control": false,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.4137,
+    "NELLInductive:v1": 0.3682,
+    "WN18RRInductive:v1": 0.5569,
+    "CoDExSmall": 0.2825
+   },
+   "dev10_groups": {
+    "ind_e": 0.4463,
+    "ind_er": 0.0,
+    "transductive": 0.2825
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.2695,
+    "NELLInductive:v1": 0.2341,
+    "WN18RRInductive:v1": 0.1708,
+    "CoDExSmall": 0.2151
+   },
+   "kept_mean": 0.2224,
+   "seconds": 27.5
+  },
+  {
+   "prune_frac": 0.9,
+   "random_control": true,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.2383,
+    "NELLInductive:v1": 0.0553,
+    "WN18RRInductive:v1": 0.043,
+    "CoDExSmall": 0.1926
+   },
+   "dev10_groups": {
+    "ind_e": 0.1122,
+    "ind_er": 0.0,
+    "transductive": 0.1926
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.1,
+    "NELLInductive:v1": 0.1,
+    "WN18RRInductive:v1": 0.1,
+    "CoDExSmall": 0.1
+   },
+   "kept_mean": 0.1,
+   "seconds": 28.0
+  },
+  {
+   "prune_frac": 0.95,
+   "random_control": false,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.3764,
+    "NELLInductive:v1": 0.3215,
+    "WN18RRInductive:v1": 0.5606,
+    "CoDExSmall": 0.2854
+   },
+   "dev10_groups": {
+    "ind_e": 0.4195,
+    "ind_er": 0.0,
+    "transductive": 0.2854
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.223,
+    "NELLInductive:v1": 0.1201,
+    "WN18RRInductive:v1": 0.1364,
+    "CoDExSmall": 0.1188
+   },
+   "kept_mean": 0.1496,
+   "seconds": 29.0
+  },
+  {
+   "prune_frac": 0.95,
+   "random_control": true,
+   "dev10": {
+    "FB15k237Inductive:v1": 0.232,
+    "NELLInductive:v1": 0.026,
+    "WN18RRInductive:v1": 0.0303,
+    "CoDExSmall": 0.1149
+   },
+   "dev10_groups": {
+    "ind_e": 0.0961,
+    "ind_er": 0.0,
+    "transductive": 0.1149
+   },
+   "kept": {
+    "FB15k237Inductive:v1": 0.0501,
+    "NELLInductive:v1": 0.05,
+    "WN18RRInductive:v1": 0.05,
+    "CoDExSmall": 0.05
+   },
+   "kept_mean": 0.05,
+   "seconds": 28.1
+  }
+ ]
+}
