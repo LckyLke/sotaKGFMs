@@ -1,4 +1,4 @@
-# Takeover — 2026-09-03, 21:07 (day 7)
+# Takeover — 2026-09-05, 08:30 (day 9)
 
 Goal: a novel, publishable KGFM that beats TRIX and FLOCK on the 41-graph
 zero-shot inductive suite, with seed spread and matched pretraining data.
@@ -22,128 +22,135 @@ The incite worktree symlinks `output/` and `data/roots` to the main
 worktree's copies. `output/` (training dirs, logs) and `data/` are not in
 git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 
-## Live state right now (2026-09-03, 21:07) and how the session operates
+## Live state right now (2026-09-05, 08:30) and how the session operates
 
-* **Best single model:** MX1, the 4-graph backbone continued with 30
-  percent synthetic rules-prior steps: 0.4606 / 0.3851 (ind_e / ind_er),
-  TRIX 0.4562 / 0.3679. Checkpoint `checkpoints/incite-4g-synth30-last-step30k.pth`.
-  Single seed. The independent review (below, and `docs/REVIEW_2026-09-03.md`)
-  found the SOTA claim does not hold as stated: at matched diet INCITE
-  ties TRIX, the ind_er margin is diet plus decay (L1 has it too), the
-  prior adds +0.0046 on ind_e. The defensible paper is about what a
-  synthetic structural prior teaches a KGFM.
-* **What runs (unattended, verified):** `scripts/research_plan_v15.sh`
-  (launched 21:00, took over from v12 at PG2's boundary at 22:11) ran
-  SC1; `scripts/research_plan_v16.sh` (launched 23:16, pid 3755228) took
-  over at SC1's boundary (02:04, 4 Sep) and ran D0W, FMX, MX15 and MX45;
-  `scripts/research_plan_v17.sh` (launched 08:47, pid 4072791) took over
-  at MX45's boundary (11:43), ran MXS9 and MX2a; `scripts/research_plan_v18.sh`
-  (launched 15:05, pid 140885) took over at MX2a's boundary (18:35), ran
-  SW1, RR2 and PG3, wrote the recipe (`mx1f15`, 01:53, 5 Sep) and trains
-  R0, the no-mix control, from scratch; R1 (the paper model, the 15
-  percent mix in the decay phase) follows, then X1/X2, MX2H, the seeds,
-  the chores, R1L. v18 = v17 plus stage SW1 (evaluation only, no training): the
-  combination probe's two one-pass checkpoints, the round-wise swap of
-  L1's rounds 0-2 with MX15's rounds 3-5 and the 0.5 soup of L1 and
-  MX15 (`output/incite-combo/soups/`, results/incite/COMBINATION_PROBE.md),
-  dev suite for both, the 41 graphs for one within 0.002 of MX15's dev
-  number; not recipe candidates. v17 = v16 plus stage PG3
-  (Luke's call, 4 Sep: the gate that can close, bias 2 and the two-sided
-  proof loss, `configs/incite_phase1_4g_synth30_gate3.yaml`), a recipe
-  candidate after RR2 and before the decision (mx1gate3). A fourth
-  verifier APPROVED PG3's code and v17 with no blocking finding; its
-  points are applied (the negative weight 0.29 makes the identity a
-  stationary point of the proof loss, the gate's start bias is saved in
-  the checkpoint, a lever tensor the config does not build is an error
-  on load). Deferred until PG3 shows a gain: a twin with the proof loss
-  off (gate trained by the task loss alone), which would attribute the
-  gain to the generator's supervision. v16 = v15 plus
-  stage D0W (the four reference dev numbers under the stratified
-  protocol, see Protocol) and a guard: the recipe decision refuses
-  uniform dev files, and a failed D0W sets `output/research-plan/RECIPE_HOLD`
-  so the decision waits for a person. A second independent verifier
-  APPROVED v15 after its fixes (the dev-suite call used `$ALLOC` as a
-  command; MX15 had no dev number); a third verifier APPROVED the
-  stratified `dev_eval.py` and v16 with no blocking finding (its
-  non-blocking points are applied: eight direction-by-scenario cells,
-  the hold, the recorded expectation for D0W). Order: PG2, PG2P (pruning
-  curve with the realized kept fraction and a random control), D0 (dev
-  numbers of L1, MX1, G1, L2), SC1 (the scenario-conditioned readout,
-  the review's first direction), D0W, FMX (the 3-graph floor plus the
-  mix: matched diet), MX15
-  and MX45 (dose curve), MXS9 (share 0.9), MX2a (relation blocks alone),
-  RR2 (rule recovery at weight 0.2 on MX2a), the recipe decision, R0 and
-  R1 from scratch at seed 1024, X1/X2 (TRIX at 20k), MX2H (the MX2
-  bundle at half dose), the seeds 1337 and 7 of R1 and R0, the chores,
-  R1L (60k). Expected end: 11 Sep. The plan table below has the ETAs.
-* **Protocol:** every lever gets a DEV-SUITE verdict first
+* **Best single model:** MX15, the 4-graph backbone continued for 10k
+  decay steps with 15 percent synthetic rules-prior steps: 0.4621 /
+  0.3893 (ind_e / ind_er); TRIX 0.4562 / 0.3679; the no-mix baseline L1
+  0.4560 / 0.3852. Single seed, a continuation. Its recipe is THE RECIPE
+  (`output/research-plan/RECIPE` = `mx1f15`, decided 01:53, 5 Sep, by the
+  recorded rule below): the paper model R1 is that recipe trained from
+  scratch (30k steps, the mix in the decay phase only), its control R0
+  the same without the mix, at seeds 1024, 1337 and 7.
+* **What we know (the week's verdicts, each with a note under
+  `results/incite/`):**
+  * The synthetic rules prior lifts the unseen-answer cells everywhere
+    it was measured (benchmark, dev suite, carved inductive splits) and
+    pays on the seen-answer cells everywhere too. On the benchmark the
+    trade is net positive at 15 percent dose (MX15 over L1 +0.0062 /
+    +0.0040, both intervals above zero), flat at 30 (MX1), negative at 45
+    (MX45: DOSE_CURVE.md). Outside the benchmark it is net negative at
+    every dose (DEV_SUITE.md), and on the benchmark the gain sits on the
+    diet's own Freebase and NELL families. Until R0 versus R1 at three
+    seeds lands, the honest description is a diet-family effect with a
+    seen-answer cost, not a general structural prior.
+  * A model trained on the prior alone reaches 86 / 82 percent of
+    ULTRA-3g with no real graph (P1). At matched 3-graph diet the mix
+    brings INCITE exactly to TRIX on ind_e (FMX). The ind_er margin over
+    TRIX is the fourth diet graph plus the decay (L1 has it).
+  * Closed directions, each MX1 within noise or worse: the proof-guided
+    gate three ways (PG2 inert by construction; PG3 learned the proof
+    concept at AUC 0.95 and gated 90 percent of real-graph messages below
+    half weight with NO change in any cell; neither gate's ranking allows
+    a free hard cut of the edges: GATE_RESULT.md); the scenario-
+    conditioned readout (SC1, the head stayed at zero); the rule-recovery
+    head (RR2, learns the rules, costs the seen-answer cells); isolated
+    relation blocks (MX2a, half of MX2's loss); the 90 percent unseen-
+    answer share (MXS9); the unary channel on top of the mix (MXG1);
+    half-link masking (M1, M2); every score-level or weight-level
+    combination of L1 with MX1 or MX15 (COMBINATION_PROBE.md, SWAP_SOUP_RESULT.md:
+    the swap keeps L1's seen-answer cells and a third of the unseen gain,
+    below MX15; the 0.5 soup ties MX15 at one pass); same-encoder
+    in-context readouts (phase 2.2). The in-context family (KG-ICL, KGPFN)
+    sits below MX15 on every scenario cell of the benchmark and wins per
+    graph family, not per scenario.
+  * The independent review's minimum set for a defensible claim: a
+    disjoint dev suite (done, stratified), R0/R1 at three seeds (running),
+    a matched-diet comparison (FMX, done), X1/X2 (queued), the mechanism
+    figure (dose curve, scenario tables, family tables, P1: done).
+* **What runs (unattended):** `scripts/research_plan_v18.sh` (pid 140885,
+  launched 15:05 on 4 Sep, took over from v17 at MX2a's boundary). It ran
+  SW1, RR2 and PG3, wrote the recipe, and trains R0 (from scratch, no
+  mix, seed 1024) since 01:53. Then R1 (the paper model), X1/X2 (TRIX at
+  20k with their code, the matched-budget test), MX2H (the MX2 bundle at
+  half dose with the negative mask), the seeds R1S2/R0S2/R1S3/R0S3, the
+  chores E4/E5/E6/F0, R1L (the recipe at 60k). Expected end: about 10
+  Sep. The plan table below has the ETAs; stages have run about 1.5
+  times faster than the ETAs written on 3 Sep. Every plan version since
+  v15 was read by an independent verifier agent before it ran (v15, the
+  stratified dev suite and v16, PG3 and v17); v18 added an evaluation-only
+  stage. Nothing else runs on the GPU; CPU studies (the combination
+  probe, the gate probes) run in containers on the CPU only.
+* **Protocol:** every lever got a DEV-SUITE verdict first
   (`diagnostics/dev_eval.py`: valid splits of eight transductive graphs
-  outside the diet and the 41 test graphs, NELL23k left out as a NELL995
-  derivative; `results/incite/dev/<stage>.json`, with `mean`, `graphs`,
-  `complete`), then its 41-graph dump. Since D0 landed (22:48, 3 Sep) the
-  dev number is STRATIFIED (`protocol: stratified_v2`): up to 300 queries
-  per (direction, half-link scenario) cell, the eight cell MRRs combined
-  with the benchmark's (direction, scenario) weights (tail SQSA 0.177,
-  SQUA 0.088, UQSA 0.196, UQUA 0.039; head with SQUA and UQSA mirrored;
-  pooled SQSA 0.353, SQUA 0.284, UQSA 0.284, UQUA 0.079), cells under 10
-  queries left out, every cell's MRR and count in the file, the graph's
-  own mix beside it as `graphs_natural`
-  (results/incite/DEV_SUITE.md). The expectation recorded before D0W
-  (MX1 within ±0.002 of L1) FAILED: MX1 is 0.0068 below L1 stratified,
-  because the prior's unseen-answer gains do not transfer to graphs
-  outside the benchmark while its seen-answer costs do (see the dev table
-  below the state table). The dev gate therefore favours candidates that
-  reduce the prior's cost (MX15) over ones that intensify it; disclosed,
-  kept: a test-set argmax is the alternative the review ruled out.
-  `--split inductive` (analysis only, protocol `inductive_v3`) carves
-  sparse inference splits out of the dev graphs; it agrees.
-  Why the uniform sample failed first: the uniform 1,000-query sample
-  is 80 to 90 percent seen-answer queries, the cells where the prior
-  costs, and it ranked MX1 0.0084 BELOW L1 while the benchmark (61 / 66
-  percent seen-answer) ranks it above; a proxy that would have rejected
-  the best model cannot pick its successor. Every recipe candidate lands
-  before the recipe decision; the paper-model runs come after all of
-  them; the recipe is fixed once.
-* **The recipe rule (recorded in the plan):** MX1's recipe, the mix in
-  the decay phase only (`synth.start_step 20001`), plus AT MOST ONE
-  modification. Among SC1, MX15, MX45, MXS9, RR2 and PG3 a candidate is
-  accepted if its stratified dev number beats MX1's by at least 0.003 on
-  the graphs both have (at least six) AND its paired 41-graph interval
-  against MX1 is above zero on one group with the other group's point
-  estimate above −0.002; the accepted candidate with the largest
-  dev-suite gain wins. Never an untested combination (the MX2 lesson).
-  The decision and its reasons go to `output/research-plan/RECIPE`.
+  outside the diet and the 41 test graphs; `results/incite/dev/<stage>.json`;
+  `protocol: stratified_v2`: up to 300 queries per (direction, half-link
+  scenario) cell, the eight cell MRRs combined with the benchmark's
+  (direction, scenario) weights, cells under 10 queries left out, every
+  cell's MRR and count in the file, the graph's own mix beside it as
+  `graphs_natural`; DEV_SUITE.md has the weights and the history: the
+  uniform sample of 3 Sep was 80 to 90 percent seen-answer queries and
+  ranked MX1 below L1, the stratified one still does, because the
+  prior's unseen-answer gains do not transfer while its costs do), then
+  its 41-graph dump. `--split inductive` (protocol `inductive_v3`,
+  analysis only) carves sparse inference splits out of the dev graphs.
+  The from-scratch runs R0 and R1 and their seeds get dev numbers too.
+* **The recipe rule (recorded in the plan, applied 01:53, 5 Sep):** MX1's
+  recipe, the mix in the decay phase only (`synth.start_step 20001`),
+  plus AT MOST ONE modification, accepted if its stratified dev number
+  beats MX1's by at least 0.003 on the graphs both have (at least six)
+  AND its paired 41-graph interval against MX1 is above zero on one group
+  with the other group's point estimate above −0.002; the accepted
+  candidate with the largest dev gain wins. Outcome: `mx1f15` (MX15, dev
+  +0.0036, test ind_er interval above zero). SC1 dev +0.0017, MX45
+  −0.0011, MXS9 −0.0035, RR2 +0.0005, PG3 −0.0001 fell short of the dev
+  gate; MX2a (dev +0.0051) failed the test gate. The dev gate favours
+  candidates that reduce the prior's cost over ones that intensify it;
+  disclosed and kept, because a test-set argmax is the alternative the
+  review ruled out.
 * **How to intervene:** `touch output/research-plan/SEEDS_HOLD` holds
   the seed stages R1S2/R0S2/R1S3/R0S3 and R1L (R0 and R1 still run).
-  `output/research-plan/RECIPE_HOLD` (set by a failed D0W, or by hand)
-  holds the recipe decision and everything after it. A
-  stage is skipped by its marker in `output/research-plan/`; delete
-  `<stage>.failed` to retry it on a relaunch (`./RESTART.sh` launches
-  only the plan). Delete `output/research-plan/RECIPE` to redo the recipe
-  decision. Never edit a running plan script: write the next version
-  with the boundary takeover and launch it.
+  `output/research-plan/RECIPE_HOLD` holds the recipe decision (moot now:
+  the decision is written; delete `output/research-plan/RECIPE` to redo
+  it). A stage is skipped by its marker in `output/research-plan/`;
+  delete `<stage>.failed` to retry it on a relaunch (`./RESTART.sh`
+  launches only the plan, currently v18). Never edit a running plan
+  script: write the next version with the boundary takeover and launch
+  it; a version launched while the predecessor is between stages waits
+  through the predecessor's next stage (v18 did, harmlessly).
 * **Per-stage ritual** (what the session does when a stage lands, in
   this order): read `results/incite/dev/<stage>.json` against its paired
   reference's dev number FIRST; then `scripts/paired_bootstrap.py
-  <new-last> <reference>` (levers: MX1; FMX: L2 and TRIX; RR2: MX2a and
-  MX1; R1: R0 and TRIX) and versus `ranks/trix`; `scripts/halflink_report.py
-  --labels ../sotaKGFMs-incite/results/incite/halflink_labels.json
-  name=dir ...` for the per-scenario table; a result note under
-  `results/incite/`; a checkpoint into `checkpoints/` with a README row
-  only if it is a recipe candidate that won; the state table and the
-  plan table here; commit and push both branches (`git push origin
-  incite` from the incite worktree; the remote push URL is SSH). For
-  PG2P: a gate curve counts only where it beats the random control at
-  the same realized kept fraction.
+  <new-last> <reference>` (R1: R0 and TRIX and MX15; the seed repeats:
+  their own R0 and the seed-1024 pair; X1/X2: L1 and the 4g-20k
+  checkpoint; MX2H: MX15 and MX1) and versus `ranks/trix`;
+  `scripts/halflink_report.py --labels
+  ../sotaKGFMs-incite/results/incite/halflink_labels.json name=dir ...`
+  for the per-scenario table; a result note under `results/incite/`; a
+  checkpoint into `checkpoints/` with a README row for R1 and its seeds;
+  the state table and the plan table here; commit and push both branches
+  (`git push origin incite` from the incite worktree; the remote push URL
+  is SSH). For R1 against R0 at three seeds, also the family table
+  (FB/NELL/WK/WN/other) and the carved inductive dev number
+  (`dev_eval.py --split inductive`, CPU), the two views that decide the
+  paper's framing.
+* **Open decision for Luke:** whether the paper model keeps the mix at
+  all, once R0 versus R1 at three seeds is in (benchmark, dev suite,
+  carved splits). The queue produces both; the framing follows the
+  result. Luke's framing of the field (4 Sep): "structural" = the
+  propagation family (TRIX, ULTRA, our trunk), "in-context" = the
+  prompt/example family (KG-ICL, KGPFN); he believes the right fusion is
+  still unfound. The combination probe's designs and the scenario-
+  conditioned trunk with a training signal are the candidates for after
+  the seeds (section "Directions NOT covered").
 * **Watchers alive on this machine:** only the plan and a Monitor on
   `output/research-plan/log.txt` that wakes the session on DONE/FAILED
-  lines. The snapshot watcher and the KGPFN suite are gone; nothing is
-  gated on them. Do not start another GPU job.
+  lines. Do not start another GPU job.
 * **Memory notes for the session** live in
   `~/.claude/projects/-home-lukef-Dokumente-GitHub-sotaKGFMs/memory/`
   (validate before building; never edit running scripts; idempotent
   queues; objective fixes get built, hypotheses get a paired run; every
-  recipe candidate before the paper-model runs).
+  recipe candidate before the paper-model runs; ask before reprioritizing).
 
 ## The state in one table (41 inductive graphs, test splits, seed 1024, LAST checkpoints unless stated)
 
@@ -156,7 +163,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | KG-ICL | 0.4240 | 0.3722 | matched convention |
 | TRIX | 0.4562 | 0.3679 | released, about 100k steps |
 | FLOCK | 0.4558 | 0.3674 | 40 of 41 graphs (ind_er over 22) |
-| KGPFN | 29 of 41 | | at TRIX level on the graphs done; background |
+| KGPFN | 29 of 41 | | at TRIX level on the graphs done; the suite is stopped |
 | INCITE floor (3g, 20k steps) | 0.4553 | 0.3740 | DEV10-best checkpoint (17k); the last checkpoint (20k) is 0.4533 / 0.3749 |
 | INCITE floor-family soup | 0.4571 | 0.3775 | average of four floor descendants; the best matched-diet (3g) row |
 | INCITE floor + 10k decay (L2), last | 0.4510 | 0.3745 | no gain at 3 graphs (results/incite/DECAY_RESULT.md) |
@@ -181,6 +188,7 @@ git. Checkpoints that matter are in `checkpoints/` on the incite branch.
 | INCITE 4g + masked continuation, dose 1 (M1) | 0.4420 | 0.3604 | NEGATIVE, see below |
 | INCITE 4g + masked continuation, dose 2 (M2, cap 10) | 0.4384 | 0.3629 | NEGATIVE; after 1,000 masked steps the unseen-answer cells rose +0.03 at a −0.035 SQSA cost, then inverted |
 | INCITE v1 composite (walks+synth+joint) | 0.4500 | 0.3659 | below TRIX on entity; relation ind_er 0.8484 beats TRIX's specialist (0.8415) |
+| **INCITE trained on the synthetic rules prior ONLY** (P1, 10k steps, 41 min) | **0.3593** | **0.2795** | no real KG seen; 86 / 82 percent of ULTRA-3g; strong on unseen-answer cells, weak on seen-answer ones; results/incite/SYNTH_PILOT_RESULT.md |
 
 The dev suite so far (eight transductive valid splits outside the diet
 and the benchmark; results/incite/DEV_SUITE.md):
@@ -230,7 +238,6 @@ change for it (R0 is the no-mix control at every seed, with dev
 numbers), but the framing does. The fourth diet graph adds nothing on
 the transductive valid splits (L2 equals L1) and 0.020 on the carved
 inductive splits.
-| **INCITE trained on the synthetic rules prior ONLY** (P1, 10k steps, 41 min) | **0.3593** | **0.2795** | no real KG seen; 86 / 82 percent of ULTRA-3g; strong on unseen-answer cells, weak on seen-answer ones; results/incite/SYNTH_PILOT_RESULT.md |
 
 Relation task (unfiltered protocol): TRIX 0.7564 / 0.8415, INCITE joint
 0.7286 / 0.8222, v1 composite ind_er 0.8484. PETALS: v1 94.6 / 98.6
@@ -312,42 +319,37 @@ matched-diet comparison (FMX), X1/X2, the mechanism figure.
    losses on ind_er graphs, at 3.6x eval cost. Queued late (E4/E5).
 7. **Dead levers, closed:** same-encoder in-context support readouts
    (twice), unsupervised walks, KGPFN-style in-context inference as a
-   bolt-on (KGPFN itself sits at TRIX level here on 13 graphs).
+   bolt-on (KGPFN itself sits at TRIX level here on 13 graphs); and,
+   this week, the proof-guided gate (PG2, PG3 and both pruning curves),
+   the scenario-conditioned readout (SC1), the rule-recovery head (RR2),
+   isolated relation blocks (MX2a), the 90 percent unseen-answer share
+   (MXS9), the unary channel on top of the mix (MXG1), and every
+   inference-time or weight-level combination of L1 with MX1 or MX15
+   (the combination probe and SW1).
 8. **Hard negatives are published** (KMAS, arXiv 2605.27023, +0.005 to
    +0.009 for every KGFM): a citation, not a contribution.
-9. **The synthetic rules prior transfers** (P1): a model trained on no
-   real KG reaches 0.3593 / 0.2795 on the 41 real graphs, at one seventh
-   of the per-step cost, and its scenario profile complements real data
-   (matches or beats ULTRA-3g on the unseen-answer cells, trails by 0.08
-   to 0.13 on seen-answer cells). The mixing run MX1 tests whether that
-   complement adds to the reference; the full 25/75/100 sweep waits for
-   it. MX1 (the 4-graph continuation with 30 percent synthetic steps)
-   confirmed it: ind_e +0.0046 [+0.0002, +0.0092] over the reference,
-   both-unseen cell +0.065 on both groups, seen-answer cells −0.012 to
-   −0.017, ind_er net flat. THE mechanism candidate for the paper:
-   realistic unseen-answer supervision from the prior. Mix + unary (MXG1,
-   0.4593 / 0.3852) showed the unary channel is redundant with the mix:
-   the same scenario profile, −0.001 on ind_e versus MX1. The
-   generator-side bundle (MX2) LOST on both groups (0.4512 / 0.3717): the
-   synthetic-step loss doubled, the dose of the prior rose, every cell
-   fell; the bundle is being bisected (MX2a blocks only, MX2b uniform
-   negatives and positives only; results/incite/SYNTH_V2_RESULT.md). The
-   prior's value comes from being a mild complementary signal, not from
-   matching the real objective. Next: the
-   generator-side fixes (MX2: MX1's synthetic steps scored
-   one positive against ONE negative while real steps score 512; now 64
-   certified negatives, half of them structurally close, per-instance
-   relation blocks, full-closure positives), the 15 percent dose (MX15),
-   then a from-scratch run with the mix as the recipe and its seeds.
-   Measured on the prior (`results/incite/SYNTH_V2_DESIGN.md`): the
-   natural query draw is already 47 percent unseen-answer, above the
-   benchmark's 37 percent, so scenario targeting is a knob
-   (`unseen_answer_share`), not a fix.
+9. **The synthetic rules prior: what it does and where.** A model
+   trained on it alone reaches 0.3593 / 0.2795 on the 41 real graphs (P1,
+   86 / 82 percent of ULTRA-3g), strong on the unseen-answer cells, weak
+   on the seen-answer ones. Mixed into the 4-graph continuation it lifts
+   the unseen-answer cells (+0.06 on the both-unseen cell at 30 percent)
+   and costs the seen-answer cells, and the net depends on the dose and
+   the graphs: 15 percent is the optimum on the benchmark (MX15 over L1
+   +0.0062 / +0.0040, both intervals above zero; DOSE_CURVE.md), 30 is
+   flat, 45 negative; outside the benchmark every dose is net negative
+   (DEV_SUITE.md), and on the benchmark the gain sits on the diet's own
+   Freebase and NELL families. Everything built on top of the plain mix
+   lost or tied: the generator-side bundle (MX2) and its halves (MX2a;
+   MX2H queued), the unseen-answer share (MXS9), the gate (PG2, PG3), the
+   rule head (RR2), the readout (SC1). The prior's value comes from being
+   a mild complementary signal. The paper's mechanism figure is the dose
+   curve, the scenario tables, the family table and P1; the paper's
+   claim waits for R0 versus R1 at three seeds.
 10. **Seed spread is the missing number.** Same-architecture runs swing by
    up to 0.10 MRR on single graphs; the only statistics we have are
    graph-level bootstraps. Three seeds of the winner are in the plan.
 
-## Running on this machine: `scripts/research_plan_v15.sh` (markers in output/research-plan/)
+## Running on this machine: `scripts/research_plan_v18.sh` (markers in output/research-plan/)
 
 Stages are idempotent (v4 fixed a relaunch that wiped a finished run; a
 `trained` guard skips a finished training). `./RESTART.sh` relaunches the
@@ -382,13 +384,13 @@ phase only):
 | RR2 | rule recovery at weight 0.2: DONE (22:28, 4 Sep), 0.4521 / 0.3773, rejected (results/incite/RULES_RECOVERY_RESULT.md) | ranks/incite-4g-synth30-iso-rules-last, results/incite/dev/RR2.json | done |
 | PG3 | the gate that can close: DONE (01:53, 5 Sep), 0.4596 / 0.3857, MX1 within noise with a gate that did learn; its hard-pruning curve is PG2's shape (−0.026 at 61 percent of the edges kept): the gate direction is closed for good (results/incite/GATE_RESULT.md) | ranks/incite-4g-synth30-gate3-last, results/incite/dev/PG3.json | done |
 | recipe | DECIDED (01:53, 5 Sep) by the recorded rule: `mx1f15` (MX15: dev +0.0036 over MX1, test ind_er interval above zero, ind_e point +0.0016). The others: SC1 dev +0.0017, MX45 −0.0011, MXS9 −0.0035, RR2 +0.0005, PG3 −0.0001 (all short of the dev gate or, MX2a, failing the test gate) | output/research-plan/RECIPE | done |
-| R0 | from scratch, 30k steps, no mix, seed 1024 (the control); TRAINING since 01:53, 5 Sep | ranks/incite-nomix-mx1f15-seed1024-last, results/incite/dev/R0.json | 10:30, 5 Sep |
+| R0 | from scratch, 30k steps, no mix, seed 1024 (the control); TRAINING since 01:53, 5 Sep (step 26k at 08:30) | ranks/incite-nomix-mx1f15-seed1024-last, results/incite/dev/R0.json | 10:30, 5 Sep |
 | R1 | THE PAPER MODEL: from scratch, 30k steps, the recipe `configs/incite_recipe_mx1_f15.yaml` (the 15 percent mix in the decay phase), seed 1024 | ranks/incite-recipe-mx1f15-seed1024-last, results/incite/dev/R1.json | 19:30, 5 Sep |
-| X1/X2 | TRIX@20k with their code, best epoch and last (the matched-budget test) | ranks/trix-20k-best/-last | 02:30, 7 Sep |
-| MX2H | the MX2 bundle at half dose with the negative mask (`configs/incite_phase1_4g_synth15_v2.yaml`): dose or distribution | ranks/incite-4g-synth15v2-last | 08:00, 7 Sep |
-| R1S2, R0S2, R1S3, R0S3 | the recipe and its control at seeds 1337 and 7; `touch output/research-plan/SEEDS_HOLD` holds them | ranks/incite-{recipe,nomix}-<recipe>-seed{1337,7}-last | 16:00, 9 Sep |
-| E4/E5/E6, F0 | re-ranked dumps (k=8), score ensemble of four trunks, FLOCK FBIngram:25 | ranks/incite-*-rerank, incite-ens4, flock 41/41 | 22:00, 9 Sep |
-| R1L | the recipe at 60k steps (40k constant, 20k decay), one seed; held by SEEDS_HOLD | ranks/incite-recipe-<recipe>-60k-seed1024-last | 01:00, 11 Sep |
+| X1/X2 | TRIX@20k with their code, best epoch and last (the matched-budget test) | ranks/trix-20k-best/-last | 02:30, 6 Sep |
+| MX2H | the MX2 bundle at half dose with the negative mask (`configs/incite_phase1_4g_synth15_v2.yaml`): dose or distribution; paired against MX15 and MX1 | ranks/incite-4g-synth15v2-last | 08:00, 6 Sep |
+| R1S2, R0S2, R1S3, R0S3 | the recipe and its control at seeds 1337 and 7 (each with its own synthetic seed, `--synth_seed`); `touch output/research-plan/SEEDS_HOLD` holds them | ranks/incite-{recipe,nomix}-mx1f15-seed{1337,7}-last | 16:00, 8 Sep |
+| E4/E5/E6, F0 | re-ranked dumps (k=8), score ensemble of four trunks, FLOCK FBIngram:25 | ranks/incite-*-rerank, incite-ens4, flock 41/41 | 22:00, 8 Sep |
+| R1L | the recipe at 60k steps (40k constant, 20k decay), one seed; held by SEEDS_HOLD | ranks/incite-recipe-mx1f15-60k-seed1024-last | 01:00, 10 Sep |
 
 Nothing else runs on this GPU. Do NOT start another training run on it.
 Evals of 1 to 3 GB are fine, but only after two low memory readings three
@@ -423,22 +425,27 @@ without conflicts.
    disagree at Hits@10 on 6 to 8 percent of queries. Distil the score
    ensemble (E6 gives its realistic gain) into a single INCITE model on
    the pretraining graphs.
-6. **Use more of what the generator knows.** The MX2 fixes, the
-   scenario-mix run (MXS), the rule-recovery loss (RR1) and step 1 of
-   proof-guided propagation (PG1, the gate; PG1P, its pruning curve) are
-   built, tested and queued in plan v10. What remains:
-   * *Sparse propagation (step 3).* If `results/incite/gate_prune.json`
-     shows DEV10 MRR flat to 60 or 80 percent pruning, build A*Net-style
-     per-query edge subsets with their own kernels (about a week) for
-     larger batches or more rounds on 16 GB. Do not start before the
-     curve exists. The gate is factorized (node scale times relation
-     scale, `EdgeGate`), so it rides the fused kernel unchanged today.
-   * *Synthetic dev set.* A fixed held-out instance pool at another seed
-     replaces DEV10 for every selection or calibration choice, so no
-     benchmark graph is touched at all. DEV10 selection buys nothing, so
-     this costs nothing.
-   * *Ablations of the MX2 bundle* if MX2 loses to MX1: relation blocks
-     off first, then hard negatives (SYNTH_V2_DESIGN.md).
+6. **After the seeds, the two directions the week's negatives point
+   at** (neither is queued; both need a training run):
+   * *A scenario-conditioned trunk with a training signal in which the
+     indicator matters.* The combination probe showed the final node
+     states carry the answer-half indicator with AUC 1.0 and that no head
+     on top of frozen trunks uses it (SC1 failed for lack of contrast in
+     the training graphs, not for lack of signal). Half-link masking or
+     the generator's unseen-answer share would supply the contrast; the
+     scenario features already exist (`scenario_features`).
+   * *Propagation plus in-context relation evidence, design B of
+     COMBINATION_PROBE.md*: prompt-graph rule-body evidence fed into the
+     relation step. Its premise test (a CPU half-day) is specified there
+     and not yet run. Do not rebuild a same-encoder support readout
+     (phase 2.2) or a per-relation calibration from pseudo-queries
+     (design A, negative).
+   * *The prior as the pretraining stage with a scaling curve* (the
+     review's direction 2): P1 at 30k and 60k with decay, dim 64, larger
+     instances; the positioning against GraphPFN and RDB-PFN.
+   * Closed for good, do not reopen without new evidence: sparse
+     propagation through the gate (three experiments, GATE_RESULT.md),
+     the rule head, the generator-side bundle's isolation.
 7. **FLOCK's relation baseline** (`flock_relation.pth`) for the joint-head
    story: FLOCK reports 0.881 on 54 graphs; our joint model has 0.8484
    on ind_er. Its entity eval took 23 hours here; budget accordingly.
@@ -447,7 +454,8 @@ without conflicts.
    and sparse graphs where 12 to 23 percent of answers are unreachable.
 
 Do not repeat: support readouts, unsupervised walks, KGPFN bolt-ons,
-uncapped half-link masking, DEV10 checkpoint selection.
+uncapped half-link masking, DEV10 checkpoint selection, the proof-guided
+gate, the rule head, score-level combinations of L1 with a mix model.
 
 ## Bootstrapping on a new machine
 
@@ -479,7 +487,7 @@ uncapped half-link masking, DEV10 checkpoint selection.
 6. Train: `scripts/train_incite.sh` through `docker_run.sh` with
    `INCITE_CONFIG`, `INCITE_SEED`, `INCITE_TRAIN_GRAPHS`, `INCITE_RESUME` or
    `INCITE_INIT_FROM`, `INCITE_TRAIN_STEPS`, `INCITE_TRAIN_EXTRA_ARGS`
-   (lr schedule, masking, keep_every). See `scripts/research_plan_v15.sh`
+   (lr schedule, masking, keep_every). See `scripts/research_plan_v18.sh`
    for every exact invocation. 16 GB fits batch 32x1 on the 3-graph mix
    and 16x2 on the 4-graph mix with activation checkpointing.
 7. Every rank dump goes into its own `ranks/<name>/` with a
